@@ -30,6 +30,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - **Input lock** switch to turn enforcement on and off. Its state is restored after restart.
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
+- Integration icon with light and dark versions, shown in Home Assistant 2026.3 and later.
 
 [Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/releases/tag/v0.1.0
