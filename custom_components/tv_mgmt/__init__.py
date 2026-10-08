@@ -8,15 +8,22 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .backends import create_backend
 from .const import (
     ATTR_MINUTES,
     ATTR_PROFILE_ID,
+    CONF_ALLOWED_SOURCES,
+    CONF_ENFORCE_ON_POWER_ON,
+    CONF_MAX_ATTEMPTS,
     CONF_MEDIA_PLAYER,
+    CONF_REVERT_DELAY,
+    CONF_TARGET_SOURCE,
     DOMAIN,
+    SECTION_INPUT_LOCK,
+    SECTION_SCREEN_TIME,
     SERVICE_FORCE_BLOCK,
     SERVICE_GRANT_EXTENSION,
     SERVICE_RESET_USAGE,
@@ -38,6 +45,39 @@ EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     _register_services(hass)
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Upgrade entries created by 0.1.x."""
+    if entry.version > 2:
+        return False  # Downgrade from a newer version.
+
+    if entry.version == 1:
+        # 0.1.x kept the input-lock settings flat; 1.0 groups them in sections.
+        lock_keys = {
+            CONF_ALLOWED_SOURCES, CONF_TARGET_SOURCE, CONF_REVERT_DELAY,
+            CONF_ENFORCE_ON_POWER_ON, CONF_MAX_ATTEMPTS,
+        }
+        old = dict(entry.options)
+        options = {
+            SECTION_INPUT_LOCK: {k: v for k, v in old.items() if k in lock_keys},
+            SECTION_SCREEN_TIME: {},
+        }
+
+        # Keep entity IDs and history for the two entities 0.1.x had.
+        renames = {"_lock": "_input_lock", "_blocked_count": "_blocked_switches_today"}
+
+        @callback
+        def _migrate_unique_id(entity: er.RegistryEntry) -> dict[str, str] | None:
+            for old_suffix, new_suffix in renames.items():
+                if entity.unique_id == f"{entry.entry_id}{old_suffix}":
+                    return {"new_unique_id": f"{entry.entry_id}{new_suffix}"}
+            return None
+
+        await er.async_migrate_entries(hass, entry.entry_id, _migrate_unique_id)
+        hass.config_entries.async_update_entry(entry, options=options, version=2)
+
     return True
 
 
