@@ -1,0 +1,13 @@
+{
+  "domain": "tv_mgmt",
+  "name": "TV Management",
+  "codeowners": ["@donavanbecker"],
+  "config_flow": true,
+  "dependencies": ["media_player"],
+  "documentation": "https://github.com/bisman-automations/ha-tv-mgmt",
+  "integration_type": "helper",
+  "iot_class": "calculated",
+  "issue_tracker": "https://github.com/bisman-automations/ha-tv-mgmt/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}

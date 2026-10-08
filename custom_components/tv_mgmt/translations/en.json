@@ -1,0 +1,76 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Choose a TV",
+        "description": "Pick the TV's media player from its Home Assistant integration (LG webOS, Roku, Android TV, Samsung, SmartThings, Sony, and others).",
+        "data": {
+          "media_player": "TV"
+        }
+      },
+      "lock": {
+        "title": "Allowed inputs",
+        "description": "{entity} is currently on: **{current}**\n\n{note}",
+        "data": {
+          "allowed_sources": "Allowed inputs",
+          "target_source": "Input to force back to",
+          "revert_delay": "Delay before switching back",
+          "enforce_on_power_on": "Enforce when the TV turns on",
+          "max_attempts": "Max retries per minute"
+        },
+        "data_description": {
+          "allowed_sources": "Anything not on this list gets switched away from.",
+          "target_source": "Leave empty to use the first allowed input.",
+          "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
+          "max_attempts": "Stops retrying if the TV keeps refusing, so it isn't spammed."
+        }
+      }
+    },
+    "error": {
+      "no_sources": "Pick at least one allowed input.",
+      "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
+      "target_required": "Pick the HDMI input to force back to."
+    },
+    "abort": {
+      "already_configured": "This TV is already set up."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Allowed inputs",
+        "description": "{entity} is currently on: **{current}**\n\n{note}",
+        "data": {
+          "allowed_sources": "Allowed inputs",
+          "target_source": "Input to force back to",
+          "revert_delay": "Delay before switching back",
+          "enforce_on_power_on": "Enforce when the TV turns on",
+          "max_attempts": "Max retries per minute"
+        },
+        "data_description": {
+          "allowed_sources": "Anything not on this list gets switched away from.",
+          "target_source": "Leave empty to use the first allowed input.",
+          "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
+          "max_attempts": "Stops retrying if the TV keeps refusing, so it isn't spammed."
+        }
+      }
+    },
+    "error": {
+      "no_sources": "Pick at least one allowed input.",
+      "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
+      "target_required": "Pick the HDMI input to force back to."
+    }
+  },
+  "entity": {
+    "switch": {
+      "lock": {
+        "name": "Input lock"
+      }
+    },
+    "sensor": {
+      "blocked_count": {
+        "name": "Blocked switches"
+      }
+    }
+  }
+}
