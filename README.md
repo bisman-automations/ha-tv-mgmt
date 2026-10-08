@@ -170,9 +170,9 @@ automation:
 
 ## Development
 
-The enforcement rules and quiet-window parsing are plain Python with no Home Assistant imports. They're unit tested:
+Tests cover the enforcement rules, quiet-window parsing, and the integration running inside Home Assistant: setup, the config and options flows, the input lock, screen-time enforcement, services, and upgrading from 0.1.
 
 ```bash
-pip install pytest
+pip install -r requirements_test.txt
 pytest
 ```

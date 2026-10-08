@@ -69,12 +69,12 @@ def _select(options: list[str], *, multiple: bool = False) -> selector.SelectSel
 
 
 def _number(min_: int, max_: int, unit: str | None = None) -> selector.NumberSelector:
-    return selector.NumberSelector(
-        selector.NumberSelectorConfig(
-            min=min_, max=max_, step=1, unit_of_measurement=unit,
-            mode=selector.NumberSelectorMode.BOX,
-        )
+    config = selector.NumberSelectorConfig(
+        min=min_, max=max_, step=1, mode=selector.NumberSelectorMode.BOX
     )
+    if unit:
+        config["unit_of_measurement"] = unit
+    return selector.NumberSelector(config)
 
 
 def _input_lock_schema(backend: TVBackend, d: Mapping[str, Any]) -> vol.Schema:
