@@ -161,9 +161,10 @@ def _settings_schema(
         {
             vol.Required(SECTION_INPUT_LOCK): section(_input_lock_schema(backend, flat)),
             vol.Required(SECTION_SCREEN_TIME): section(_screen_time_schema(flat)),
-            vol.Optional(SECTION_SYNC, default={}): section(
-                _sync_schema(hass, backend.entity_id, flat)
-            ),
+            # Required with no default, like the other sections: an optional
+            # section with a default is submitted as that default, dropping
+            # the preselected value the form shows.
+            vol.Required(SECTION_SYNC): section(_sync_schema(hass, backend.entity_id, flat)),
         }
     )
 
