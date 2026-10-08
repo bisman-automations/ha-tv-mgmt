@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-08
+
+### Fixed
+
+- Adding a TV failed with "Unknown error occurred" after picking it. The settings form sent an invalid empty unit for the max retries field.
+
+### Added
+
+- Tests that run the integration inside Home Assistant, covering:
+  - the config and options flows
+  - the input lock
+  - monitor-only mode
+  - screen-time enforcement
+  - services
+  - upgrading from 0.1
+
 ## [1.0.0] - 2026-10-08
 
 TV Mgmt is now a full parental-control integration for smart TVs, modeled on [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt). The 0.1 input lock is one part of it, alongside screen-time limits and quiet windows.
@@ -73,6 +89,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/releases/tag/v0.1.0
