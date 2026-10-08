@@ -7,7 +7,7 @@ from homeassistant.setup import async_setup_component
 from tests.ha.test_integration import DOMAIN, TV, set_tv
 
 ATV_MODE = "select.apple_tv_mgmt_living_room_mode"
-OUR_MODE = "select.family_room_tv_mode"
+OUR_MODE = "select.tv_mgmt_family_room_tv_mode"
 OPTIONS = ["enforced", "monitor_only", "paused"]
 
 

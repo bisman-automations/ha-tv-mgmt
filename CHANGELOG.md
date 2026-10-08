@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-10-08
+
+### Changed
+
+- Profiles are named like Apple TV Mgmt's, so the two sit side by side. The device is now **TV Mgmt — Family Room TV** instead of **Family Room TV**, so its entities show as **TV Mgmt — Family Room TV Mode**, and so on.
+  - Existing entity IDs don't change. Only the displayed names do.
+- The **Mode** select uses the same shield icon as Apple TV Mgmt's.
+
 ## [1.1.2] - 2026-10-08
 
 ### Changed
@@ -111,7 +119,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.1...v1.1.0

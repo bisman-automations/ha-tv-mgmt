@@ -83,7 +83,7 @@ If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the App
 
 ## What you get
 
-Each profile is a device with these entities:
+Each profile is a device named like Apple TV Mgmt's, such as **TV Mgmt — Family Room TV**, with these entities:
 
 | Entity | What it does |
 | --- | --- |

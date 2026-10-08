@@ -70,17 +70,23 @@ async def test_entities_created(hass: HomeAssistant, calls) -> None:
     set_tv(hass)
     await setup(hass)
     for entity_id in (
-        "select.family_room_tv_mode",
-        "switch.family_room_tv_input_lock",
-        "switch.family_room_tv_adult_mode",
-        "sensor.family_room_tv_enforcement_state",
-        "sensor.family_room_tv_time_used_today",
-        "sensor.family_room_tv_current_input",
-        "sensor.family_room_tv_blocked_switches_today",
+        "select.tv_mgmt_family_room_tv_mode",
+        "switch.tv_mgmt_family_room_tv_input_lock",
+        "switch.tv_mgmt_family_room_tv_adult_mode",
+        "sensor.tv_mgmt_family_room_tv_enforcement_state",
+        "sensor.tv_mgmt_family_room_tv_time_used_today",
+        "sensor.tv_mgmt_family_room_tv_current_input",
+        "sensor.tv_mgmt_family_room_tv_blocked_switches_today",
     ):
         assert hass.states.get(entity_id) is not None, entity_id
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "ok"
-    assert hass.states.get("sensor.family_room_tv_current_input").state == "HDMI 2"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "ok"
+    # Named like Apple TV Mgmt ("Apple TV Mgmt — Family Room Mode").
+    assert hass.states.get("select.tv_mgmt_family_room_tv_mode").name == "TV Mgmt — Family Room TV Mode"
+    assert (
+        hass.states.get("sensor.tv_mgmt_family_room_tv_current_input").name
+        == "TV Mgmt — Family Room TV Current input"
+    )
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_input").state == "HDMI 2"
 
 
 async def test_input_lock_switches_back(hass: HomeAssistant, freezer: FrozenDateTimeFactory, calls) -> None:
@@ -99,13 +105,13 @@ async def test_input_lock_switches_back(hass: HomeAssistant, freezer: FrozenDate
     assert calls["select_source"][0].data == {"entity_id": TV, "source": "HDMI 2"}
     assert events[0].data["blocked_source"] == "YouTube"
     assert events[0].data["reverted"] is True
-    assert hass.states.get("sensor.family_room_tv_blocked_switches_today").state == "1"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_blocked_switches_today").state == "1"
 
 
 async def test_input_lock_off_does_nothing(hass: HomeAssistant, freezer, calls) -> None:
     set_tv(hass)
     await setup(hass)
-    await hass.services.async_call("switch", "turn_off", {"entity_id": "switch.family_room_tv_input_lock"}, blocking=True)
+    await hass.services.async_call("switch", "turn_off", {"entity_id": "switch.tv_mgmt_family_room_tv_input_lock"}, blocking=True)
     set_tv(hass, source="YouTube")
     await hass.async_block_till_done()
     freezer.tick(timedelta(seconds=5))
@@ -120,7 +126,7 @@ async def test_monitor_only_reports_without_acting(hass: HomeAssistant, freezer,
     events = []
     hass.bus.async_listen("tv_mgmt_input_blocked", events.append)
     await hass.services.async_call(
-        "select", "select_option", {"entity_id": "select.family_room_tv_mode", "option": "monitor_only"}, blocking=True
+        "select", "select_option", {"entity_id": "select.tv_mgmt_family_room_tv_mode", "option": "monitor_only"}, blocking=True
     )
     set_tv(hass, source="YouTube")
     await hass.async_block_till_done()
@@ -135,14 +141,14 @@ async def test_force_block_turns_tv_off_and_unblock(hass: HomeAssistant, freezer
     set_tv(hass)
     entry = await setup(hass)
     await hass.services.async_call(DOMAIN, "force_block", {"profile_id": entry.entry_id}, blocking=True)
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "enforcing"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "enforcing"
     freezer.tick(timedelta(seconds=4))
     async_fire_time_changed(hass)
     await hass.async_block_till_done()
     assert len(calls["turn_off"]) == 1
 
     await hass.services.async_call(DOMAIN, "unblock", {"profile_id": entry.entry_id}, blocking=True)
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "ok"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "ok"
 
 
 async def test_budget_counts_and_enforces(hass: HomeAssistant, freezer, calls) -> None:
@@ -153,20 +159,20 @@ async def test_budget_counts_and_enforces(hass: HomeAssistant, freezer, calls) -
         freezer.tick(timedelta(seconds=30))
         async_fire_time_changed(hass)
         await hass.async_block_till_done()
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "enforcing"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "enforcing"
     assert len(calls["turn_off"]) >= 1
 
     # Extra time unblocks.
     await hass.services.async_call(DOMAIN, "grant_extension", {"profile_id": entry.entry_id, "minutes": 30}, blocking=True)
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "ok"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "ok"
 
 
 async def test_adult_mode_lifts_block(hass: HomeAssistant, calls) -> None:
     set_tv(hass)
     entry = await setup(hass)
     await hass.services.async_call(DOMAIN, "force_block", {"profile_id": entry.entry_id}, blocking=True)
-    await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.family_room_tv_adult_mode"}, blocking=True)
-    assert hass.states.get("sensor.family_room_tv_enforcement_state").state == "adult_mode"
+    await hass.services.async_call("switch", "turn_on", {"entity_id": "switch.tv_mgmt_family_room_tv_adult_mode"}, blocking=True)
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_enforcement_state").state == "adult_mode"
 
 
 async def test_bad_profile_id(hass: HomeAssistant, calls) -> None:
@@ -224,14 +230,14 @@ async def test_current_input_shows_tv_off(hass: HomeAssistant, calls) -> None:
     await setup(hass)
     set_tv(hass, state="off", source=None)
     await hass.async_block_till_done()
-    state = hass.states.get("sensor.family_room_tv_current_input")
+    state = hass.states.get("sensor.tv_mgmt_family_room_tv_current_input")
     assert state.state == "TV off"
     assert state.attributes["allowed"] is None
 
     hass.states.async_set(TV, "unavailable")
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.family_room_tv_current_input").state == "unknown"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_input").state == "unknown"
 
     set_tv(hass)
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.family_room_tv_current_input").state == "HDMI 2"
+    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_input").state == "HDMI 2"

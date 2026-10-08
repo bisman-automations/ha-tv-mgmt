@@ -2,7 +2,7 @@
   "entity": {
     "select": {
       "mode": {
-        "default": "mdi:shield-account",
+        "default": "mdi:shield-search",
         "state": {
           "monitor_only": "mdi:eye",
           "paused": "mdi:pause-circle"

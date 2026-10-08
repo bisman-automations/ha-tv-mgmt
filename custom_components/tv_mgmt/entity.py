@@ -22,7 +22,8 @@ class TVMgmtEntity(Entity):
         self._attr_translation_key = key
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
-            name=entry.title,
+            # Same pattern as Apple TV Mgmt ("Apple TV Mgmt — Family Room").
+            name=f"TV Mgmt — {entry.title}",
             manufacturer="TV Mgmt",
             model="TV profile",
             entry_type=DeviceEntryType.SERVICE,
