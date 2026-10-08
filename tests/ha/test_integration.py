@@ -217,3 +217,21 @@ async def test_options_flow(hass: HomeAssistant, calls) -> None:
         },
     )
     assert result["errors"] == {"base": "bad_quiet_windows"}
+
+
+async def test_current_input_shows_tv_off(hass: HomeAssistant, calls) -> None:
+    set_tv(hass)
+    await setup(hass)
+    set_tv(hass, state="off", source=None)
+    await hass.async_block_till_done()
+    state = hass.states.get("sensor.family_room_tv_current_input")
+    assert state.state == "TV off"
+    assert state.attributes["allowed"] is None
+
+    hass.states.async_set(TV, "unavailable")
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.family_room_tv_current_input").state == "unknown"
+
+    set_tv(hass)
+    await hass.async_block_till_done()
+    assert hass.states.get("sensor.family_room_tv_current_input").state == "HDMI 2"

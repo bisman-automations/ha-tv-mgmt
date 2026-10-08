@@ -32,6 +32,18 @@ def _minutes(seconds: int | None) -> float | None:
     return None if seconds is None else round(seconds / 60, 1)
 
 
+TV_OFF = "TV off"
+
+
+def _current_input(m: TVManager) -> str | None:
+    """What's on screen, "TV off" when it's off, unknown if HA can't tell."""
+    if m.backend.is_on is None:
+        return None
+    if not m.backend.is_on:
+        return TV_OFF
+    return m.backend.current_source
+
+
 SENSORS: tuple[TVMgmtSensorDescription, ...] = (
     TVMgmtSensorDescription(
         key="enforcement_state",
@@ -72,8 +84,10 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
     ),
     TVMgmtSensorDescription(
         key="current_input",
-        value_fn=lambda m: m.backend.current_source if m.backend.is_on else None,
-        attrs_fn=lambda m: {"allowed": m.guard.is_allowed(m.backend.current_source)},
+        value_fn=lambda m: _current_input(m),
+        attrs_fn=lambda m: {
+            "allowed": m.guard.is_allowed(m.backend.current_source) if m.backend.is_on else None
+        },
     ),
     TVMgmtSensorDescription(
         key="blocked_switches_today",

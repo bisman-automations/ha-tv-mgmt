@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-10-08
+
+### Changed
+
+- The **Current input** sensor shows `TV off` when the TV is off, instead of unknown. It's still unknown when Home Assistant can't reach the TV.
+
 ## [1.1.1] - 2026-10-08
 
 ### Fixed
@@ -105,7 +111,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.0...v1.0.1

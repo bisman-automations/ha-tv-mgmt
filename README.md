@@ -93,7 +93,7 @@ Each profile is a device with these entities:
 | **Enforcement state** (sensor) | `OK`, `Warning`, `Blocked`, `Paused` or `Adult mode`, with the reason and any active quiet window. |
 | **Time used today** / **Time remaining today** (sensors) | Today's screen time. Remaining is unknown when there's no daily limit. |
 | **Extra time today** (sensor) | Minutes granted (or taken) today. |
-| **Current input** (sensor) | What the TV is showing, and whether it's allowed. |
+| **Current input** (sensor) | What the TV is showing, and whether it's allowed. Shows `TV off` when the TV is off. |
 | **Blocked switches today** (sensor) | How many times someone tried another input, and the last one tried. |
 
 Counters, extra time and manual blocks reset at midnight. Mode, input lock and adult mode survive restarts.
