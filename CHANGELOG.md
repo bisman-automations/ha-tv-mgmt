@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- **Mode sync with Apple TV Mgmt.**
+  - Link a TV to an Apple TV Mgmt profile, and changing the mode in either integration changes it in the other.
+  - The matching profile is preselected.
+  - At startup, Apple TV Mgmt's mode wins if the two differ.
+
 ## [1.0.1] - 2026-10-08
 
 ### Fixed

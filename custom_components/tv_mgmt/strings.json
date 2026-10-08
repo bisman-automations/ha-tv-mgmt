@@ -44,6 +44,16 @@
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
             }
+          },
+          "sync": {
+            "name": "Apple TV Mgmt",
+            "description": "Link this TV to an Apple TV Mgmt profile.",
+            "data": {
+              "mode_sync_entity": "Keep mode in sync with"
+            },
+            "data_description": {
+              "mode_sync_entity": "Changing the mode in either integration changes the other. At startup, Apple TV Mgmt's mode wins. Leave empty to keep them separate."
+            }
           }
         }
       }
@@ -95,6 +105,16 @@
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
+            }
+          },
+          "sync": {
+            "name": "Apple TV Mgmt",
+            "description": "Link this TV to an Apple TV Mgmt profile.",
+            "data": {
+              "mode_sync_entity": "Keep mode in sync with"
+            },
+            "data_description": {
+              "mode_sync_entity": "Changing the mode in either integration changes the other. At startup, Apple TV Mgmt's mode wins. Leave empty to keep them separate."
             }
           }
         }

@@ -9,6 +9,7 @@ CONF_MEDIA_PLAYER = "media_player"
 # Option sections (config/options form groups)
 SECTION_INPUT_LOCK = "input_lock"
 SECTION_SCREEN_TIME = "screen_time"
+SECTION_SYNC = "sync"
 
 # Input lock
 CONF_ALLOWED_SOURCES = "allowed_sources"
@@ -31,6 +32,10 @@ DEFAULT_DAILY_BUDGET = 0
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_QUIET_WINDOWS = ""
 DEFAULT_ADULT_MODE_DURATION = 120
+
+# Sync with Apple TV Mgmt
+APPLETV_MGMT_DOMAIN = "appletv_mgmt"
+CONF_MODE_SYNC_ENTITY = "mode_sync_entity"
 
 # Input lock: window in which max_attempts is counted, so a TV that refuses
 # to switch doesn't get hammered forever.

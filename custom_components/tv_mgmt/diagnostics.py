@@ -35,5 +35,10 @@ async def async_get_config_entry_diagnostics(
             "paused_reason": manager.guard.paused_reason,
         },
         "quiet_windows": [w.format() for w in manager.quiet_windows],
+        "mode_sync": (
+            {"entity_id": manager.mode_sync.entity_id, "linked_mode": manager.mode_sync.linked_mode}
+            if manager.mode_sync
+            else None
+        ),
         "tv_entity_state": tv_state.as_dict() if tv_state else None,
     }

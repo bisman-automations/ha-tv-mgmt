@@ -9,7 +9,7 @@ import voluptuous as vol
 
 from homeassistant.components.media_player import DOMAIN as MP_DOMAIN
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import selector
 
@@ -20,7 +20,9 @@ from .const import (
     CONF_DAILY_BUDGET,
     CONF_ENFORCE_ON_POWER_ON,
     CONF_MAX_ATTEMPTS,
+    APPLETV_MGMT_DOMAIN,
     CONF_MEDIA_PLAYER,
+    CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
     CONF_REVERT_DELAY,
     CONF_TARGET_SOURCE,
@@ -36,8 +38,10 @@ from .const import (
     HDMI_INPUTS,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
+    SECTION_SYNC,
 )
 from .manager import flatten_options
+from .mode_sync import suggest_mode_select
 from .quiet import parse_windows
 
 # Extra guidance shown in the form, per adapter.
@@ -131,12 +135,35 @@ def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
     )
 
 
-def _settings_schema(backend: TVBackend, defaults: Mapping[str, Any]) -> vol.Schema:
+def _sync_schema(hass: HomeAssistant, tv_entity_id: str, d: Mapping[str, Any]) -> vol.Schema:
+    # Suggest the matching Apple TV Mgmt profile until the user has chosen
+    # (a cleared choice is stored as None and stays cleared).
+    if CONF_MODE_SYNC_ENTITY in d:
+        suggested = d[CONF_MODE_SYNC_ENTITY]
+    else:
+        suggested = suggest_mode_select(hass, tv_entity_id)
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_MODE_SYNC_ENTITY, description={"suggested_value": suggested}
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(integration=APPLETV_MGMT_DOMAIN, domain="select")
+            ),
+        }
+    )
+
+
+def _settings_schema(
+    hass: HomeAssistant, backend: TVBackend, defaults: Mapping[str, Any]
+) -> vol.Schema:
     flat = flatten_options(dict(defaults))
     return vol.Schema(
         {
             vol.Required(SECTION_INPUT_LOCK): section(_input_lock_schema(backend, flat)),
             vol.Required(SECTION_SCREEN_TIME): section(_screen_time_schema(flat)),
+            vol.Optional(SECTION_SYNC, default={}): section(
+                _sync_schema(hass, backend.entity_id, flat)
+            ),
         }
     )
 
@@ -177,7 +204,9 @@ def _process(
         if key in screen:
             screen[key] = int(screen[key])
 
-    return {SECTION_INPUT_LOCK: lock, SECTION_SCREEN_TIME: screen}, errors
+    sync = {CONF_MODE_SYNC_ENTITY: user_input.get(SECTION_SYNC, {}).get(CONF_MODE_SYNC_ENTITY) or None}
+
+    return {SECTION_INPUT_LOCK: lock, SECTION_SCREEN_TIME: screen, SECTION_SYNC: sync}, errors
 
 
 def _placeholders(backend: TVBackend) -> dict[str, str]:
@@ -231,7 +260,7 @@ class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="settings",
-            data_schema=_settings_schema(backend, user_input or {}),
+            data_schema=_settings_schema(self.hass, backend, user_input or {}),
             errors=errors,
             description_placeholders=_placeholders(backend),
         )
@@ -256,7 +285,7 @@ class TVMgmtOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_settings_schema(backend, user_input or entry.options),
+            data_schema=_settings_schema(self.hass, backend, user_input or entry.options),
             errors=errors,
             description_placeholders=_placeholders(backend),
         )

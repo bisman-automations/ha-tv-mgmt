@@ -19,6 +19,7 @@ from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_DAILY_BUDGET,
     CONF_MEDIA_PLAYER,
+    CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_DURATION,
@@ -33,6 +34,7 @@ from .const import (
     TURN_OFF_DELAY,
 )
 from .guard import InputGuard
+from .mode_sync import ModeSync
 from .quiet import QuietWindow, parse_windows
 from .state import (
     MODE_ENFORCED,
@@ -84,6 +86,15 @@ class TVManager:
             on_block=self._on_input_blocked,
             on_change=self.notify,
         )
+
+        self.mode_sync: ModeSync | None = None
+        if sync_entity := self.options.get(CONF_MODE_SYNC_ENTITY):
+            self.mode_sync = ModeSync(
+                hass,
+                sync_entity,
+                get_mode=lambda: self.state.mode,
+                set_mode=lambda mode: self.set_mode(mode, from_sync=True),
+            )
 
         self._last_tick: datetime | None = None
         self._last_turn_off: datetime | None = None
@@ -158,6 +169,8 @@ class TVManager:
         self._last_tick = dt_util.utcnow()
         self._recompute(fire_events=False)
         self.guard.async_start()
+        if self.mode_sync:
+            self.mode_sync.async_start()
 
     async def async_stop(self) -> None:
         self._count_usage()
@@ -166,6 +179,8 @@ class TVManager:
         self._unsubs.clear()
         self._cancel_turn_off()
         self.guard.async_stop()
+        if self.mode_sync:
+            self.mode_sync.async_stop()
         await self.backend.async_stop()
         await self.store.async_save()
 
@@ -344,12 +359,15 @@ class TVManager:
         self.notify()
 
     @callback
-    def set_mode(self, mode: str) -> None:
+    def set_mode(self, mode: str, *, from_sync: bool = False) -> None:
         if mode not in MODES:
             raise ValueError(mode)
-        if self.state.mode != mode:
-            self.state.mode = mode
-            self._changed()
+        if self.state.mode == mode:
+            return
+        self.state.mode = mode
+        self._changed()
+        if self.mode_sync and not from_sync:
+            self.mode_sync.push(mode)
 
     @callback
     def set_input_lock(self, enabled: bool) -> None:

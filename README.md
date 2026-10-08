@@ -73,6 +73,14 @@ Screen-time limits and quiet windows work on any TV Home Assistant can turn off.
 
 **Samsung.** The `samsungtv` integration can't tell which input is on screen, so it can only force the input when the TV turns on. For a full lock, add the TV through SmartThings and use that entity instead.
 
+## Using it with Apple TV Mgmt
+
+If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the Apple TV plugged into this TV, link the two so their **Mode** stays the same. Under **Apple TV Mgmt → Keep mode in sync with**, pick that profile's **Mode** select. It's preselected when an Apple TV Mgmt profile uses this TV as its TV entity, or when you only have one.
+
+- Changing the mode in either integration changes it in the other: enforced, monitor only, or paused.
+- At startup, Apple TV Mgmt's mode wins if the two differ. If TV Mgmt's mode changed while Apple TV Mgmt was unavailable, TV Mgmt's mode is pushed once it's back.
+- Leave the setting empty to keep them separate.
+
 ## What you get
 
 Each profile is a device with these entities:
@@ -167,6 +175,12 @@ automation:
 | Warn before time runs out | 5 min | When `tv_mgmt_warning` fires. |
 | Quiet windows | none | Times the TV stays off, e.g. `20:30-07:00 Bedtime, 08:00-15:00 School`. |
 | Adult mode lasts | 120 min | How long adult mode lifts the rules. |
+
+**Apple TV Mgmt**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Keep mode in sync with | matching profile, if any | An Apple TV Mgmt **Mode** select to keep in sync, both ways. |
 
 ## Development
 
