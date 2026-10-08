@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-08
+
 ### Added
 
 - **Mode sync with Apple TV Mgmt.**
@@ -96,7 +98,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v0.1.0...v1.0.0
 [0.1.0]: https://github.com/bisman-automations/ha-tv-mgmt/releases/tag/v0.1.0
