@@ -67,3 +67,33 @@ class ProfileStore:
 
     async def async_remove(self) -> None:
         await self._store.async_remove()
+
+
+ACTIVITY_SAVE_DELAY = 30  # seconds
+
+
+class ActivityStore:
+    """Persists a profile's activity log (events and daily totals)."""
+
+    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+        from .activity import ActivityLog
+
+        self._store: Store[dict[str, Any]] = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}.{entry_id}.activity"
+        )
+        self.log = ActivityLog()
+
+    async def async_load(self):
+        from .activity import ActivityLog
+
+        self.log = ActivityLog(await self._store.async_load())
+        return self.log
+
+    def schedule_save(self) -> None:
+        self._store.async_delay_save(self.log.as_dict, ACTIVITY_SAVE_DELAY)
+
+    async def async_save(self) -> None:
+        await self._store.async_save(self.log.as_dict())
+
+    async def async_remove(self) -> None:
+        await self._store.async_remove()

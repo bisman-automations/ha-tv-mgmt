@@ -14,6 +14,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later, async_track_time_interval
 from homeassistant.util import dt as dt_util
 
+from . import activity as act
 from .backends import TVBackend
 from .const import (
     CONF_ADULT_MODE_DURATION,
@@ -28,6 +29,7 @@ from .const import (
     EVENT_ENFORCEMENT_CHANGED,
     EVENT_INPUT_BLOCKED,
     EVENT_WARNING,
+    SIGNAL_ANY_UPDATED,
     SIGNAL_UPDATED,
     TICK_INTERVAL,
     TURN_OFF_COOLDOWN,
@@ -45,7 +47,7 @@ from .state import (
     Decision,
     decide,
 )
-from .storage import ProfileState, ProfileStore
+from .storage import ActivityStore, ProfileState, ProfileStore
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -74,6 +76,10 @@ class TVManager:
         self.backend = backend
         self.options = flatten_options(dict(entry.options))
         self.store = ProfileStore(hass, entry.entry_id)
+        self.activity_store = ActivityStore(hass, entry.entry_id)
+        # Last power/input state written to the activity log.
+        self._logged_on: bool | None = None
+        self._logged_source: str | None = None
         self.decision = Decision(STATE_OK)
 
         self.guard = InputGuard(
@@ -150,10 +156,17 @@ class TVManager:
             and self.decision.state in (STATE_OK, STATE_WARNING)
         )
 
+    @property
+    def activity(self) -> act.ActivityLog:
+        return self.activity_store.log
+
     # ---- lifecycle ---------------------------------------------------------------
 
     async def async_start(self) -> None:
         await self.store.async_load()
+        await self.activity_store.async_load()
+        self.activity.prune(dt_util.utcnow())
+        self._logged_on, self._logged_source = self.activity.last_power
         self._rollover_if_needed(dt_util.now())
         if hasattr(self.backend, "set_assumed_source") and self.guard.target_source:
             self.backend.set_assumed_source(self.guard.target_source)
@@ -168,9 +181,11 @@ class TVManager:
         )
         self._last_tick = dt_util.utcnow()
         self._recompute(fire_events=False)
+        self._log_power()
         self.guard.async_start()
         if self.mode_sync:
             self.mode_sync.async_start()
+        self._record_today()
 
     async def async_stop(self) -> None:
         self._count_usage()
@@ -182,13 +197,16 @@ class TVManager:
         if self.mode_sync:
             self.mode_sync.async_stop()
         await self.backend.async_stop()
+        self._record_today()
         await self.store.async_save()
+        await self.activity_store.async_save()
 
     # ---- events ------------------------------------------------------------------
 
     @callback
     def _on_backend_update(self) -> None:
         self._count_usage()
+        self._log_power()
         self._recompute()
         self.guard.handle_backend_update()
         self._enforce_power()
@@ -209,6 +227,12 @@ class TVManager:
         self.state.last_blocked_source = source
         self.state.last_blocked_at = now.isoformat()
         self.store.schedule_save()
+        self._log(
+            act.EV_INPUT_BLOCKED,
+            source=source,
+            target=target,
+            reverted=self._enforcing_actions(),
+        )
         self.hass.bus.async_fire(
             EVENT_INPUT_BLOCKED,
             {
@@ -227,6 +251,7 @@ class TVManager:
     def _rollover_if_needed(self, local_now: datetime) -> None:
         today = local_now.date()
         if self.state.day != today.isoformat():
+            self._record_today()  # close out the finished day
             self.state.reset_day(today)
             self.store.schedule_save()
 
@@ -276,6 +301,12 @@ class TVManager:
             _LOGGER.info(
                 "TV Mgmt %s: %s -> %s (%s)",
                 self.name, previous.state, self.decision.state, self.decision.reason,
+            )
+            self._log(
+                act.EV_ENFORCEMENT,
+                state=self.decision.state,
+                reason=self.decision.reason,
+                quiet_window=self.decision.quiet_window,
             )
             self.hass.bus.async_fire(
                 EVENT_ENFORCEMENT_CHANGED,
@@ -331,6 +362,7 @@ class TVManager:
             )
             return
         self._last_turn_off = now
+        self._log(act.EV_TURNED_OFF, reason=self.decision.reason)
         _LOGGER.info("TV Mgmt %s: turning TV off (%s)", self.name, self.decision.reason)
         self.hass.async_create_task(
             self.hass.services.async_call(
@@ -365,6 +397,7 @@ class TVManager:
         if self.state.mode == mode:
             return
         self.state.mode = mode
+        self._log(act.EV_MODE, mode=mode, synced=from_sync)
         self._changed()
         if self.mode_sync and not from_sync:
             self.mode_sync.push(mode)
@@ -373,6 +406,7 @@ class TVManager:
     def set_input_lock(self, enabled: bool) -> None:
         if self.state.input_lock != enabled:
             self.state.input_lock = enabled
+            self._log(act.EV_INPUT_LOCK, on=enabled)
             self._changed()
 
     @callback
@@ -380,7 +414,10 @@ class TVManager:
         if enabled:
             duration = minutes or self.adult_mode_duration
             self.state.adult_mode_until = (dt_util.utcnow() + timedelta(minutes=duration)).isoformat()
+            self._log(act.EV_ADULT_MODE, on=True, minutes=duration)
         else:
+            if self.adult_mode_active:
+                self._log(act.EV_ADULT_MODE, on=False)
             self.state.adult_mode_until = None
         self._changed()
 
@@ -388,15 +425,20 @@ class TVManager:
     def grant_extension(self, minutes: int) -> None:
         self._count_usage()
         self.state.extension_minutes += minutes
+        self._log(act.EV_EXTENSION, minutes=minutes)
         self._changed()
 
     @callback
     def force_block(self) -> None:
+        if not self.state.force_block:
+            self._log(act.EV_BLOCK)
         self.state.force_block = True
         self._changed()
 
     @callback
     def unblock(self) -> None:
+        if self.state.force_block:
+            self._log(act.EV_UNBLOCK)
         self.state.force_block = False
         self._changed()
 
@@ -404,10 +446,46 @@ class TVManager:
     def reset_usage(self) -> None:
         self.state.reset_day(dt_util.now().date())
         self._last_tick = dt_util.utcnow()
+        self._log(act.EV_RESET)
         self._changed()
 
     # ---- output -----------------------------------------------------------------------
 
     @callback
     def notify(self) -> None:
+        self._record_today()
         async_dispatcher_send(self.hass, SIGNAL_UPDATED.format(self.entry.entry_id))
+        async_dispatcher_send(self.hass, SIGNAL_ANY_UPDATED, self.entry.entry_id)
+
+    # ---- activity log -------------------------------------------------------------------
+
+    @callback
+    def _log(self, event_type: str, **data: Any) -> None:
+        self.activity.add(dt_util.utcnow(), event_type, **data)
+        self.activity_store.schedule_save()
+
+    @callback
+    def _log_power(self) -> None:
+        """Log TV on/off and input changes. Unknown (unreachable) isn't logged."""
+        is_on = self.backend.is_on
+        if is_on is None:
+            return
+        source = self.backend.current_source if is_on else None
+        if is_on != self._logged_on:
+            self._log(act.EV_TV_ON if is_on else act.EV_TV_OFF, **({"source": source} if is_on else {}))
+        elif is_on and source is not None and source != self._logged_source:
+            self._log(act.EV_INPUT, source=source)
+        else:
+            return
+        self._logged_on, self._logged_source = is_on, source
+
+    @callback
+    def _record_today(self) -> None:
+        if self.activity.record_day(
+            self.state.day,
+            used_seconds=self.state.used_seconds,
+            budget_minutes=self.daily_budget,
+            extension_minutes=self.state.extension_minutes,
+            blocked=self.state.blocked_switches,
+        ):
+            self.activity_store.schedule_save()

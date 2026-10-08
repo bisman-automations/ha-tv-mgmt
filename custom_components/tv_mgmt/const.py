@@ -64,3 +64,4 @@ EVENT_ENFORCEMENT_CHANGED = f"{DOMAIN}_enforcement_changed"
 EVENT_WARNING = f"{DOMAIN}_warning"
 
 SIGNAL_UPDATED = f"{DOMAIN}_updated_{{}}"
+SIGNAL_ANY_UPDATED = f"{DOMAIN}_any_updated"

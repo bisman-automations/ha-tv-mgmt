@@ -73,6 +73,29 @@ Screen-time limits and quiet windows work on any TV Home Assistant can turn off.
 
 **Samsung.** The `samsungtv` integration can't tell which input is on screen, so it can only force the input when the TV turns on. For a full lock, add the TV through SmartThings and use that entity instead.
 
+## Sidebar app
+
+TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admin users. It needs no add-on or extra setup, and works in the browser and the Companion app.
+
+<p>
+<img src="docs/images/panel-dashboard.png" alt="Dashboard: each TV drawn as a screen showing its current input, with time used and parent controls" width="240">
+<img src="docs/images/panel-activity.png" alt="Activity: a 24-hour strip of when the TV was on, by input, above a log of what happened" width="240">
+<img src="docs/images/panel-analytics.png" alt="Analytics: screen time per day against the daily limit" width="240">
+</p>
+
+*Screenshots use sample data.*
+
+- **Dashboard.** Every TV at a glance:
+  - what it's showing, and whether that's allowed
+  - time used and time left
+  - extra time, blocked switches and the last input someone tried
+  - controls to add or take away time, block now, change the mode, and turn the input lock or adult mode on and off
+- **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
+- **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches.
+- **Limits.** Change the daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
+
+The panel updates live as things change. Activity history starts when you install 1.2.0. TV Mgmt keeps 90 days of activity and about a year of daily totals.
+
 ## Using it with Apple TV Mgmt
 
 If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the Apple TV plugged into this TV, link the two so their **Mode** stays the same. Under **Apple TV Mgmt → Keep mode in sync with**, pick that profile's **Mode** select. It's preselected when an Apple TV Mgmt profile uses this TV as its TV entity, or when you only have one.

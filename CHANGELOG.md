@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-08
+
+### Added
+
+- **TV Mgmt sidebar app**, for admin users, with four tabs:
+  - **Dashboard:** each TV's current input, time used and left, and parent controls: extra time, block now, mode, input lock and adult mode.
+  - **Activity:** a 24-hour strip of when the TV was on and on which input, with not-allowed inputs highlighted, and a log of what happened, by day.
+  - **Analytics:** screen time per day against the limit over 7, 30 or 90 days, with totals and blocked switches.
+  - **Limits:** edit the daily screen time, warning time, quiet windows and adult mode length.
+- **Activity log.**
+  - TV Mgmt records TV on and off, input changes, blocked switches, limits reached, and parent actions.
+  - It also records daily screen-time totals.
+  - Activity is kept for 90 days and daily totals for about a year.
+- A websocket API (`tv_mgmt/*`) behind the sidebar app. Changes through it need an admin user.
+
 ## [1.1.3] - 2026-10-08
 
 ### Changed
@@ -119,7 +134,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.0...v1.1.1

@@ -5,7 +5,6 @@ import pytest
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
-    async_mock_service,
 )
 
 from homeassistant.core import HomeAssistant
@@ -49,21 +48,6 @@ async def setup(hass, *, budget=0, quiet="", version=2, options=None):
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
     return entry
-
-
-@pytest.fixture
-async def calls(hass):
-    """Record TV service calls.
-
-    Load media_player first so its real services don't replace the mocks.
-    """
-    from homeassistant.setup import async_setup_component
-
-    assert await async_setup_component(hass, "media_player", {})
-    return {
-        "select_source": async_mock_service(hass, "media_player", "select_source"),
-        "turn_off": async_mock_service(hass, "media_player", "turn_off"),
-    }
 
 
 async def test_entities_created(hass: HomeAssistant, calls) -> None:

@@ -44,7 +44,12 @@ EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    from . import websocket
+    from .panel import async_register_panel
+
     _register_services(hass)
+    websocket.async_register(hass)
+    await async_register_panel(hass)
     return True
 
 
@@ -100,9 +105,10 @@ async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> b
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
-    from .storage import ProfileStore
+    from .storage import ActivityStore, ProfileStore
 
     await ProfileStore(hass, entry.entry_id).async_remove()
+    await ActivityStore(hass, entry.entry_id).async_remove()
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
