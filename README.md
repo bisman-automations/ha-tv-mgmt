@@ -1,5 +1,9 @@
 # TV Management for Home Assistant
 
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-tv-mgmt)](https://github.com/bisman-automations/ha-tv-mgmt/releases)
+[![Validate](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/validate.yml)
+
 Lock a TV to the inputs you allow. If someone switches to anything else, TV Management switches it straight back. For example, a kids' TV can be locked to only the Apple TV input.
 
 It doesn't talk to TVs directly. It works on top of the integration that already runs your TV in Home Assistant.
@@ -76,9 +80,15 @@ Unlock on a schedule by turning the **Input lock** switch off and on from an aut
 
 ### HACS
 
-1. In HACS, open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-tv-mgmt` as an **Integration**.
+[![Open your Home Assistant instance and open this repository in HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=bisman-automations&repository=ha-tv-mgmt&category=integration)
+
+1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-tv-mgmt` as an **Integration**.
 2. Install **TV Management** and restart Home Assistant.
-3. Go to **Settings → Devices & services → Add integration → TV Management**.
+3. Add the integration:
+
+   [![Open your Home Assistant instance and start setting up TV Management.](https://my.home-assistant.io/badges/config_flow_start.svg)](https://my.home-assistant.io/redirect/config_flow_start/?domain=tv_mgmt)
+
+   Or go to **Settings → Devices & services → Add integration → TV Management**.
 
 ### Manual
 
