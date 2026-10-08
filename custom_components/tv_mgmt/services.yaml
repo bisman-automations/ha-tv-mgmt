@@ -1,0 +1,39 @@
+grant_extension:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+    minutes:
+      required: true
+      selector:
+        number:
+          min: -240
+          max: 240
+          step: 5
+          unit_of_measurement: min
+
+force_block:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+
+unblock:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+
+reset_usage:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt

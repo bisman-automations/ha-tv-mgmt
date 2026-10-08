@@ -1,5 +1,5 @@
 {
-  "name": "TV Management",
-  "homeassistant": "2024.11.0",
+  "name": "TV Mgmt",
+  "homeassistant": "2026.3.0",
   "render_readme": true
 }

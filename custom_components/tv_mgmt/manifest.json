@@ -1,12 +1,13 @@
 {
   "domain": "tv_mgmt",
-  "name": "TV Management",
+  "name": "TV Mgmt",
   "codeowners": ["@donavanbecker"],
   "config_flow": true,
   "dependencies": ["media_player"],
+  "after_dependencies": ["remote", "androidtv", "androidtv_remote", "samsungtv"],
   "documentation": "https://github.com/bisman-automations/ha-tv-mgmt",
-  "integration_type": "helper",
-  "iot_class": "calculated",
+  "integration_type": "service",
+  "iot_class": "local_push",
   "issue_tracker": "https://github.com/bisman-automations/ha-tv-mgmt/issues",
   "requirements": [],
   "version": "0.1.0"

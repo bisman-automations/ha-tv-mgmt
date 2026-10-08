@@ -1,15 +1,14 @@
-"""Input lock: forces a TV back to an allowed input."""
+"""Input lock: forces a TV back to its allowed input."""
 
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Callable
 from datetime import datetime
 import logging
 from typing import Any
 
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_call_later
 from homeassistant.util import dt as dt_util
 
@@ -24,122 +23,124 @@ from .const import (
     DEFAULT_ENFORCE_ON_POWER_ON,
     DEFAULT_MAX_ATTEMPTS,
     DEFAULT_REVERT_DELAY,
-    EVENT_INPUT_BLOCKED,
-    SIGNAL_STATE_UPDATED,
 )
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class InputGuard:
-    """Watches one TV backend and forces it back to an allowed input."""
+    """Watches a TV backend and switches it back to an allowed input.
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, backend: TVBackend) -> None:
+    The manager decides whether the lock is active (`is_active`) and whether
+    violations are acted on or only reported (`should_revert`).
+    """
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        name: str,
+        backend: TVBackend,
+        options: dict[str, Any],
+        *,
+        is_active: Callable[[], bool],
+        should_revert: Callable[[], bool],
+        on_block: Callable[[str | None, str], None],
+        on_change: Callable[[], None],
+    ) -> None:
         self.hass = hass
-        self.entry = entry
+        self.name = name
         self.backend = backend
-        self.enabled = True
-        self.blocked_count = 0
-        self.last_blocked_source: str | None = None
-        self.last_blocked_at: datetime | None = None
-        self.paused_reason: str | None = None
+        self.options = options
+        self._is_active = is_active
+        self._should_revert = should_revert
+        self._on_block = on_block
+        self._on_change = on_change
 
+        self.paused_reason: str | None = None
         self._was_on: bool | None = None
         self._force_next = False
-        self._unsub_backend: CALLBACK_TYPE | None = None
         self._unsub_timer: CALLBACK_TYPE | None = None
         self._attempts: deque[datetime] = deque()
+        self._reported_source: str | None = None
 
     # ---- config -----------------------------------------------------------
 
     @property
-    def name(self) -> str:
-        return self.entry.title
-
-    @property
     def allowed_sources(self) -> list[str]:
-        return list(self.entry.options.get(CONF_ALLOWED_SOURCES, []))
+        return list(self.options.get(CONF_ALLOWED_SOURCES, []))
 
     @property
     def target_source(self) -> str | None:
-        if target := self.entry.options.get(CONF_TARGET_SOURCE):
+        if target := self.options.get(CONF_TARGET_SOURCE):
             return target
         allowed = self.allowed_sources
         return allowed[0] if allowed else None
 
     @property
     def revert_delay(self) -> float:
-        return float(self.entry.options.get(CONF_REVERT_DELAY, DEFAULT_REVERT_DELAY))
+        return float(self.options.get(CONF_REVERT_DELAY, DEFAULT_REVERT_DELAY))
 
     @property
     def enforce_on_power_on(self) -> bool:
-        return bool(self.entry.options.get(CONF_ENFORCE_ON_POWER_ON, DEFAULT_ENFORCE_ON_POWER_ON))
+        return bool(self.options.get(CONF_ENFORCE_ON_POWER_ON, DEFAULT_ENFORCE_ON_POWER_ON))
 
     @property
     def max_attempts(self) -> int:
-        return int(self.entry.options.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS))
+        return int(self.options.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS))
 
-    # ---- lifecycle --------------------------------------------------------
+    def is_allowed(self, source: str | None) -> bool:
+        return source is not None and source in self.allowed_sources
+
+    # ---- driven by the manager ----------------------------------------------
 
     @callback
     def async_start(self) -> None:
-        self._unsub_backend = self.backend.add_listener(self._on_backend_update)
         self._was_on = self.backend.is_on
-        self._evaluate()
+        self.evaluate()
 
     @callback
     def async_stop(self) -> None:
-        if self._unsub_backend:
-            self._unsub_backend()
-            self._unsub_backend = None
         self._cancel_timer()
 
     @callback
-    def async_set_enabled(self, enabled: bool) -> None:
-        self.enabled = enabled
-        self._attempts.clear()
-        self.paused_reason = None
-        if enabled:
-            self._evaluate()
-        else:
-            self._cancel_timer()
-        self._notify()
-
-    # ---- enforcement ------------------------------------------------------
-
-    @callback
-    def _on_backend_update(self) -> None:
+    def handle_backend_update(self) -> None:
         is_on = self.backend.is_on
         powered_on = bool(is_on) and not self._was_on
         self._was_on = is_on
-        if powered_on and self.enforce_on_power_on:
-            source = self.backend.current_source
-            if source is None or not self.backend.reports_source:
+        if powered_on:
+            self._attempts.clear()
+            if self.enforce_on_power_on and (
+                self.backend.current_source is None or not self.backend.reports_source
+            ):
                 self._force_next = True
-        self._evaluate()
-        self._notify()
-
-    def _is_allowed(self, source: str | None) -> bool:
-        return source is not None and source in self.allowed_sources
+        self.evaluate()
 
     @callback
-    def _evaluate(self) -> None:
-        if not self.enabled or not self.backend.is_on:
+    def reset(self) -> None:
+        """Lock re-enabled or settings changed: start fresh."""
+        self._attempts.clear()
+        self.paused_reason = None
+        self._reported_source = None
+        self.evaluate()
+
+    @callback
+    def evaluate(self) -> None:
+        if not self._is_active() or not self.backend.is_on:
             self._cancel_timer()
             self._force_next = False
             return
 
         source = self.backend.current_source
-        if self._is_allowed(source) and not self._force_next:
-            # Back where it should be: cancel pending revert, reset backoff.
+        if self.is_allowed(source) and not self._force_next:
             self._cancel_timer()
             self._attempts.clear()
+            self._reported_source = None
             if self.paused_reason:
                 self.paused_reason = None
-                self._notify()
+                self._on_change()
             return
 
-        # Unknown source (booting, some built-in apps) only counts right
+        # An unknown source (booting, some built-in apps) only counts right
         # after power-on, which sets _force_next.
         if source is None and not self._force_next:
             return
@@ -149,6 +150,8 @@ class InputGuard:
                 self.hass, self.revert_delay, self._revert_callback
             )
 
+    # ---- enforcement ------------------------------------------------------
+
     @callback
     def _revert_callback(self, _now: datetime) -> None:
         self._unsub_timer = None
@@ -157,16 +160,25 @@ class InputGuard:
     async def _async_revert(self) -> None:
         force = self._force_next
         self._force_next = False
-        if not self.enabled or not self.backend.is_on:
+        if not self._is_active() or not self.backend.is_on:
             return
 
         current = self.backend.current_source
-        if self._is_allowed(current) and not force:
+        violation = not self.is_allowed(current)
+        if not violation and not force:
             return
 
         target = self.target_source
         if target is None:
-            _LOGGER.warning("TV Management for %s has no allowed input set", self.name)
+            _LOGGER.warning("TV Mgmt %s: no allowed input set", self.name)
+            return
+
+        # Report each new violation once, even in monitor-only mode.
+        if violation and current != self._reported_source:
+            self._reported_source = current
+            self._on_block(current, target)
+
+        if not self._should_revert():
             return
 
         now = dt_util.utcnow()
@@ -178,27 +190,12 @@ class InputGuard:
                     f"TV did not stay on {target!r} after {self.max_attempts} tries; "
                     "paused until it does"
                 )
-                _LOGGER.warning("TV Management %s: %s", self.name, self.paused_reason)
-                self._notify()
+                _LOGGER.warning("TV Mgmt %s: %s", self.name, self.paused_reason)
+                self._on_change()
             return
         self._attempts.append(now)
 
-        if not force or not self._is_allowed(current):
-            self.blocked_count += 1
-            self.last_blocked_source = current
-            self.last_blocked_at = now
-            self.hass.bus.async_fire(
-                EVENT_INPUT_BLOCKED,
-                {
-                    "config_entry_id": self.entry.entry_id,
-                    "tv": self.name,
-                    "blocked_source": current,
-                    "target_source": target,
-                },
-            )
-        _LOGGER.info("TV Management %s: on %r, forcing %r", self.name, current, target)
-        self._notify()
-
+        _LOGGER.info("TV Mgmt %s: on %r, switching to %r", self.name, current, target)
         await self.backend.async_select_source(target)
 
         # Some TVs don't push an update after switching; check again.
@@ -209,25 +206,10 @@ class InputGuard:
     @callback
     def _recheck_callback(self, _now: datetime) -> None:
         self._unsub_timer = None
-        self._evaluate()
-
-    # ---- helpers ----------------------------------------------------------
+        self.evaluate()
 
     @callback
     def _cancel_timer(self) -> None:
         if self._unsub_timer:
             self._unsub_timer()
             self._unsub_timer = None
-
-    @callback
-    def _notify(self) -> None:
-        async_dispatcher_send(self.hass, SIGNAL_STATE_UPDATED.format(self.entry.entry_id))
-
-    @property
-    def attributes(self) -> dict[str, Any]:
-        return {
-            "current_source": self.backend.current_source,
-            "allowed_sources": self.allowed_sources,
-            "target_source": self.target_source,
-            "paused_reason": self.paused_reason,
-        }

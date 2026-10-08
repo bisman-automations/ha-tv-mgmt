@@ -1,17 +1,15 @@
-"""Switch to turn the input lock on and off."""
+"""Switches: input lock and adult mode."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from homeassistant.components.switch import SwitchEntity
-from homeassistant.const import STATE_OFF
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.restore_state import RestoreEntity
 
 from . import TVMgmtConfigEntry
-from .entity import InputGuardEntity
+from .entity import TVMgmtEntity
 
 
 async def async_setup_entry(
@@ -19,32 +17,53 @@ async def async_setup_entry(
     entry: TVMgmtConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    async_add_entities([InputGuardSwitch(entry.runtime_data)])
+    manager = entry.runtime_data
+    async_add_entities([InputLockSwitch(manager), AdultModeSwitch(manager)])
 
 
-class InputGuardSwitch(InputGuardEntity, SwitchEntity, RestoreEntity):
-    _attr_icon = "mdi:television-shimmer"
+class InputLockSwitch(TVMgmtEntity, SwitchEntity):
+    """Keeps the TV on its allowed input."""
 
-    def __init__(self, guard) -> None:
-        super().__init__(guard, "lock")
-
-    async def async_added_to_hass(self) -> None:
-        await super().async_added_to_hass()
-        last = await self.async_get_last_state()
-        if last is not None and last.state == STATE_OFF:
-            # Don't call async_set_enabled: the guard hasn't started yet.
-            self.guard.enabled = False
+    def __init__(self, manager) -> None:
+        super().__init__(manager, "input_lock")
 
     @property
     def is_on(self) -> bool:
-        return self.guard.enabled
+        return self.manager.state.input_lock
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return self.guard.attributes
+        guard = self.manager.guard
+        return {
+            "allowed_inputs": guard.allowed_sources,
+            "target_input": guard.target_source,
+            "paused_reason": guard.paused_reason,
+        }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
-        self.guard.async_set_enabled(True)
+        self.manager.set_input_lock(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
-        self.guard.async_set_enabled(False)
+        self.manager.set_input_lock(False)
+
+
+class AdultModeSwitch(TVMgmtEntity, SwitchEntity):
+    """Lifts every rule for a while, then turns itself off."""
+
+    def __init__(self, manager) -> None:
+        super().__init__(manager, "adult_mode")
+
+    @property
+    def is_on(self) -> bool:
+        return self.manager.adult_mode_active
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        until = self.manager.state.adult_mode_until_dt
+        return {"until": until.isoformat() if until and self.is_on else None}
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        self.manager.set_adult_mode(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        self.manager.set_adult_mode(False)

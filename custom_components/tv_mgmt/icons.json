@@ -1,0 +1,45 @@
+{
+  "entity": {
+    "select": {
+      "mode": {
+        "default": "mdi:shield-account",
+        "state": {
+          "monitor_only": "mdi:eye",
+          "paused": "mdi:pause-circle"
+        }
+      }
+    },
+    "switch": {
+      "input_lock": {
+        "default": "mdi:television-shimmer",
+        "state": { "off": "mdi:television-off" }
+      },
+      "adult_mode": {
+        "default": "mdi:account-tie",
+        "state": { "off": "mdi:account-child" }
+      }
+    },
+    "sensor": {
+      "enforcement_state": {
+        "default": "mdi:shield-check",
+        "state": {
+          "warning": "mdi:timer-alert",
+          "enforcing": "mdi:television-off",
+          "paused": "mdi:pause-circle",
+          "adult_mode": "mdi:account-tie"
+        }
+      },
+      "time_used_today": { "default": "mdi:timer-sand" },
+      "time_remaining_today": { "default": "mdi:timer-outline" },
+      "extension_today": { "default": "mdi:timer-plus" },
+      "current_input": { "default": "mdi:video-input-hdmi" },
+      "blocked_switches_today": { "default": "mdi:shield-alert" }
+    }
+  },
+  "services": {
+    "grant_extension": { "service": "mdi:timer-plus" },
+    "force_block": { "service": "mdi:television-off" },
+    "unblock": { "service": "mdi:television" },
+    "reset_usage": { "service": "mdi:restore" }
+  }
+}

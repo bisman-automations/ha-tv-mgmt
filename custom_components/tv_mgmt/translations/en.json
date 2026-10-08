@@ -3,74 +3,209 @@
     "step": {
       "user": {
         "title": "Choose a TV",
-        "description": "Pick the TV's media player from its Home Assistant integration (LG webOS, Roku, Android TV, Samsung, SmartThings, Sony, and others).",
+        "description": "Pick the TV's media player from the integration that already runs it (LG webOS, Roku, Android TV, Samsung, SmartThings, Sony and others).",
         "data": {
           "media_player": "TV"
         }
       },
-      "lock": {
-        "title": "Allowed inputs",
+      "settings": {
+        "title": "TV rules",
         "description": "{entity} is currently on: **{current}**\n\n{note}",
-        "data": {
-          "allowed_sources": "Allowed inputs",
-          "target_source": "Input to force back to",
-          "revert_delay": "Delay before switching back",
-          "enforce_on_power_on": "Enforce when the TV turns on",
-          "max_attempts": "Max retries per minute"
-        },
-        "data_description": {
-          "allowed_sources": "Anything not on this list gets switched away from.",
-          "target_source": "Leave empty to use the first allowed input.",
-          "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
-          "max_attempts": "Stops retrying if the TV keeps refusing, so it isn't spammed."
+        "sections": {
+          "input_lock": {
+            "name": "Input lock",
+            "description": "Keep the TV on the input you allow.",
+            "data": {
+              "allowed_sources": "Allowed inputs",
+              "target_source": "Input to force back to",
+              "revert_delay": "Delay before switching back",
+              "enforce_on_power_on": "Enforce when the TV turns on",
+              "max_attempts": "Max retries per minute"
+            },
+            "data_description": {
+              "allowed_sources": "Usually just one, e.g. the Apple TV's HDMI input. Anything else gets switched away from.",
+              "target_source": "Leave empty to use the first allowed input.",
+              "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
+              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed."
+            }
+          },
+          "screen_time": {
+            "name": "Screen time",
+            "description": "Daily limit and times the TV must stay off.",
+            "data": {
+              "daily_budget": "Daily screen time",
+              "warn_minutes": "Warn before time runs out",
+              "quiet_windows": "Quiet windows",
+              "adult_mode_duration": "Adult mode lasts"
+            },
+            "data_description": {
+              "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
+              "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
+              "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
+              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
+            }
+          }
         }
       }
     },
     "error": {
       "no_sources": "Pick at least one allowed input.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
-      "target_required": "Pick the HDMI input to force back to."
+      "target_required": "Pick the HDMI input to force back to.",
+      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas."
     },
     "abort": {
-      "already_configured": "This TV is already set up."
+      "already_configured": "This TV already has a profile."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Allowed inputs",
+        "title": "TV rules",
         "description": "{entity} is currently on: **{current}**\n\n{note}",
-        "data": {
-          "allowed_sources": "Allowed inputs",
-          "target_source": "Input to force back to",
-          "revert_delay": "Delay before switching back",
-          "enforce_on_power_on": "Enforce when the TV turns on",
-          "max_attempts": "Max retries per minute"
-        },
-        "data_description": {
-          "allowed_sources": "Anything not on this list gets switched away from.",
-          "target_source": "Leave empty to use the first allowed input.",
-          "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
-          "max_attempts": "Stops retrying if the TV keeps refusing, so it isn't spammed."
+        "sections": {
+          "input_lock": {
+            "name": "Input lock",
+            "description": "Keep the TV on the input you allow.",
+            "data": {
+              "allowed_sources": "Allowed inputs",
+              "target_source": "Input to force back to",
+              "revert_delay": "Delay before switching back",
+              "enforce_on_power_on": "Enforce when the TV turns on",
+              "max_attempts": "Max retries per minute"
+            },
+            "data_description": {
+              "allowed_sources": "Usually just one, e.g. the Apple TV's HDMI input. Anything else gets switched away from.",
+              "target_source": "Leave empty to use the first allowed input.",
+              "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
+              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed."
+            }
+          },
+          "screen_time": {
+            "name": "Screen time",
+            "description": "Daily limit and times the TV must stay off.",
+            "data": {
+              "daily_budget": "Daily screen time",
+              "warn_minutes": "Warn before time runs out",
+              "quiet_windows": "Quiet windows",
+              "adult_mode_duration": "Adult mode lasts"
+            },
+            "data_description": {
+              "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
+              "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
+              "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
+              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
+            }
+          }
         }
       }
     },
     "error": {
       "no_sources": "Pick at least one allowed input.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
-      "target_required": "Pick the HDMI input to force back to."
+      "target_required": "Pick the HDMI input to force back to.",
+      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas."
     }
   },
   "entity": {
+    "select": {
+      "mode": {
+        "name": "Mode",
+        "state": {
+          "enforced": "Enforced",
+          "monitor_only": "Monitor only",
+          "paused": "Paused"
+        }
+      }
+    },
     "switch": {
-      "lock": {
+      "input_lock": {
         "name": "Input lock"
+      },
+      "adult_mode": {
+        "name": "Adult mode"
       }
     },
     "sensor": {
-      "blocked_count": {
-        "name": "Blocked switches"
+      "enforcement_state": {
+        "name": "Enforcement state",
+        "state": {
+          "ok": "OK",
+          "warning": "Warning",
+          "enforcing": "Blocked",
+          "paused": "Paused",
+          "adult_mode": "Adult mode"
+        }
+      },
+      "time_used_today": {
+        "name": "Time used today"
+      },
+      "time_remaining_today": {
+        "name": "Time remaining today"
+      },
+      "extension_today": {
+        "name": "Extra time today"
+      },
+      "current_input": {
+        "name": "Current input"
+      },
+      "blocked_switches_today": {
+        "name": "Blocked switches today"
       }
+    }
+  },
+  "services": {
+    "grant_extension": {
+      "name": "Grant extra time",
+      "description": "Add (or take away) minutes from today's screen time. Unblocks within seconds if the limit was reached.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "Minutes to add. Negative to take time away."
+        }
+      }
+    },
+    "force_block": {
+      "name": "Block now",
+      "description": "Turn the TV off and keep it off until unblocked or the day ends.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        }
+      }
+    },
+    "unblock": {
+      "name": "Unblock",
+      "description": "Lift a block started with Block now. Time limits and quiet windows still apply.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        }
+      }
+    },
+    "reset_usage": {
+      "name": "Reset today",
+      "description": "Clear today's screen time, extra time and manual block.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "profile_not_found": {
+      "message": "No TV Mgmt profile with ID {profile_id}."
+    },
+    "profile_not_loaded": {
+      "message": "The TV Mgmt profile {profile} isn't loaded."
     }
   }
 }
