@@ -91,9 +91,21 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admin users. 
   - time used and time left
   - extra time, blocked switches and the last input someone tried
   - controls to add or take away time, block now, change the mode, and turn the input lock or adult mode on and off
+  - a remote for the TV: power, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
+  - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
 - **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
 - **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches.
 - **Limits.** Change the daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
+
+Remote buttons appear only when the TV's integration can press them:
+
+| Integration | Power and volume | Arrow keys, OK, Back, Home |
+| --- | --- | --- |
+| Android TV Remote | ✓ | ✓ through its remote entity |
+| Android TV (ADB) | ✓ | ✓ through `androidtv.adb_command` |
+| LG webOS | ✓ | ✓ through `webostv.button` |
+| Roku, Samsung, Sony Bravia | ✓ | ✓ through their remote entity |
+| Other TVs | if the media player supports it | — |
 
 The panel updates live as things change. Activity history starts when you install 1.2.0. TV Mgmt keeps 90 days of activity and about a year of daily totals.
 
@@ -142,7 +154,7 @@ App rules follow the TV's **Mode**:
 - **Monitor only:** stopped apps are logged and reported, but nothing is closed.
 - **Paused** and **Adult mode:** app rules are lifted.
 
-On the sidebar app's dashboard, the Apple TV gets its own **Now playing** spot under the TV. It shows the artwork, title, show and episode, and app, with a live progress bar and buttons for play/pause, previous, next, **Home** and **Sleep** (or **Wake**).
+On the sidebar app's dashboard, the Apple TV gets its own **Now playing** spot under the TV. It shows the artwork, title, show and episode, and app, with a live progress bar and buttons for play/pause, previous and next. Under it are **Sleep** (or **Wake**), volume, and a **Remote** with arrow keys, OK, **Menu** and **Home**, through the Apple TV's remote entity.
 
 Edit app rules in the sidebar app under **Limits → Apple TV apps**: check apps and type a daily limit next to any of them. Or use **Configure → Apple TV**, with limits one per line:
 

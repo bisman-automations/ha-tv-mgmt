@@ -10,6 +10,7 @@ import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
@@ -36,6 +37,7 @@ from .manager import TVManager
 from .apps import ACTIONS as APP_ACTIONS, APP_MODES
 from .names import clean_names
 from .quiet import parse_windows
+from .remote_keys import DEVICE_APPLE_TV, DEVICE_TV, available_keys, presses
 from .state import MODES
 
 ACTIONS = [
@@ -60,6 +62,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_input_names_set,
         ws_apple_tv_set,
         ws_action,
+        ws_remote,
         ws_subscribe,
     ):
         websocket_api.async_register_command(hass, command)
@@ -124,8 +127,20 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         # Display names for every input this TV has reported (raw -> name).
         "input_names": {raw: manager.name_for(raw) for raw in manager.known_inputs()},
         "custom_input_names": dict(manager.input_names.user),
+        "remote_keys": available_keys(manager.hass, manager.tv_entity_id),
+        "entities": profile_entities(manager),
         "apple_tv": apple_tv_summary(manager),
     }
+
+
+def profile_entities(manager: TVManager) -> list[dict[str, str]]:
+    """TV Mgmt's own entities for this profile, so the panel can link to them."""
+    registry = er.async_get(manager.hass)
+    return [
+        {"entity_id": entry.entity_id, "key": entry.translation_key or entry.domain}
+        for entry in er.async_entries_for_config_entry(registry, manager.entry.entry_id)
+        if not entry.disabled
+    ]
 
 
 def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
@@ -136,6 +151,7 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
     ranked = sorted(state.app_seconds.items(), key=lambda item: item[1], reverse=True)
     return {
         **box.summary(),
+        "remote_keys": available_keys(manager.hass, box.entity_id),
         "apps_today": [
             {
                 "app": app,
@@ -414,6 +430,38 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
         connection.send_error(msg["id"], "invalid_format", f"{action} needs {err.args[0]}")
         return
     connection.send_result(msg["id"], {"profile": profile_summary(manager)})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/remote",
+        vol.Required("entry_id"): str,
+        vol.Required("device"): vol.In([DEVICE_TV, DEVICE_APPLE_TV]),
+        vol.Required("key"): str,
+    }
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_remote(hass: HomeAssistant, connection, msg) -> None:
+    """Press a remote button on the TV or its Apple TV."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    if msg["device"] == DEVICE_APPLE_TV:
+        entity_id = manager.box.entity_id if manager.box else None
+    else:
+        entity_id = manager.tv_entity_id
+    press = presses(hass, entity_id).get(msg["key"]) if entity_id else None
+    if press is None:
+        connection.send_error(
+            msg["id"], "not_supported", f"The {msg['device']} can't press {msg['key']}"
+        )
+        return
+    try:
+        await hass.services.async_call(press.domain, press.service, press.data, blocking=True)
+    except Exception as err:  # noqa: BLE001 - report any failure to the panel
+        connection.send_error(msg["id"], "press_failed", str(err))
+        return
+    connection.send_result(msg["id"], {"key": msg["key"], "service": f"{press.domain}.{press.service}"})
 
 
 # ---- live updates -------------------------------------------------------------------

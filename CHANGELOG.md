@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-09
+
+### Added
+
+- **Remote buttons on the dashboard,** for the TV and the Apple TV:
+  - power, volume and mute
+  - a **Remote** button that opens arrow keys, OK, Back (Menu on the Apple TV) and Home. It stays open while things update.
+
+  Only the buttons each integration can press are shown. Arrow keys work with Android TV Remote, Android TV (ADB), LG webOS, Roku, Samsung, Sony Bravia and the Apple TV. Other TVs get power and volume when their media player supports them.
+- **Entity links on the dashboard.** Each TV's card links to the TV, the Apple TV and its remote, and every TV Mgmt entity, such as Mode, Input lock and Time used today. The TV's name on its screen and the Apple TV label link too. Each opens Home Assistant's usual entity dialog.
+- A websocket command, `tv_mgmt/remote`, behind the remote buttons. It needs an admin user.
+
+### Changed
+
+- The Apple TV's **Home** button moved into its remote. **Sleep** is now the round power button beside its volume.
+
 ## [1.5.0] - 2026-10-09
 
 ### Added
@@ -186,7 +202,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...v1.3.0

@@ -153,8 +153,31 @@ const ICONS = {
   next: "M16,18H18V6H16M6,18L14.5,12L6,6V18Z",
   home: "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z",
   box: "M3,8H21A1,1 0 0,1 22,9V15A1,1 0 0,1 21,16H3A1,1 0 0,1 2,15V9A1,1 0 0,1 3,8M17,11A1,1 0 0,0 16,12A1,1 0 0,0 17,13A1,1 0 0,0 18,12A1,1 0 0,0 17,11M5,17H7V18H5V17M17,17H19V18H17V17Z",
+  up: "M7.41,15.41L12,10.83L16.59,15.41L18,14L12,8L6,14L7.41,15.41Z",
+  down: "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z",
+  back: "M20,11V13H8L13.5,18.5L12.08,19.92L4.16,12L12.08,4.08L13.5,5.5L8,11H20Z",
+  "volume-up": "M14,3.23V5.29C16.89,6.15 19,8.83 19,12C19,15.17 16.89,17.84 14,18.7V20.77C18,19.86 21,16.28 21,12C21,7.72 18,4.14 14,3.23M16.5,12C16.5,10.23 15.5,8.71 14,7.97V16C15.5,15.29 16.5,13.76 16.5,12M3,9V15H7L12,20V4L7,9H3Z",
+  "volume-down": "M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16C17.5,15.29 18.5,13.76 18.5,12Z",
+  mute: "M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z",
+  remote: "M12,0C8.96,0 6.21,1.23 4.22,3.22L5.63,4.63C7.26,3 9.5,2 12,2C14.5,2 16.74,3 18.36,4.64L19.77,3.23C17.79,1.23 15.04,0 12,0M7.05,6.05L8.46,7.46C9.37,6.56 10.62,6 12,6C13.38,6 14.63,6.56 15.54,7.46L16.95,6.05C15.68,4.78 13.93,4 12,4C10.07,4 8.32,4.78 7.05,6.05M12,15A2,2 0 0,1 10,13A2,2 0 0,1 12,11A2,2 0 0,1 14,13A2,2 0 0,1 12,15M15,9H9A1,1 0 0,0 8,10V22A1,1 0 0,0 9,23H15A1,1 0 0,0 16,22V10A1,1 0 0,0 15,9Z",
   delete: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
 };
+// TV Mgmt's own entities, in the order the dashboard links to them.
+const ENTITY_LABELS = {
+  mode: "Mode",
+  input_lock: "Input lock",
+  adult_mode: "Adult mode",
+  enforcement_state: "Enforcement state",
+  current_input: "Current input",
+  time_used_today: "Time used today",
+  time_remaining_today: "Time remaining today",
+  extra_time_today: "Extra time today",
+  blocked_switches_today: "Blocked switches today",
+  current_app: "Current app",
+  app_time_today: "App time today",
+};
+const ENTITY_ORDER = Object.keys(ENTITY_LABELS);
+
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] ?? ICONS.clock}"/></svg>`;
 
 const STYLES = `
@@ -248,6 +271,17 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
 .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 14px; }
 .facts dt { color: var(--secondary-text-color); }
 .facts dd { margin: 0; }
+.link { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left;
+  text-decoration: underline; text-decoration-color: color-mix(in srgb, currentColor 35%, transparent); text-underline-offset: 3px; }
+.link:hover { text-decoration-color: currentColor; }
+.link:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; border-radius: 2px; }
+.entities { display: grid; gap: 6px; }
+.entities .label { font-size: 13px; color: var(--secondary-text-color); }
+.entity-links { display: flex; flex-wrap: wrap; gap: 6px; }
+.entity-links button { font-size: 13px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--divider-color);
+  background: transparent; cursor: pointer; color: var(--primary-text-color); }
+.entity-links button:hover { background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.entity-links button:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .row .label { width: 100%; font-size: 14px; color: var(--secondary-text-color); }
@@ -365,6 +399,25 @@ input[type="number"] { width: 140px; }
 .icon-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 .np-controls .btn { display: inline-flex; align-items: center; gap: 6px; }
 
+/* Remote buttons */
+.remote { display: grid; gap: 10px; }
+.tv-remote:empty { display: none; }
+.remote-bar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.remote-bar .btn { display: inline-flex; align-items: center; gap: 6px; }
+.remote-bar .vol { display: inline-flex; gap: 6px; }
+.icon-btn[aria-pressed="true"] { background: color-mix(in srgb, var(--primary-color) 16%, transparent); border-color: var(--primary-color); }
+.icon-btn.power-on { color: var(--tm-good); }
+.icon-btn.power-off { color: var(--tm-bad); }
+.icon-btn:disabled { opacity: .45; cursor: default; }
+.dpad-wrap { display: flex; justify-content: center; align-items: center; gap: 18px; flex-wrap: wrap; padding: 6px 0 2px; }
+.dpad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); gap: 4px; }
+.dpad .icon-btn { width: 48px; height: 48px; }
+.dpad .ok { font-size: 14px; font-weight: 500; background: color-mix(in srgb, var(--primary-color) 12%, transparent); }
+.dpad .k-up { grid-area: 1 / 2; } .dpad .k-left { grid-area: 2 / 1; } .dpad .ok { grid-area: 2 / 2; }
+.dpad .k-right { grid-area: 2 / 3; } .dpad .k-down { grid-area: 3 / 2; }
+.dpad-side { display: grid; gap: 8px; }
+.dpad-side .btn { display: inline-flex; align-items: center; gap: 6px; justify-content: flex-start; }
+
 /* Apple TV */
 .atv { border-top: 1px solid var(--divider-color); padding-top: 14px; display: grid; gap: 10px; }
 .atv-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
@@ -420,6 +473,7 @@ class TvMgmtPanel extends HTMLElement {
     this._error = null;
     this._busy = false;
     this._savedNote = "";
+    this._remoteOpen = new Set();
   }
 
   set hass(hass) {
@@ -435,6 +489,12 @@ class TvMgmtPanel extends HTMLElement {
     if (this._tab !== "dashboard" || !this._profiles) return;
     this._npStates = this._npStates || {};
     for (const p of this._profiles) {
+      const tv = this._hass.states[p.tv_entity_id];
+      if (tv !== this._npStates[p.tv_entity_id]) {
+        this._npStates[p.tv_entity_id] = tv;
+        const node = this.shadowRoot.getElementById(`tvr-${p.entry_id}`);
+        if (node) node.innerHTML = this._tvRemote(p);
+      }
       const eid = p.apple_tv?.entity_id;
       if (!eid) continue;
       const st = this._hass.states[eid];
@@ -721,7 +781,7 @@ class TvMgmtPanel extends HTMLElement {
         <div class="screen-wrap">
           <div class="${screenClass}">
             <div class="glow"></div>
-            <span class="tv-name">${esc(p.name)}</span>
+            <button class="tv-name link" data-more-info="${esc(p.tv_entity_id)}" title="Open ${esc(p.name)}">${esc(p.name)}</button>
             <span class="chip tone-${state.tone}">${esc(state.text)}</span>
             <div class="now">${now}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ""}
@@ -729,6 +789,7 @@ class TvMgmtPanel extends HTMLElement {
           <div class="stand"></div>
         </div>
         <div class="card-body">
+          <div class="tv-remote" id="tvr-${id}">${this._tvRemote(p)}</div>
           <div>${timeLine}</div>
           ${p.apple_tv ? this._renderAppleTv(p) : ""}
           <dl class="facts">
@@ -754,6 +815,7 @@ class TvMgmtPanel extends HTMLElement {
             <span class="switch"><input type="checkbox" data-toggle="set_input_lock" data-id="${id}" ${p.input_lock ? "checked" : ""}><span></span></span></label>
           <label class="toggle"><span>Adult mode<small>${adultOn && p.adult_mode_until ? `Rules lifted until ${timeOf(p.adult_mode_until)}` : `Lift every rule for ${duration(p.adult_mode_duration * 60)}`}</small></span>
             <span class="switch"><input type="checkbox" data-toggle="set_adult_mode" data-id="${id}" ${adultOn ? "checked" : ""}><span></span></span></label>
+          ${this._entityLinks(p)}
           <div class="row">
             ${p.force_block
               ? `<button class="btn primary" data-act="unblock" data-id="${id}">Unblock</button>`
@@ -810,31 +872,126 @@ class TvMgmtPanel extends HTMLElement {
     const button = (svc, ico, label, extra = "") =>
       `<button class="icon-btn" data-media="${svc}" data-eid="${eid}" aria-label="${label}" title="${label}" ${extra}>${icon(ico)}</button>`;
     let controls = "";
-    if (asleep) {
-      controls = has(128) ? `<button class="btn" data-media="turn_on" data-eid="${eid}">${icon("power")} Wake</button>` : "";
-    } else if (!unavailable) {
+    if (!asleep && !unavailable) {
       const playing = state === "playing";
       controls = [
         has(16) ? button("media_previous_track", "prev", "Previous") : "",
         (playing ? has(1) : has(16384)) ? button("media_play_pause", playing ? "pause" : "play", playing ? "Pause" : "Play", 'data-primary="1"') : "",
         has(32) ? button("media_next_track", "next", "Next") : "",
-        `<span class="np-spacer"></span>`,
-        a.remote_entity ? `<button class="btn" data-remote-home="${esc(a.remote_entity)}">${icon("home")} Home</button>` : "",
-        has(256) ? `<button class="btn" data-media="turn_off" data-eid="${eid}">${icon("power-off")} Sleep</button>` : "",
       ].join("");
     }
+    const remote = unavailable ? "" : this._remote(p, "apple_tv", a.remote_keys, !asleep);
 
     return `<div class="np-tile${asleep || unavailable ? " asleep" : ""}">
         <div class="np-art">${art}</div>
         <div class="np-meta">
-          <div class="np-top"><span class="np-label">Apple TV</span>${stateLabel && !asleep ? `<span class="np-state">${stateLabel}</span>` : ""}${rule}</div>
+          <div class="np-top"><button class="np-label link" data-more-info="${eid}" title="Open the Apple TV">Apple TV</button>${stateLabel && !asleep ? `<span class="np-state">${stateLabel}</span>` : ""}${rule}</div>
           <div class="np-title">${esc(title)}</div>
           ${sub ? `<div class="np-sub">${esc(sub)}</div>` : ""}
           ${appLine}
         </div>
       </div>
       ${progress}
-      ${controls ? `<div class="np-controls">${controls}</div>` : ""}`;
+      ${controls ? `<div class="np-controls">${controls}</div>` : ""}
+      ${remote}`;
+  }
+
+  // Links that open Home Assistant's dialog for each of this TV's entities.
+  _entityLinks(p) {
+    const own = (p.entities || [])
+      .filter((e) => ENTITY_LABELS[e.key])
+      .sort((a, b) => ENTITY_ORDER.indexOf(a.key) - ENTITY_ORDER.indexOf(b.key));
+    const links = [
+      { entity_id: p.tv_entity_id, label: "TV" },
+      ...(p.apple_tv ? [{ entity_id: p.apple_tv.entity_id, label: "Apple TV" }] : []),
+      ...(p.apple_tv?.remote_entity ? [{ entity_id: p.apple_tv.remote_entity, label: "Apple TV remote" }] : []),
+      ...own.map((e) => ({ entity_id: e.entity_id, label: ENTITY_LABELS[e.key] })),
+    ];
+    return `<div class="entities"><span class="label">Entities</span>
+      <div class="entity-links">${links
+        .map((l) => `<button data-more-info="${esc(l.entity_id)}" title="${esc(l.entity_id)}">${esc(l.label)}</button>`)
+        .join("")}</div></div>`;
+  }
+
+  _tvRemote(p) {
+    this._npStates = this._npStates || {};
+    const st = this._hass?.states?.[p.tv_entity_id];
+    this._npStates[p.tv_entity_id] = st;
+    if (!st || st.state === "unavailable") return "";
+    return this._remote(p, "tv", p.remote_keys, !["off", "standby"].includes(st.state));
+  }
+
+  // Power, volume and a d-pad for the TV ("tv") or its Apple TV ("apple_tv").
+  // Only the buttons that device's integration can press are shown.
+  _remote(p, device, keys, isOn) {
+    keys = keys || [];
+    // Power depends on whether the device is on right now, so check it live.
+    const eid = device === "apple_tv" ? p.apple_tv?.entity_id : p.tv_entity_id;
+    const features = Number(this._hass?.states?.[eid]?.attributes?.supported_features || 0);
+    if (!(features & (isOn === false ? 128 : 256))) keys = keys.filter((k) => k !== "power");
+    if (!keys.length) return "";
+    const has = (k) => keys.includes(k);
+    const id = p.entry_id;
+    const what = device === "apple_tv" ? "Apple TV" : "TV";
+    const open = this._remoteOpen.has(`${id}:${device}`);
+    const key = (k, ico, label, cls = "", extra = "") =>
+      `<button class="icon-btn ${cls}" data-key="${k}" data-device="${device}" data-id="${id}" aria-label="${label}" title="${label}" ${extra}>${ico}</button>`;
+
+    const awake = isOn !== false;
+    const powerLabel = device === "apple_tv" ? (awake ? "Sleep" : "Wake") : awake ? "Turn off" : "Turn on";
+    // Awake: a round power button beside volume. Off: the only button, so it's labelled.
+    const power = !has("power")
+      ? ""
+      : awake
+        ? key("power", icon("power-off"), `${powerLabel} the ${what}`, "power-off")
+        : `<button class="btn" data-key="power" data-device="${device}" data-id="${id}" aria-label="${powerLabel} the ${what}">${icon("power")} ${powerLabel}</button>`;
+    if (!awake) return `<div class="remote"><div class="remote-bar">${power}</div></div>`;
+
+    let muted = false;
+    if (device === "tv") muted = !!this._hass?.states?.[p.tv_entity_id]?.attributes?.is_volume_muted;
+    const volume = [
+      has("volume_down") ? key("volume_down", icon("volume-down"), `${what} volume down`) : "",
+      has("mute") ? key("mute", icon("mute"), muted ? `Unmute the ${what}` : `Mute the ${what}`, "", `aria-pressed="${muted}"`) : "",
+      has("volume_up") ? key("volume_up", icon("volume-up"), `${what} volume up`) : "",
+    ].join("");
+    const nav = ["up", "down", "left", "right", "select"].some(has);
+    const toggle = nav || has("back") || has("home")
+      ? `<button class="btn" data-remote-toggle="${id}:${device}" aria-expanded="${open}">${icon("remote")} Remote</button>`
+      : "";
+
+    let pad = "";
+    if (open) {
+      const back = device === "apple_tv" ? "Menu" : "Back";
+      pad = `<div class="dpad-wrap" role="group" aria-label="${what} remote">
+        ${nav ? `<div class="dpad">
+          ${has("up") ? key("up", icon("up"), "Up", "k-up") : ""}
+          ${has("left") ? key("left", icon("left"), "Left", "k-left") : ""}
+          ${has("select") ? key("select", "OK", "OK", "ok") : ""}
+          ${has("right") ? key("right", icon("right"), "Right", "k-right") : ""}
+          ${has("down") ? key("down", icon("down"), "Down", "k-down") : ""}
+        </div>` : ""}
+        <div class="dpad-side">
+          ${has("back") ? `<button class="btn" data-key="back" data-device="${device}" data-id="${id}">${icon("back")} ${back}</button>` : ""}
+          ${has("home") ? `<button class="btn" data-key="home" data-device="${device}" data-id="${id}">${icon("home")} Home</button>` : ""}
+        </div>
+      </div>`;
+    }
+    return `<div class="remote">
+      <div class="remote-bar">${power}${volume ? `<span class="vol">${volume}</span>` : ""}<span class="np-spacer"></span>${toggle}</div>
+      ${pad}
+    </div>`;
+  }
+
+  async _press(entryId, device, key) {
+    try {
+      await this._ws({ type: "tv_mgmt/remote", entry_id: entryId, device, key });
+      if (this._error) {
+        this._error = null;
+        this._render();
+      }
+    } catch (err) {
+      this._showError(err);
+    }
   }
 
   _renderAppleTv(p) {
@@ -1295,8 +1452,19 @@ class TvMgmtPanel extends HTMLElement {
       this._callService("media_player", el.dataset.media, { entity_id: el.dataset.eid });
       return;
     }
-    if (el.dataset.remoteHome) {
-      this._callService("remote", "send_command", { entity_id: el.dataset.remoteHome, command: "home" });
+    if (el.dataset.moreInfo) {
+      this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.moreInfo }, bubbles: true, composed: true }));
+      return;
+    }
+    if (el.dataset.key) {
+      this._press(el.dataset.id, el.dataset.device, el.dataset.key);
+      return;
+    }
+    if (el.dataset.remoteToggle) {
+      const k = el.dataset.remoteToggle;
+      if (this._remoteOpen.has(k)) this._remoteOpen.delete(k);
+      else this._remoteOpen.add(k);
+      this._render();
       return;
     }
     if (el.dataset.appmode && this._appsDraft) {
