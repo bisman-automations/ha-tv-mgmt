@@ -35,11 +35,12 @@ EV_RESET = "reset"
 EV_APP = "app"  # app, name; app is None on the home screen or when asleep
 EV_APP_STOPPED = "app_stopped"  # app, name, reason, action, acted
 EV_BOX_SLEEP = "box_sleep"  # reason: TV Mgmt put the Apple TV to sleep
+EV_FOLLOW = "follow"  # source, target: Apple TV woke, TV switched to its input
 
 EVENT_TYPES = [
     EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
     EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
-    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP,
+    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW,
 ]
 
 KEEP_EVENT_DAYS = 90

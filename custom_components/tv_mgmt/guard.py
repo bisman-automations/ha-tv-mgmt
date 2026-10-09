@@ -46,6 +46,7 @@ class InputGuard:
         should_revert: Callable[[], bool],
         on_block: Callable[[str | None, str], None],
         on_change: Callable[[], None],
+        pinned_source: str | None = None,
     ) -> None:
         self.hass = hass
         self.name = name
@@ -55,6 +56,8 @@ class InputGuard:
         self._should_revert = should_revert
         self._on_block = on_block
         self._on_change = on_change
+        # The Apple TV's input: always allowed, and where the TV is sent back to.
+        self.pinned_source = pinned_source
 
         self.paused_reason: str | None = None
         self._was_on: bool | None = None
@@ -67,10 +70,17 @@ class InputGuard:
 
     @property
     def allowed_sources(self) -> list[str]:
-        return list(self.options.get(CONF_ALLOWED_SOURCES, []))
+        allowed = list(self.options.get(CONF_ALLOWED_SOURCES, []))
+        if self.pinned_source and self.pinned_source not in allowed:
+            allowed.insert(0, self.pinned_source)
+        return allowed
 
     @property
     def target_source(self) -> str | None:
+        # On Android TV the input is reported as an app but switched with an
+        # HDMI key, so the configured HDMI target still does the switching.
+        if self.pinned_source and not self.backend.targets_are_keys:
+            return self.pinned_source
         if target := self.options.get(CONF_TARGET_SOURCE):
             return target
         allowed = self.allowed_sources

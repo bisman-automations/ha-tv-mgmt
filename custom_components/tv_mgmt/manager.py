@@ -20,6 +20,7 @@ from .backends import TVBackend
 from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
+    CONF_APPLE_TV_INPUT,
     CONF_APP_LIMITS,
     CONF_APP_MODE,
     CONF_APPS,
@@ -36,6 +37,7 @@ from .const import (
     DEFAULT_SLEEP_ON_BLOCK,
     DEFAULT_WARN_MINUTES,
     EVENT_APP_BLOCKED,
+    FOLLOW_DELAY,
     EVENT_ENFORCEMENT_CHANGED,
     EVENT_INPUT_BLOCKED,
     EVENT_WARNING,
@@ -104,6 +106,11 @@ class TVManager:
             should_revert=self._enforcing_actions,
             on_block=self._on_input_blocked,
             on_change=self.notify,
+            pinned_source=(
+                self.options.get(CONF_APPLE_TV_INPUT)
+                if self.options.get(CONF_STREAMING_PLAYER)
+                else None
+            ),
         )
 
         self.mode_sync: ModeSync | None = None
@@ -133,6 +140,8 @@ class TVManager:
                 on_update=self.notify,
             )
         self._logged_app: str | None = None
+        self._box_was_on: bool | None = None
+        self._unsub_follow: CALLBACK_TYPE | None = None
 
         self._last_tick: datetime | None = None
         self._last_turn_off: datetime | None = None
@@ -260,6 +269,7 @@ class TVManager:
         if self.mode_sync:
             self.mode_sync.async_start()
         if self.box:
+            self._box_was_on = self.box.is_on
             self.box.async_start(self._on_box_update)
             self._log_app()
             self.box.evaluate()
@@ -276,6 +286,9 @@ class TVManager:
             self.mode_sync.async_stop()
         if self.box:
             self.box.async_stop()
+        if self._unsub_follow:
+            self._unsub_follow()
+            self._unsub_follow = None
         await self.backend.async_stop()
         self._record_today()
         await self.store.async_save()
@@ -297,10 +310,47 @@ class TVManager:
         self._count_usage()  # credit time to the app that was open until now
         if self.box and self.box.refresh_app():
             self._log_app()
+        if self.box:
+            woke = self.box.is_on and self._box_was_on is False
+            self._box_was_on = self.box.is_on
+            if woke:
+                self._schedule_follow()
         self._recompute()
         if self.box:
             self.box.evaluate()
         self._enforce_power()
+        self.notify()
+
+    # ---- switch to the Apple TV when it wakes ------------------------------------------
+
+    @callback
+    def _schedule_follow(self) -> None:
+        if not self.guard.pinned_source or self._unsub_follow:
+            return
+        # Give HDMI-CEC a moment: the Apple TV often switches the TV itself.
+        self._unsub_follow = async_call_later(self.hass, FOLLOW_DELAY, self._follow_apple_tv)
+
+    @callback
+    def _follow_apple_tv(self, _now: datetime) -> None:
+        self._unsub_follow = None
+        pinned = self.guard.pinned_source
+        if not (
+            pinned
+            and self.box
+            and self.box.is_on
+            and self.backend.is_on
+            and self._lock_active()
+            and self._enforcing_actions()
+        ):
+            return
+        if self.backend.current_source == pinned:
+            return
+        target = self.guard.target_source
+        if not target:
+            return
+        _LOGGER.info("TV Mgmt %s: Apple TV woke, switching TV to %s", self.name, target)
+        self._log(act.EV_FOLLOW, source=self.backend.current_source, target=target)
+        self.hass.async_create_task(self.backend.async_select_source(target))
         self.notify()
 
     @callback

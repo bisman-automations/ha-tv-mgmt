@@ -37,6 +37,8 @@ DEFAULT_ADULT_MODE_DURATION = 120
 
 # Apple TV (streaming box) linked to this TV
 CONF_STREAMING_PLAYER = "streaming_player"
+CONF_APPLE_TV_INPUT = "apple_tv_input"  # the TV input the Apple TV is on
+FOLLOW_DELAY = 3  # seconds after the Apple TV wakes before switching the TV to it
 CONF_APP_MODE = "app_mode"  # block / allow
 CONF_APPS = "apps"  # apps blocked (block mode) or allowed (allow mode)
 CONF_APP_LIMITS = "app_limits"  # {app: minutes}

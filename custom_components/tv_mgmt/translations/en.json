@@ -52,6 +52,7 @@
             "description": "Add the Apple TV plugged into this TV to track its apps and set rules for them. Leave the Apple TV empty to skip this.",
             "data": {
               "streaming_player": "Apple TV",
+              "apple_tv_input": "Apple TV is on input",
               "app_mode": "Use the app list to",
               "apps": "Apps",
               "app_limits": "Daily limits per app",
@@ -63,7 +64,8 @@
               "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
-              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV."
+              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
+              "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
           },
           "sync": {
@@ -137,6 +139,7 @@
             "description": "Add the Apple TV plugged into this TV to track its apps and set rules for them. Leave the Apple TV empty to skip this.",
             "data": {
               "streaming_player": "Apple TV",
+              "apple_tv_input": "Apple TV is on input",
               "app_mode": "Use the app list to",
               "apps": "Apps",
               "app_limits": "Daily limits per app",
@@ -148,7 +151,8 @@
               "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
-              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV."
+              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
+              "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
           },
           "sync": {

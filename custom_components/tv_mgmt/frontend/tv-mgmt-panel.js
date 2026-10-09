@@ -124,6 +124,8 @@ function describeEvent(e, p) {
       const did = !e.acted ? " (monitor only)" : e.action === "sleep" ? ", put the Apple TV to sleep" : ", went back to the home screen";
       return { icon: "shield", tone: e.acted ? "bad" : "warn", text: why + did };
     }
+    case "follow":
+      return { icon: "input", text: `Apple TV woke, switched the TV to ${n(e.target)}` };
     case "box_sleep":
       return { icon: "power-off", tone: "bad", text: "TV Mgmt put the Apple TV to sleep" };
     default:

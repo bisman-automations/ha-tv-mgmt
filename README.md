@@ -122,7 +122,14 @@ Common Android TV and Google TV apps already have readable names, such as YouTub
 
 Link the Apple TV that's plugged into a TV, and the room gets one set of rules for both. It uses Home Assistant's [Apple TV integration](https://www.home-assistant.io/integrations/apple_tv/), so set that up first.
 
-Open **Configure** on the TV's profile and pick the Apple TV under **Apple TV**. It's preselected if you have only one. Then:
+Open **Configure** on the TV's profile and pick the Apple TV under **Apple TV**. It's preselected if you have only one.
+
+Then set **Apple TV is on input** to what the TV shows while it's on the Apple TV, such as `HDMI 2`, or on Android TV an app like `com.tcl.tv`. That ties the lock to the Apple TV:
+
+- **Kids stay on the Apple TV.** That input is always allowed. If someone opens the TV's own YouTube app, Live TV or another input, the TV goes straight back to the Apple TV. On Android TV, set **Input lock → Input to force back to** to the Apple TV's HDMI number, because that's how the TV switches.
+- **Waking the Apple TV brings the TV to it.** If HDMI-CEC hasn't switched the TV within a few seconds, TV Mgmt does it. This doesn't happen in monitor-only, paused or adult mode, or when the TV is off.
+
+On top of that:
 
 - **Time per app.** TV Mgmt records which app is open and for how long. The home screen doesn't count. It shows on two new sensors, **Current app** and **App time today**, and in the sidebar app's dashboard, activity and analytics.
 - **Block apps, or allow only a few.** Either block the apps you check (say Roblox), or allow only the apps you check (say Disney+ and PBS KIDS Video) and block everything else.
@@ -256,6 +263,7 @@ automation:
 | Setting | Default | What it does |
 | --- | --- | --- |
 | Apple TV | the only one, if any | The Apple TV's media player. Leave empty to skip. |
+| Apple TV is on input | the only allowed input, if any | The TV input the Apple TV is on. TV Mgmt keeps the TV on it and switches to it when the Apple TV wakes. |
 | Use the app list to | Block these apps | Block the listed apps, or allow only them. |
 | Apps | none | The apps to block or allow. |
 | Daily limits per app | none | Minutes per day, e.g. `YouTube = 30`. |

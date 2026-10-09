@@ -18,6 +18,7 @@ from .const import (
     APPLE_TV_DOMAIN,
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
+    CONF_APPLE_TV_INPUT,
     CONF_APP_LIMITS,
     CONF_APP_MODE,
     CONF_APPS,
@@ -205,7 +206,11 @@ def _limits_text(value: Any) -> str:
 
 
 def _apple_tv_schema(
-    hass: HomeAssistant, d: Mapping[str, Any], apps: Mapping[str, str]
+    hass: HomeAssistant,
+    d: Mapping[str, Any],
+    apps: Mapping[str, str],
+    backend: TVBackend,
+    seen: list[str],
 ) -> vol.Schema:
     # Suggest the Apple TV when there's exactly one, until the user has chosen.
     if CONF_STREAMING_PLAYER in d:
@@ -218,6 +223,24 @@ def _apple_tv_schema(
         selector.SelectOptionDict(value=key, label=name if name == key else f"{name} ({key})")
         for key, name in {**apps, **{a: apps.get(a, a) for a in chosen}}.items()
     ]
+    # The TV input the Apple TV is on. Suggest the only allowed input, until chosen.
+    if CONF_APPLE_TV_INPUT in d:
+        input_suggested = d[CONF_APPLE_TV_INPUT]
+    else:
+        allowed = list(d.get(CONF_ALLOWED_SOURCES) or [])
+        input_suggested = allowed[0] if len(allowed) == 1 else None
+    try:
+        names = InputNames(parse_names(_names_text(d.get(CONF_INPUT_NAMES))))
+    except ValueError:
+        names = InputNames()
+    current = [backend.current_source] if backend.is_on and backend.current_source else []
+    inputs = [
+        i for i in dict.fromkeys(
+            [*current, *list(d.get(CONF_ALLOWED_SOURCES) or []), *seen, *backend.source_list,
+             *([input_suggested] if input_suggested else [])]
+        )
+        if i
+    ]
     return vol.Schema(
         {
             vol.Optional(
@@ -225,6 +248,9 @@ def _apple_tv_schema(
             ): selector.EntitySelector(
                 selector.EntitySelectorConfig(integration=APPLE_TV_DOMAIN, domain=MP_DOMAIN)
             ),
+            vol.Optional(
+                CONF_APPLE_TV_INPUT, description={"suggested_value": input_suggested}
+            ): _select(inputs, names=names),
             vol.Required(CONF_APP_MODE, default=d.get(CONF_APP_MODE, APP_MODE_BLOCK)): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=APP_MODES, translation_key=CONF_APP_MODE,
@@ -268,7 +294,9 @@ def _settings_schema(
                 _input_lock_schema(backend, flat, seen or [])
             ),
             vol.Required(SECTION_SCREEN_TIME): section(_screen_time_schema(flat)),
-            vol.Required(SECTION_APPLE_TV): section(_apple_tv_schema(hass, flat, apps or {})),
+            vol.Required(SECTION_APPLE_TV): section(
+                _apple_tv_schema(hass, flat, apps or {}, backend, seen or [])
+            ),
             # Required with no default, like the other sections: an optional
             # section with a default is submitted as that default, dropping
             # the preselected value the form shows.
@@ -284,9 +312,12 @@ def _process(
     lock = dict(user_input.get(SECTION_INPUT_LOCK, {}))
     screen = dict(user_input.get(SECTION_SCREEN_TIME, {}))
     errors: dict[str, str] = {}
+    atv = user_input.get(SECTION_APPLE_TV, {})
+    # The Apple TV's input counts as allowed (only when an Apple TV is linked).
+    atv_input = (atv.get(CONF_APPLE_TV_INPUT) or None) if atv.get(CONF_STREAMING_PLAYER) else None
 
     if backend.reports_source:
-        allowed = lock.get(CONF_ALLOWED_SOURCES) or []
+        allowed = [*(lock.get(CONF_ALLOWED_SOURCES) or []), *([atv_input] if atv_input else [])]
         target = lock.get(CONF_TARGET_SOURCE)
         key_target = backend.targets_are_keys and target in HDMI_INPUTS
         if not allowed:
@@ -322,6 +353,7 @@ def _process(
 
     apple_tv = dict(user_input.get(SECTION_APPLE_TV, {}))
     apple_tv[CONF_STREAMING_PLAYER] = apple_tv.get(CONF_STREAMING_PLAYER) or None
+    apple_tv[CONF_APPLE_TV_INPUT] = (apple_tv.get(CONF_APPLE_TV_INPUT) or "").strip() or None
     apple_tv[CONF_APPS] = [a.strip() for a in apple_tv.get(CONF_APPS) or [] if a.strip()]
     apple_tv.setdefault(CONF_APP_MODE, APP_MODE_BLOCK)
     apple_tv.setdefault(CONF_APP_ACTION, ACTION_HOME)

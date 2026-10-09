@@ -17,6 +17,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - play/pause, previous and next, **Home**, and **Sleep**, or **Wake** when it's asleep
 
   It updates as soon as Home Assistant does.
+- **Lock the TV to the Apple TV.** Under **Configure → Apple TV**, pick which input the Apple TV is on, such as `HDMI 2`, or on Android TV an app like `com.tcl.tv`. TV Mgmt then:
+  - always allows that input and switches the TV back to it when someone opens the TV's own apps or another input. On Android TV, switching back still uses the HDMI input you chose under Input lock.
+  - switches the TV to the Apple TV when someone wakes the Apple TV, if HDMI-CEC hasn't already.
+  - skips that switch in monitor-only, paused or adult mode, or when the TV is off.
 
 ## [1.4.0] - 2026-10-09
 

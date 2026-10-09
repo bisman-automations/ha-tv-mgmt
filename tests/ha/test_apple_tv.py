@@ -1,15 +1,9 @@
 from datetime import timedelta
 
-from pytest_homeassistant_custom_component.common import (
-    MockConfigEntry,
-    async_fire_time_changed,
-    async_mock_service,
-)
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 import pytest
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
-from homeassistant.setup import async_setup_component
 
 from tests.ha.test_integration import set_tv, setup
 
@@ -28,26 +22,6 @@ def set_box(hass, app=None, state="playing"):
     if app:
         attrs["app_id"], attrs["app_name"] = app
     hass.states.async_set(BOX, state, attrs)
-
-
-@pytest.fixture
-async def box_calls(hass, entity_registry: er.EntityRegistry, device_registry: dr.DeviceRegistry):
-    """An Apple TV device with a media player and remote, like HA's integration."""
-    atv_entry = MockConfigEntry(domain="apple_tv")
-    atv_entry.add_to_hass(hass)
-    device = device_registry.async_get_or_create(
-        config_entry_id=atv_entry.entry_id, identifiers={("apple_tv", "atv1")}, name="Living Room Apple TV"
-    )
-    entity_registry.async_get_or_create(
-        "media_player", "apple_tv", "atv1", config_entry=atv_entry, device_id=device.id,
-        suggested_object_id="living_room_apple_tv",
-    )
-    entity_registry.async_get_or_create(
-        "remote", "apple_tv", "atv1", config_entry=atv_entry, device_id=device.id,
-        suggested_object_id="living_room_apple_tv",
-    )
-    assert await async_setup_component(hass, "remote", {})
-    return {"remote": async_mock_service(hass, "remote", "send_command")}
 
 
 async def setup_box(hass, **apple_tv):
