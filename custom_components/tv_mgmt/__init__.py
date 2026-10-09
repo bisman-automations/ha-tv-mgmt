@@ -97,7 +97,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bo
     manager = TVManager(hass, entry, backend)
     await manager.async_start()
     entry.runtime_data = manager
-    _link_tv_device(hass, entry)
+    _link_devices(hass, entry, manager)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
@@ -105,20 +105,36 @@ async def async_setup_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bo
 
 
 @callback
-def _link_tv_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """List TV Mgmt on the TV's own device page.
+def _link_devices(hass: HomeAssistant, entry: ConfigEntry, manager: TVManager) -> None:
+    """List TV Mgmt on the TV's and the Apple TV's own device pages.
 
     The profile's device already points at the TV (via_device). Adding this
-    entry to the TV's device links it the other way too. Home Assistant
-    removes the link when the profile is deleted.
+    entry to the TV's device, and to the linked Apple TV's, links them the
+    other way too. A device that's no longer part of the profile, such as an
+    Apple TV that was swapped or unlinked, is let go. Home Assistant removes
+    every link when the profile is deleted.
     """
-    entity = er.async_get(hass).async_get(entry.data[CONF_MEDIA_PLAYER])
-    if entity is None or entity.device_id is None:
-        return
+    entities = er.async_get(hass)
     registry = dr.async_get(hass)
-    device = registry.async_get(entity.device_id)
-    if device is not None and entry.entry_id not in device.config_entries:
-        registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
+    wanted: set[str] = set()
+    for entity_id in (entry.data[CONF_MEDIA_PLAYER], manager.box.entity_id if manager.box else None):
+        entity = entities.async_get(entity_id) if entity_id else None
+        if entity is None or entity.device_id is None:
+            continue
+        device = registry.async_get(entity.device_id)
+        if device is None:
+            continue
+        wanted.add(device.id)
+        if entry.entry_id not in device.config_entries:
+            registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
+
+    own = (DOMAIN, entry.entry_id)
+    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
+        if device.id in wanted or own in device.identifiers:
+            continue
+        # Only devices another integration owns; never remove a device outright.
+        if len(device.config_entries) > 1:
+            registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bool:

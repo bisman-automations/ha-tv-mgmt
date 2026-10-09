@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-10-09
+
+### Changed
+
+- **The Apple TV's device page lists TV Mgmt,** as the TV's already does. If you unlink the Apple TV or pick a different one, TV Mgmt leaves the old Apple TV's device page. That device itself isn't removed.
+
 ## [1.8.0] - 2026-10-09
 
 ### Added
@@ -232,7 +238,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...HEAD
+[1.8.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...v1.6.0

@@ -53,3 +53,26 @@ async def test_tv_without_device(hass: HomeAssistant, calls) -> None:
     set_tv(hass)
     entry = await setup(hass)
     assert entry.runtime_data is not None
+
+
+async def test_links_apple_tv_device(
+    hass: HomeAssistant, calls, box_calls, device_registry: dr.DeviceRegistry
+) -> None:
+    from tests.ha.test_apple_tv import set_box, setup_box
+
+    set_tv(hass)
+    set_box(hass)
+    entry = await setup_box(hass)
+    atv_device = device_registry.async_get_device(identifiers={("apple_tv", "atv1")})
+    assert entry.entry_id in atv_device.config_entries
+    assert len(atv_device.config_entries) == 2
+
+    # Unlinking the Apple TV in settings lets its device go, but keeps the device.
+    options = {**entry.options, "apple_tv": {**entry.options["apple_tv"], "streaming_player": None}}
+    hass.config_entries.async_update_entry(entry, options=options)
+    await hass.async_block_till_done()
+    atv_device = device_registry.async_get(atv_device.id)
+    assert atv_device is not None
+    assert entry.entry_id not in atv_device.config_entries
+    # TV Mgmt's own device stays.
+    assert device_registry.async_get_device(identifiers={("tv_mgmt", entry.entry_id)}) is not None
