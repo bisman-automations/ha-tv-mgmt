@@ -135,6 +135,8 @@ App rules follow the TV's **Mode**:
 - **Monitor only:** stopped apps are logged and reported, but nothing is closed.
 - **Paused** and **Adult mode:** app rules are lifted.
 
+On the sidebar app's dashboard, the Apple TV gets its own **Now playing** spot under the TV. It shows the artwork, title, show and episode, and app, with a live progress bar and buttons for play/pause, previous, next, **Home** and **Sleep** (or **Wake**).
+
 Edit app rules in the sidebar app under **Limits → Apple TV apps**: check apps and type a daily limit next to any of them. Or use **Configure → Apple TV**, with limits one per line:
 
 ```

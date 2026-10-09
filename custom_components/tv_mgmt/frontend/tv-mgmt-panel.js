@@ -32,6 +32,15 @@ function duration(seconds) {
   return m ? `${h} h ${m} min` : `${h} h`;
 }
 
+// 1:05:09 or 5:09
+function clock(seconds) {
+  const s = Math.max(0, Math.floor(seconds || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${sec}` : `${m}:${sec}`;
+}
+
 const timeOf = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
 function dayLabel(isoDate, today) {
@@ -136,6 +145,11 @@ const ICONS = {
   plus: "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z",
   left: "M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z",
   right: "M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z",
+  play: "M8,5.14V19.14L19,12.14L8,5.14Z",
+  pause: "M14,19H18V5H14M6,19H10V5H6V19Z",
+  prev: "M6,18V6H8V18H6M9.5,12L18,6V18L9.5,12Z",
+  next: "M16,18H18V6H16M6,18L14.5,12L6,6V18Z",
+  home: "M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z",
   box: "M3,8H21A1,1 0 0,1 22,9V15A1,1 0 0,1 21,16H3A1,1 0 0,1 2,15V9A1,1 0 0,1 3,8M17,11A1,1 0 0,0 16,12A1,1 0 0,0 17,13A1,1 0 0,0 18,12A1,1 0 0,0 17,11M5,17H7V18H5V17M17,17H19V18H17V17Z",
   delete: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
 };
@@ -318,6 +332,37 @@ input[type="number"] { width: 140px; }
 .name-row .raw { font-size: 14px; color: var(--secondary-text-color); overflow-wrap: anywhere; }
 .name-row input { width: 100%; }
 
+/* Apple TV: now playing */
+.np { display: grid; gap: 10px; }
+.np + .atv-head { margin-top: 8px; }
+.np-tile { display: flex; gap: 14px; align-items: center; padding: 12px; border-radius: 10px;
+  background: var(--tm-screen); color: var(--tm-screen-text); border: 4px solid #2a3038; min-height: 100px; }
+.np-tile.asleep { background: #0b0d10; }
+.np-tile.asleep .np-title { color: #8a939e; }
+.np-art { flex: none; width: 76px; height: 76px; border-radius: 8px; overflow: hidden; display: grid; place-items: center;
+  background: rgba(255,255,255,.08); color: rgba(255,255,255,.6); }
+.np-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.np-art .icon { width: 34px; height: 34px; }
+.np-meta { min-width: 0; display: grid; gap: 2px; }
+.np-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; opacity: .8; }
+.np-top .chip { color: var(--tm-screen-text); background: rgba(255,255,255,.1); font-size: 12px; padding: 2px 8px; }
+.np-state::before { content: ""; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin: 0 8px 2px 0; vertical-align: middle; }
+.np-title { font-size: 18px; font-weight: 500; line-height: 1.25; overflow-wrap: anywhere; }
+.np-sub, .np-app { font-size: 13px; opacity: .75; overflow-wrap: anywhere; }
+.np-progress { display: grid; gap: 4px; }
+.np-track { height: 4px; border-radius: 2px; background: var(--divider-color); overflow: hidden; }
+.np-fill { height: 100%; background: var(--primary-text-color); opacity: .7; }
+.np-times { display: flex; justify-content: space-between; font-size: 12px; color: var(--secondary-text-color); font-variant-numeric: tabular-nums; }
+.np-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.np-spacer { flex: 1; }
+.icon-btn { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--divider-color); background: transparent;
+  display: inline-grid; place-items: center; cursor: pointer; color: var(--primary-text-color); }
+.icon-btn[data-primary] { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
+.icon-btn:hover { background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.icon-btn[data-primary]:hover { background: var(--primary-color); filter: brightness(1.08); }
+.icon-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.np-controls .btn { display: inline-flex; align-items: center; gap: 6px; }
+
 /* Apple TV */
 .atv { border-top: 1px solid var(--divider-color); padding-top: 14px; display: grid; gap: 10px; }
 .atv-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
@@ -380,6 +425,38 @@ class TvMgmtPanel extends HTMLElement {
     this._hass = hass;
     if (this._menu) this._menu.hass = hass;
     if (first) this._start();
+    else this._refreshNowPlaying();
+  }
+
+  // Redraw just the Apple TV "Now playing" spots when their media player changes.
+  _refreshNowPlaying() {
+    if (this._tab !== "dashboard" || !this._profiles) return;
+    this._npStates = this._npStates || {};
+    for (const p of this._profiles) {
+      const eid = p.apple_tv?.entity_id;
+      if (!eid) continue;
+      const st = this._hass.states[eid];
+      if (st === this._npStates[eid]) continue;
+      this._npStates[eid] = st;
+      const node = this.shadowRoot.getElementById(`np-${p.entry_id}`);
+      if (node) node.innerHTML = this._nowPlayingInner(p);
+    }
+  }
+
+  // Move progress bars along between Home Assistant updates.
+  _tickProgress() {
+    this.shadowRoot.querySelectorAll(".np-progress[data-duration]").forEach((el) => {
+      const duration = Number(el.dataset.duration);
+      let pos = Number(el.dataset.position);
+      if (el.dataset.playing === "1" && el.dataset.updated) {
+        pos += (Date.now() - new Date(el.dataset.updated).getTime()) / 1000;
+      }
+      pos = Math.max(0, Math.min(duration, pos));
+      const fill = el.querySelector(".np-fill");
+      const elapsed = el.querySelector(".np-elapsed");
+      if (fill) fill.style.width = `${(pos / duration) * 100}%`;
+      if (elapsed) elapsed.textContent = clock(pos);
+    });
   }
 
   set narrow(narrow) {
@@ -402,6 +479,8 @@ class TvMgmtPanel extends HTMLElement {
     }
     clearInterval(this._timer);
     this._timer = null;
+    clearInterval(this._progressTimer);
+    this._progressTimer = null;
   }
 
   // ---- data ------------------------------------------------------------------
@@ -427,6 +506,8 @@ class TvMgmtPanel extends HTMLElement {
     // Keep clocks and live bars moving even when nothing changes.
     clearInterval(this._timer);
     this._timer = setInterval(() => this._scheduleRefresh(), 30000);
+    clearInterval(this._progressTimer);
+    this._progressTimer = setInterval(() => this._tickProgress(), 1000);
   }
 
   _scheduleRefresh() {
@@ -512,6 +593,16 @@ class TvMgmtPanel extends HTMLElement {
       this._error = this._errorText(err);
     }
     this._render();
+  }
+
+  async _callService(domain, service, data) {
+    try {
+      await this._hass.callService(domain, service, data);
+      this._error = null;
+    } catch (err) {
+      this._error = this._errorText(err);
+      this._render();
+    }
   }
 
   _errorText(err) {
@@ -671,12 +762,81 @@ class TvMgmtPanel extends HTMLElement {
       </section>`;
   }
 
-  _renderAppleTv(p) {
+  _nowPlayingInner(p) {
     const a = p.apple_tv;
-    const now = !a.available ? "Can't reach it" : !a.is_on ? "Asleep" : a.app_name || "Home screen";
-    const chip = a.stop_reason
+    const st = this._hass?.states?.[a.entity_id];
+    const attrs = st?.attributes || {};
+    const state = st?.state;
+    const unavailable = !st || state === "unavailable" || state === "unknown";
+    const asleep = !unavailable && (state === "off" || state === "standby");
+    const features = Number(attrs.supported_features || 0);
+    const has = (bit) => (features & bit) === bit;
+
+    const appName = attrs.app_name || a.app_name;
+    let title;
+    let sub = "";
+    if (unavailable) title = "Can't reach the Apple TV";
+    else if (asleep) title = "Asleep";
+    else {
+      title = attrs.media_title || appName || "Home screen";
+      if (attrs.media_series_title) {
+        const se = [attrs.media_season && `Season ${attrs.media_season}`, attrs.media_episode && `Episode ${attrs.media_episode}`].filter(Boolean).join(", ");
+        sub = [attrs.media_series_title, se].filter(Boolean).join(", ");
+      } else if (attrs.media_artist) {
+        sub = [attrs.media_artist, attrs.media_album_name].filter(Boolean).join(", ");
+      }
+    }
+    const stateLabel = { playing: "Playing", paused: "Paused", idle: "Idle", on: "On" }[state];
+    const rule = a.stop_reason
       ? `<span class="chip tone-bad">${{ blocked: "Blocked app", not_allowed: "Not allowed", limit: "Limit reached" }[a.stop_reason] || "Not allowed"}</span>`
       : "";
+    const pic = !unavailable && !asleep && attrs.entity_picture;
+    const art = pic
+      ? `<img src="${esc(this._hass.hassUrl ? this._hass.hassUrl(pic) : pic)}" alt="" loading="lazy" onerror="this.remove()">`
+      : icon("box");
+    const appLine = !unavailable && !asleep && attrs.media_title && appName ? `<div class="np-app">in ${esc(appName)}</div>` : "";
+
+    const duration = Number(attrs.media_duration || 0);
+    const progress = !unavailable && !asleep && duration > 0
+      ? `<div class="np-progress" data-duration="${duration}" data-position="${Number(attrs.media_position || 0)}" data-updated="${esc(attrs.media_position_updated_at || "")}" data-playing="${state === "playing" ? 1 : 0}">
+          <div class="np-track"><div class="np-fill" style="width:${Math.min(100, (Number(attrs.media_position || 0) / duration) * 100)}%"></div></div>
+          <div class="np-times"><span class="np-elapsed">${clock(Number(attrs.media_position || 0))}</span><span>${clock(duration)}</span></div>
+        </div>`
+      : "";
+
+    const eid = esc(a.entity_id);
+    const button = (svc, ico, label, extra = "") =>
+      `<button class="icon-btn" data-media="${svc}" data-eid="${eid}" aria-label="${label}" title="${label}" ${extra}>${icon(ico)}</button>`;
+    let controls = "";
+    if (asleep) {
+      controls = has(128) ? `<button class="btn" data-media="turn_on" data-eid="${eid}">${icon("power")} Wake</button>` : "";
+    } else if (!unavailable) {
+      const playing = state === "playing";
+      controls = [
+        has(16) ? button("media_previous_track", "prev", "Previous") : "",
+        (playing ? has(1) : has(16384)) ? button("media_play_pause", playing ? "pause" : "play", playing ? "Pause" : "Play", 'data-primary="1"') : "",
+        has(32) ? button("media_next_track", "next", "Next") : "",
+        `<span class="np-spacer"></span>`,
+        a.remote_entity ? `<button class="btn" data-remote-home="${esc(a.remote_entity)}">${icon("home")} Home</button>` : "",
+        has(256) ? `<button class="btn" data-media="turn_off" data-eid="${eid}">${icon("power-off")} Sleep</button>` : "",
+      ].join("");
+    }
+
+    return `<div class="np-tile${asleep || unavailable ? " asleep" : ""}">
+        <div class="np-art">${art}</div>
+        <div class="np-meta">
+          <div class="np-top"><span class="np-label">Apple TV</span>${stateLabel && !asleep ? `<span class="np-state">${stateLabel}</span>` : ""}${rule}</div>
+          <div class="np-title">${esc(title)}</div>
+          ${sub ? `<div class="np-sub">${esc(sub)}</div>` : ""}
+          ${appLine}
+        </div>
+      </div>
+      ${progress}
+      ${controls ? `<div class="np-controls">${controls}</div>` : ""}`;
+  }
+
+  _renderAppleTv(p) {
+    const a = p.apple_tv;
     const apps = (a.apps_today || []).slice(0, 4);
     const list = apps.length
       ? `<ul class="apps-list">${apps
@@ -689,8 +849,10 @@ class TvMgmtPanel extends HTMLElement {
           })
           .join("")}</ul>`
       : `<p class="muted" style="margin:0">No apps opened today.</p>`;
+    if (this._npStates) this._npStates[a.entity_id] = this._hass?.states?.[a.entity_id];
     return `<div class="atv">
-      <div class="atv-head">${icon("box")}<span class="label">Apple TV</span><strong>${esc(now)}</strong>${chip}</div>
+      <section class="np" id="np-${p.entry_id}" aria-label="Now playing on the Apple TV" aria-live="polite">${this._nowPlayingInner(p)}</section>
+      <div class="atv-head"><span class="label">Apple TV apps today</span></div>
       ${list}
     </div>`;
   }
@@ -1125,6 +1287,14 @@ class TvMgmtPanel extends HTMLElement {
     if (el.dataset.range) {
       this._range = Number(el.dataset.range);
       this._render();
+      return;
+    }
+    if (el.dataset.media) {
+      this._callService("media_player", el.dataset.media, { entity_id: el.dataset.eid });
+      return;
+    }
+    if (el.dataset.remoteHome) {
+      this._callService("remote", "send_command", { entity_id: el.dataset.remoteHome, command: "home" });
       return;
     }
     if (el.dataset.appmode && this._appsDraft) {

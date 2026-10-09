@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-10-09
+
+### Added
+
+- **Now playing on the dashboard.** When an Apple TV is linked, each TV's card shows the Apple TV as a media player in its own spot under the TV:
+  - artwork, title, show and episode or artist, and the app it's playing in
+  - whether it's playing, paused or asleep
+  - a progress bar that moves live
+  - play/pause, previous and next, **Home**, and **Sleep**, or **Wake** when it's asleep
+
+  It updates as soon as Home Assistant does.
+
 ## [1.4.0] - 2026-10-09
 
 ### Added
@@ -170,7 +182,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...HEAD
+[1.5.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...v1.2.0

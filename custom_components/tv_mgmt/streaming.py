@@ -258,5 +258,6 @@ class StreamingBox:
             "app_id": self.app_id,
             "app_name": self.app_name,
             "stop_reason": self.stop_reason,
-            "has_remote": self._remote_entity() is not None,
+            "remote_entity": (remote := self._remote_entity()),
+            "has_remote": remote is not None,
         }

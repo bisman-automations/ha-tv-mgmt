@@ -243,6 +243,7 @@ async def test_panel_api(hass: HomeAssistant, hass_ws_client, freezer, calls, bo
     assert atv["apps_today"][0]["limit_minutes"] == 30
     assert "Disney+" in atv["known_apps"].values()
     assert atv["has_remote"] is True
+    assert atv["remote_entity"] == REMOTE
 
     await client.send_json_auto_id({"type": "tv_mgmt/activity", "entry_id": entry.entry_id})
     activity = (await client.receive_json())["result"]
