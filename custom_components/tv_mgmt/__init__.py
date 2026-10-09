@@ -8,7 +8,11 @@ from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv, entity_registry as er
+from homeassistant.helpers import (
+    config_validation as cv,
+    device_registry as dr,
+    entity_registry as er,
+)
 from homeassistant.helpers.typing import ConfigType
 
 from .backends import create_backend
@@ -91,10 +95,28 @@ async def async_setup_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bo
     manager = TVManager(hass, entry, backend)
     await manager.async_start()
     entry.runtime_data = manager
+    _link_tv_device(hass, entry)
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
+
+
+@callback
+def _link_tv_device(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """List TV Mgmt on the TV's own device page.
+
+    The profile's device already points at the TV (via_device). Adding this
+    entry to the TV's device links it the other way too. Home Assistant
+    removes the link when the profile is deleted.
+    """
+    entity = er.async_get(hass).async_get(entry.data[CONF_MEDIA_PLAYER])
+    if entity is None or entity.device_id is None:
+        return
+    registry = dr.async_get(hass)
+    device = registry.async_get(entity.device_id)
+    if device is not None and entry.entry_id not in device.config_entries:
+        registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bool:

@@ -16,6 +16,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - Common Android TV and Google TV packages have readable names built in, such as Google TV home, YouTube and Netflix. Your names take priority.
 - The **Current input** sensor has a `source` attribute with the value the TV reports.
 - `tv_mgmt_input_blocked` events include `blocked_source_name` and `target_source_name`.
+- **Linked to the TV's device.** The TV's own device page now lists TV Mgmt, with a link to its profile. The **TV Mgmt — Family Room TV** device still shows as connected via the TV.
 
 ### Changed
 
