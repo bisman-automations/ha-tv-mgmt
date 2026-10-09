@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-10-09
+
+### Added
+
+- **Wake the Apple TV when the TV turns on.** The Apple TV then brings the TV to its input. If HDMI-CEC doesn't do that, TV Mgmt switches the TV itself.
+  - It doesn't happen while the TV is blocked, or in monitor-only, paused or adult mode.
+  - It's on by default. Turn it off under **Configure → Apple TV** or in the sidebar app under **Limits → Apple TV apps**.
+- **Tracks what's watched on the Apple TV:** each show, episode, movie or song, and the app it's in.
+  - Time counts only while something is playing, not while it's paused.
+  - The dashboard shows **Watched today**, with time per show.
+  - The activity log has a line for each new episode or title, such as "Watching Bluey, Season 2, Episode 14: Hammerbarn in Disney+".
+  - Analytics shows **Top shows and movies** over 7, 30 or 90 days.
+  - The **Current app** sensor has `now_watching` and `show` attributes. The **App time today** sensor has `shows`, in minutes per show.
+  - Apps like Prime Video that put the season and episode in the artist field are read correctly.
+  - It depends on the app telling the Apple TV what's playing, which most streaming apps do.
+
 ## [1.7.0] - 2026-10-09
 
 ### Added
@@ -216,7 +232,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...v1.5.0

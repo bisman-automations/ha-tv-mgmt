@@ -29,6 +29,7 @@ from .const import (
     CONF_INPUT_NAMES,
     CONF_QUIET_WINDOWS,
     CONF_SLEEP_ON_BLOCK,
+    CONF_WAKE_WITH_TV,
     CONF_WARN_MINUTES,
     DEFAULT_QUIET_WINDOWS,
     DOMAIN,
@@ -39,6 +40,7 @@ from .const import (
 )
 from .manager import TVManager
 from .apps import ACTIONS as APP_ACTIONS, APP_MODES
+from .media import describe
 from .names import clean_names
 from .quiet import parse_windows
 from .remote_keys import DEVICE_APPLE_TV, DEVICE_TV, available_keys, presses
@@ -181,6 +183,12 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
             for app, secs in ranked
         ],
         "app_seconds_today": sum(state.app_seconds.values()),
+        # Shows, movies and songs played today, most first.
+        "media_today": [
+            {"show": show, "seconds": secs, "app": state.media_apps.get(show)}
+            for show, secs in sorted(state.media_seconds.items(), key=lambda item: item[1], reverse=True)
+        ],
+        "now_watching": describe(box.media),
         "apps_stopped": state.apps_stopped,
         "last_stopped_app": manager.app_name_for(state.last_stopped_app),
         "last_stopped_at": state.last_stopped_at,
@@ -191,6 +199,7 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
             "limits": dict(box.rules.limits),
             "action": box.action,
             "sleep_on_block": manager.sleep_on_block,
+            "wake_with_tv": manager.wake_with_tv,
         },
     }
 
@@ -295,6 +304,8 @@ def ws_analytics(hass: HomeAssistant, connection, msg) -> None:
 def _named_summary(manager: TVManager, summary: dict[str, Any]) -> dict[str, Any]:
     for item in summary.get("top_apps", []):
         item["name"] = manager.app_name_for(item["app"])
+    for item in summary.get("top_media", []):
+        item["app"] = manager.state.media_apps.get(item["show"])
     return summary
 
 
@@ -386,6 +397,7 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("limits"): {str: vol.All(int, vol.Range(min=0, max=1440))},
         vol.Optional("action"): vol.In(APP_ACTIONS),
         vol.Optional("sleep_on_block"): bool,
+        vol.Optional("wake_with_tv"): bool,
     }
 )
 @require_access
@@ -411,6 +423,8 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
         changes[CONF_APP_ACTION] = msg["action"]
     if "sleep_on_block" in msg:
         changes[CONF_SLEEP_ON_BLOCK] = msg["sleep_on_block"]
+    if "wake_with_tv" in msg:
+        changes[CONF_WAKE_WITH_TV] = msg["wake_with_tv"]
     entry = manager.entry
     options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
     options.setdefault(SECTION_APPLE_TV, {}).update(changes)

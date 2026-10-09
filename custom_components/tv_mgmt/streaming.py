@@ -22,6 +22,7 @@ from homeassistant.components.remote import (
 from homeassistant.const import (
     ATTR_ENTITY_ID,
     SERVICE_TURN_OFF,
+    SERVICE_TURN_ON,
     STATE_OFF,
     STATE_STANDBY,
     STATE_UNAVAILABLE,
@@ -33,6 +34,7 @@ from homeassistant.helpers.event import async_call_later, async_track_state_chan
 from homeassistant.util import dt as dt_util
 
 from .apps import ACTION_HOME, ACTION_SLEEP, AppRules, is_home
+from .media import PLAYING, media_from, media_key
 from .const import APP_STOP_DELAY, ATTEMPT_WINDOW, TURN_OFF_COOLDOWN
 
 _LOGGER = logging.getLogger(__name__)
@@ -40,6 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 ATTR_APP_ID = "app_id"
 ATTR_APP_NAME = "app_name"
 _ASLEEP = {STATE_OFF, STATE_STANDBY, STATE_UNAVAILABLE, STATE_UNKNOWN}
+_TURN_ON = 128  # MediaPlayerEntityFeature.TURN_ON
 MAX_STOPS_PER_MINUTE = 5
 
 
@@ -71,12 +74,16 @@ class StreamingBox:
         self.app_id: str | None = None
         self.app_name: str | None = None
         self.stop_reason: str | None = None
+        # What's playing, counted the same way: the show, episode, movie or song.
+        self.media: dict[str, Any] | None = None
+        self.media_playing = False
 
         self._unsub: CALLBACK_TYPE | None = None
         self._unsub_stop: CALLBACK_TYPE | None = None
         self._reported: tuple[str, str] | None = None
         self._stops: deque[datetime] = deque()
         self._last_sleep: datetime | None = None
+        self._last_wake: datetime | None = None
 
     # ---- what the box reports ---------------------------------------------------
 
@@ -121,6 +128,7 @@ class StreamingBox:
         # Must be a @callback: otherwise Home Assistant runs it in a worker thread.
         self._unsub = async_track_state_change_event(self.hass, [self.entity_id], _changed)
         self.app_id, self.app_name = self.reported_app()
+        self.refresh_media()
 
     @callback
     def async_stop(self) -> None:
@@ -137,6 +145,21 @@ class StreamingBox:
         self.app_id, self.app_name = app_id, name
         if changed:
             self._reported = None
+        return changed
+
+    def reported_media(self) -> tuple[dict[str, Any] | None, bool]:
+        """(what's playing or paused, whether it's playing)."""
+        state = self._state
+        if state is None or not self.is_on:
+            return None, False
+        return media_from(state.state, dict(state.attributes)), state.state == PLAYING
+
+    @callback
+    def refresh_media(self) -> bool:
+        """Pick up what's playing. Returns True if it's a different title or episode."""
+        media, playing = self.reported_media()
+        changed = media_key(media) != media_key(self.media)
+        self.media, self.media_playing = media, playing
         return changed
 
     # ---- rules ----------------------------------------------------------------------
@@ -248,6 +271,34 @@ class StreamingBox:
             return False
         self._last_sleep = now
         self._sleep()
+        return True
+
+    @property
+    def is_asleep(self) -> bool:
+        """Off or in standby, as opposed to on, or unreachable."""
+        state = self._state
+        return state is not None and state.state in (STATE_OFF, STATE_STANDBY)
+
+    @callback
+    def wake_if_asleep(self) -> bool:
+        """Wake the box (rate limited). Returns True if it was sent."""
+        state = self._state
+        if not self.is_asleep or state is None:
+            return False
+        if not int(state.attributes.get("supported_features") or 0) & _TURN_ON:
+            return False
+        now = dt_util.utcnow()
+        if self._last_wake and (now - self._last_wake).total_seconds() < TURN_OFF_COOLDOWN:
+            return False
+        self._last_wake = now
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                MEDIA_PLAYER_DOMAIN,
+                SERVICE_TURN_ON,
+                {ATTR_ENTITY_ID: self.entity_id},
+                blocking=False,
+            )
+        )
         return True
 
     def summary(self) -> dict[str, Any]:

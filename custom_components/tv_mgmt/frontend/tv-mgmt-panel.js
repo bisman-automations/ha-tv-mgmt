@@ -116,6 +116,10 @@ function describeEvent(e, p) {
       return { icon: "shield", text: "Unblocked" };
     case "reset":
       return { icon: "clock", text: "Today's time reset" };
+    case "media": {
+      const what = describeMedia(e);
+      return { icon: "play", text: `Watching ${what}${e.name ? ` in ${e.name}` : ""}` };
+    }
     case "app":
       return { icon: "box", text: e.app ? `Opened ${e.name ?? e.app} on the Apple TV` : "Closed the app on the Apple TV" };
     case "app_stopped": {
@@ -126,6 +130,8 @@ function describeEvent(e, p) {
     }
     case "follow":
       return { icon: "input", text: `Apple TV woke, switched the TV to ${n(e.target)}` };
+    case "box_wake":
+      return { icon: "power", text: "TV turned on, TV Mgmt woke the Apple TV" };
     case "box_sleep":
       return { icon: "power-off", tone: "bad", text: "TV Mgmt put the Apple TV to sleep" };
     default:
@@ -177,6 +183,15 @@ const ENTITY_LABELS = {
   app_time_today: "App time today",
 };
 const ENTITY_ORDER = Object.keys(ENTITY_LABELS);
+
+// "Bluey, Season 2, Episode 14: Hammerbarn" — same wording as the integration.
+function describeMedia(m) {
+  if (m.series) {
+    const se = [m.season != null && `Season ${m.season}`, m.episode != null && `Episode ${m.episode}`].filter(Boolean).join(", ");
+    return m.series + (se ? `, ${se}` : "") + (m.title && m.title !== m.series ? `: ${m.title}` : "");
+  }
+  return m.artist ? `${m.title} by ${m.artist}` : m.title || "";
+}
 
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] ?? ICONS.clock}"/></svg>`;
 
@@ -437,6 +452,8 @@ input[type="number"] { width: 140px; }
 .top-apps .bar-track { height: 10px; border-radius: 5px; background: var(--divider-color); overflow: hidden; }
 .top-apps .bar-fill { height: 100%; background: var(--tm-info); border-radius: 5px; }
 .top-apps .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.top-apps .bar-fill.media { background: var(--primary-color); }
+.apps-list.watched small { display: block; font-size: 12px; color: var(--secondary-text-color); }
 .app-rules { display: grid; gap: 4px; }
 .app-rule { display: grid; grid-template-columns: auto minmax(0, 1fr) 7.5em; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--divider-color); font-size: 14px; }
 .app-rule:first-child { border-top: 0; }
@@ -1053,7 +1070,17 @@ class TvMgmtPanel extends HTMLElement {
       <section class="np" id="np-${p.entry_id}" aria-label="Now playing on the Apple TV" aria-live="polite">${this._nowPlayingInner(p)}</section>
       <div class="atv-head"><span class="label">Apple TV apps today</span></div>
       ${list}
+      ${this._watchedToday(a)}
     </div>`;
+  }
+
+  _watchedToday(a) {
+    const shows = (a.media_today || []).slice(0, 5);
+    if (!shows.length) return "";
+    return `<div class="atv-head"><span class="label">Watched today</span></div>
+      <ul class="apps-list watched">${shows
+        .map((m) => `<li><div class="row-line"><span>${esc(m.show)}${m.app ? `<small>${esc(m.app)}</small>` : ""}</span><span class="muted">${duration(m.seconds)}</span></div></li>`)
+        .join("")}</ul>`;
   }
 
   // Access ---------------------------------------------------------------------------
@@ -1251,7 +1278,7 @@ class TvMgmtPanel extends HTMLElement {
         ${this._chart(data.days)}
         ${note}
       </div></section>
-      ${data.has_apple_tv ? this._topApps(s.top_apps || []) : ""}`;
+      ${data.has_apple_tv ? this._topApps(s.top_apps || []) + this._topMedia(s.top_media || []) : ""}`;
   }
 
   _topApps(apps) {
@@ -1263,6 +1290,17 @@ class TvMgmtPanel extends HTMLElement {
       : `<p class="muted">No Apple TV apps in this range yet.</p>`;
     return `<section class="card" style="margin-top:20px"><div class="card-body">
       <div><strong>Top Apple TV apps</strong></div>${rows}</div></section>`;
+  }
+
+  _topMedia(shows) {
+    const max = Math.max(1, ...shows.map((m) => m.seconds));
+    const rows = shows.length
+      ? `<ul class="top-apps">${shows
+          .map((m) => `<li><span class="name" title="${esc(m.show)}${m.app ? ` (${esc(m.app)})` : ""}">${esc(m.show)}</span><div class="bar-track"><div class="bar-fill media" style="width:${(m.seconds / max) * 100}%"></div></div><span class="muted">${duration(m.seconds)}</span></li>`)
+          .join("")}</ul>`
+      : `<p class="muted">Nothing watched on the Apple TV in this range yet.</p>`;
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <div><strong>Top shows and movies</strong><div class="muted">Time spent playing, not paused.</div></div>${rows}</div></section>`;
   }
 
   _analyticsToolbar() {
@@ -1388,6 +1426,7 @@ class TvMgmtPanel extends HTMLElement {
         limits: { ...a.rules.limits },
         action: a.rules.action,
         sleep: a.rules.sleep_on_block,
+        wake: a.rules.wake_with_tv !== false,
       };
     }
     const d = this._appsDraft;
@@ -1434,6 +1473,8 @@ class TvMgmtPanel extends HTMLElement {
           <label class="radio"><input type="radio" name="app_action" value="sleep" data-app-action ${d.action === "sleep" ? "checked" : ""}> Put the Apple TV to sleep</label>
           ${a.has_remote ? "" : `<small>No Apple TV remote entity was found, so going home falls back to sleep.</small>`}
         </div>
+        <label class="toggle"><span>Wake the Apple TV when the TV turns on<small>Not while the TV is blocked, or in monitor-only, paused or adult mode.</small></span>
+          <span class="switch"><input type="checkbox" data-app-wake ${d.wake ? "checked" : ""}><span></span></span></label>
         <label class="toggle"><span>Sleep the Apple TV when the TV is blocked<small>When the daily limit runs out, a quiet window starts, or you block the TV.</small></span>
           <span class="switch"><input type="checkbox" data-app-sleep ${d.sleep ? "checked" : ""}><span></span></span></label>
         <div class="form-actions">
@@ -1463,7 +1504,7 @@ class TvMgmtPanel extends HTMLElement {
     try {
       await this._ws({
         type: "tv_mgmt/apple_tv/set", entry_id: this._selected,
-        mode: d.mode, apps: d.apps, limits, action: d.action, sleep_on_block: d.sleep,
+        mode: d.mode, apps: d.apps, limits, action: d.action, sleep_on_block: d.sleep, wake_with_tv: d.wake,
       });
       this._appsNote = "App rules saved";
       this._appsDraft = null;
@@ -1617,6 +1658,11 @@ class TvMgmtPanel extends HTMLElement {
     }
     if (d && input.dataset.appAction !== undefined) {
       d.action = input.value;
+      this._appsNote = "";
+      return;
+    }
+    if (d && input.dataset.appWake !== undefined) {
+      d.wake = input.checked;
       this._appsNote = "";
       return;
     }

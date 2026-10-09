@@ -161,7 +161,15 @@ On top of that:
 - **Block apps, or allow only a few.** Either block the apps you check (say Roblox), or allow only the apps you check (say Disney+ and PBS KIDS Video) and block everything else.
 - **Daily limits per app.** For example, YouTube 30 minutes. When an app hits its limit, it's stopped for the rest of the day.
 - **What happens.** A stopped app sends the Apple TV back to its home screen, so other apps still work, or puts it to sleep if you prefer.
+- **Wake with the TV.** Turning the TV on wakes the Apple TV, which brings the TV to its input. This doesn't happen while the TV is blocked, or in monitor-only, paused or adult mode.
 - **Sleep with the TV.** When the TV is blocked (limit reached, quiet window, or Block now), the Apple TV is put to sleep too.
+- **What's watched.** TV Mgmt records each show, episode, movie or song played on the Apple TV, and the app it's in, with time spent playing (paused time doesn't count). It appears in:
+  - the dashboard, under **Watched today**
+  - the activity log, as "Watching Bluey, Season 2, Episode 14: Hammerbarn in Disney+"
+  - analytics, under **Top shows and movies**
+  - attributes on the **Current app** sensor (`now_watching`, `show`) and the **App time today** sensor (`shows`, in minutes)
+
+  This depends on the app telling the Apple TV what's playing. Most streaming apps do, but some don't, and then there's nothing to record.
 
 App rules follow the TV's **Mode**:
 

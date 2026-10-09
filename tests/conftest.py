@@ -16,7 +16,7 @@ pkg = types.ModuleType(PKG)
 pkg.__path__ = [str(SRC)]
 sys.modules[PKG] = pkg
 
-for name in ("quiet", "state", "activity", "names", "apps"):
+for name in ("quiet", "state", "activity", "names", "apps", "media"):
     spec = importlib.util.spec_from_file_location(f"{PKG}.{name}", SRC / f"{name}.py")
     module = importlib.util.module_from_spec(spec)
     sys.modules[f"{PKG}.{name}"] = module

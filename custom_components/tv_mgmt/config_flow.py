@@ -33,6 +33,7 @@ from .const import (
     CONF_QUIET_WINDOWS,
     CONF_REVERT_DELAY,
     CONF_SLEEP_ON_BLOCK,
+    CONF_WAKE_WITH_TV,
     CONF_STREAMING_PLAYER,
     CONF_TARGET_SOURCE,
     CONF_WARN_MINUTES,
@@ -43,6 +44,7 @@ from .const import (
     DEFAULT_QUIET_WINDOWS,
     DEFAULT_REVERT_DELAY,
     DEFAULT_SLEEP_ON_BLOCK,
+    DEFAULT_WAKE_WITH_TV,
     DEFAULT_WARN_MINUTES,
     DOMAIN,
     HDMI_INPUTS,
@@ -274,6 +276,9 @@ def _apple_tv_schema(
                 )
             ),
             vol.Required(
+                CONF_WAKE_WITH_TV, default=d.get(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV)
+            ): selector.BooleanSelector(),
+            vol.Required(
                 CONF_SLEEP_ON_BLOCK, default=d.get(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK)
             ): selector.BooleanSelector(),
         }
@@ -358,6 +363,7 @@ def _process(
     apple_tv.setdefault(CONF_APP_MODE, APP_MODE_BLOCK)
     apple_tv.setdefault(CONF_APP_ACTION, ACTION_HOME)
     apple_tv.setdefault(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK)
+    apple_tv.setdefault(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV)
     try:
         apple_tv[CONF_APP_LIMITS] = parse_limits(_limits_text(apple_tv.get(CONF_APP_LIMITS)))
     except ValueError:

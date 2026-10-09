@@ -19,6 +19,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from . import TVMgmtConfigEntry
 from .entity import TVMgmtEntity
 from .manager import TVManager
+from .media import describe, show_of
 from .state import STATES
 
 
@@ -63,6 +64,8 @@ def _current_app_attrs(m: TVManager) -> dict[str, Any]:
         "stop_reason": box.stop_reason if box else None,
         "minutes_today": _minutes(m.state.app_seconds.get(app_id, 0)) if app_id else None,
         "limit_minutes": limit,
+        "now_watching": describe(box.media) if box else None,
+        "show": show_of(box.media) if box else None,
     }
 
 
@@ -70,6 +73,10 @@ def _app_time_attrs(m: TVManager) -> dict[str, Any]:
     ranked = sorted(m.state.app_seconds.items(), key=lambda item: item[1], reverse=True)
     return {
         "apps": {m.app_name_for(app): _minutes(secs) for app, secs in ranked},
+        "shows": {
+            show: _minutes(secs)
+            for show, secs in sorted(m.state.media_seconds.items(), key=lambda item: item[1], reverse=True)
+        },
         "apps_stopped": m.state.apps_stopped,
         "last_stopped_app": m.app_name_for(m.state.last_stopped_app),
         "last_stopped_at": m.state.last_stopped_at,

@@ -36,11 +36,13 @@ EV_APP = "app"  # app, name; app is None on the home screen or when asleep
 EV_APP_STOPPED = "app_stopped"  # app, name, reason, action, acted
 EV_BOX_SLEEP = "box_sleep"  # reason: TV Mgmt put the Apple TV to sleep
 EV_FOLLOW = "follow"  # source, target: Apple TV woke, TV switched to its input
+EV_BOX_WAKE = "box_wake"  # TV turned on, TV Mgmt woke the Apple TV
+EV_MEDIA = "media"  # series, season, episode, title, artist, app, name: started watching
 
 EVENT_TYPES = [
     EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
     EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
-    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW,
+    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW, EV_BOX_WAKE, EV_MEDIA,
 ]
 
 KEEP_EVENT_DAYS = 90
@@ -87,6 +89,7 @@ class ActivityLog:
         blocked: int,
         apps: dict[str, int] | None = None,
         apps_stopped: int = 0,
+        media: dict[str, int] | None = None,
     ) -> bool:
         """Store a day's totals. Returns True if anything changed."""
         key = day if isinstance(day, str) else day.isoformat()
@@ -100,6 +103,8 @@ class ActivityLog:
             record["apps"] = {app: int(secs) for app, secs in apps.items() if secs}
         if apps_stopped:
             record["apps_stopped"] = int(apps_stopped)
+        if media:
+            record["media"] = {show: int(secs) for show, secs in media.items() if secs}
         if self.daily.get(key) == record:
             return False
         self.daily[key] = record
@@ -262,6 +267,7 @@ class ActivityLog:
                     "blocked": record["blocked"] if record else 0,
                     "apps": dict(record.get("apps", {})) if record else {},
                     "apps_stopped": record.get("apps_stopped", 0) if record else 0,
+                    "media": dict(record.get("media", {})) if record else {},
                     "recorded": record is not None,
                 }
             )
@@ -285,15 +291,24 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
         "blocked": sum(d["blocked"] for d in recorded),
         "apps_stopped": sum(d.get("apps_stopped", 0) for d in recorded),
         "top_apps": top_apps(recorded),
+        "top_media": top_media(recorded),
         "recorded_days": len(recorded),
     }
 
 
-def top_apps(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
-    """Apps with the most time over these days."""
+def _top(days: list[dict[str, Any]], field: str, limit: int) -> list[tuple[str, int]]:
     totals: dict[str, int] = {}
     for day in days:
-        for app, seconds in day.get("apps", {}).items():
-            totals[app] = totals.get(app, 0) + seconds
-    ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:limit]
-    return [{"app": app, "seconds": seconds} for app, seconds in ranked]
+        for key, seconds in day.get(field, {}).items():
+            totals[key] = totals.get(key, 0) + seconds
+    return sorted(totals.items(), key=lambda item: item[1], reverse=True)[:limit]
+
+
+def top_apps(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
+    """Apps with the most time over these days."""
+    return [{"app": app, "seconds": seconds} for app, seconds in _top(days, "apps", limit)]
+
+
+def top_media(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
+    """Shows, movies and songs with the most time played over these days."""
+    return [{"show": show, "seconds": seconds} for show, seconds in _top(days, "media", limit)]

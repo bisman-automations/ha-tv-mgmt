@@ -265,3 +265,56 @@ async def test_diagnostics(hass: HomeAssistant, calls, box_calls) -> None:
     assert diag["apple_tv"]["app_name"] == "YouTube"
     assert diag["apple_tv"]["rules"]["apps"] == ["Roblox"]
     assert diag["apple_tv"]["box_state"]["entity_id"] == BOX
+
+
+PRIME = ("com.amazon.aiv.AIVApp", "Prime Video")
+
+
+def play(hass, state="playing", **media):
+    attrs = {"friendly_name": "Living Room Apple TV", "app_id": PRIME[0], "app_name": PRIME[1], **media}
+    hass.states.async_set(BOX, state, attrs)
+
+
+async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+    set_tv(hass)
+    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 14 Learn Vehicle Names")
+    entry = await setup_box(hass)
+    manager = entry.runtime_data
+    for _ in range(20):  # 10 minutes playing
+        await tick(hass, freezer, 30)
+    play(hass, state="paused", media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 14 Learn Vehicle Names")
+    await hass.async_block_till_done()
+    for _ in range(10):  # paused doesn't count
+        await tick(hass, freezer, 30)
+    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 15 Colors")
+    await hass.async_block_till_done()
+    for _ in range(10):
+        await tick(hass, freezer, 30)
+    play(hass, media_title="Moana")
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 60)
+
+    assert manager.state.media_seconds["Genevieve's Playhouse"] == pytest.approx(15 * 60, abs=40)
+    assert manager.state.media_seconds["Moana"] == pytest.approx(60, abs=5)
+    media = [e for e in manager.activity.events if e["type"] == "media"]
+    assert [(e.get("series"), e.get("episode"), e["title"]) for e in media] == [
+        ("Genevieve's Playhouse", 14, "Learn Vehicle Names"),
+        ("Genevieve's Playhouse", 15, "Colors"),
+        (None, None, "Moana"),
+    ]
+    assert media[0]["name"] == "Prime Video"
+
+    current = hass.states.get("sensor.tv_mgmt_family_room_tv_current_app")
+    assert current.attributes["now_watching"] == "Moana"
+    shows = hass.states.get("sensor.tv_mgmt_family_room_tv_app_time_today").attributes["shows"]
+    assert list(shows) == ["Genevieve's Playhouse", "Moana"]
+
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "tv_mgmt/profiles"})
+    atv = (await client.receive_json())["result"]["profiles"][0]["apple_tv"]
+    assert atv["media_today"][0]["show"] == "Genevieve's Playhouse"
+    assert atv["media_today"][0]["app"] == "Prime Video"
+    await client.send_json_auto_id({"type": "tv_mgmt/analytics", "entry_id": entry.entry_id, "days": 7})
+    summary = (await client.receive_json())["result"]["profiles"][0]["summary"]
+    assert summary["top_media"][0]["show"] == "Genevieve's Playhouse"
+    assert summary["top_media"][0]["app"] == "Prime Video"

@@ -57,6 +57,7 @@
               "apps": "Apps",
               "app_limits": "Daily limits per app",
               "app_action": "When an app isn't allowed",
+              "wake_with_tv": "Wake the Apple TV when the TV turns on",
               "sleep_on_block": "Put the Apple TV to sleep when the TV is blocked"
             },
             "data_description": {
@@ -64,6 +65,7 @@
               "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
+              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or adult mode.",
               "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
@@ -144,6 +146,7 @@
               "apps": "Apps",
               "app_limits": "Daily limits per app",
               "app_action": "When an app isn't allowed",
+              "wake_with_tv": "Wake the Apple TV when the TV turns on",
               "sleep_on_block": "Put the Apple TV to sleep when the TV is blocked"
             },
             "data_description": {
@@ -151,6 +154,7 @@
               "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
+              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or adult mode.",
               "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }

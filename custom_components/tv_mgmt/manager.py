@@ -30,11 +30,13 @@ from .const import (
     CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
     CONF_SLEEP_ON_BLOCK,
+    CONF_WAKE_WITH_TV,
     CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_SLEEP_ON_BLOCK,
+    DEFAULT_WAKE_WITH_TV,
     DEFAULT_WARN_MINUTES,
     EVENT_APP_BLOCKED,
     FOLLOW_DELAY,
@@ -48,6 +50,7 @@ from .const import (
     TURN_OFF_DELAY,
 )
 from .guard import InputGuard
+from .media import media_key, show_of
 from .mode_sync import ModeSync
 from .names import InputNames
 from .quiet import QuietWindow, parse_windows
@@ -141,6 +144,8 @@ class TVManager:
             )
         self._logged_app: str | None = None
         self._box_was_on: bool | None = None
+        self._tv_was_on: bool | None = None
+        self._logged_media: tuple | None = None
         self._unsub_follow: CALLBACK_TYPE | None = None
 
         self._last_tick: datetime | None = None
@@ -210,6 +215,10 @@ class TVManager:
     def sleep_on_block(self) -> bool:
         return bool(self.options.get(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK))
 
+    @property
+    def wake_with_tv(self) -> bool:
+        return bool(self.options.get(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV))
+
     def app_name_for(self, app_id: str | None) -> str | None:
         if app_id is None:
             return None
@@ -250,6 +259,10 @@ class TVManager:
             (e.get("app") for e in reversed(self.activity.events) if e["type"] == act.EV_APP),
             None,
         )
+        self._logged_media = next(
+            (media_key(e) for e in reversed(self.activity.events) if e["type"] == act.EV_MEDIA),
+            None,
+        )
         self._rollover_if_needed(dt_util.now())
         if hasattr(self.backend, "set_assumed_source") and self.guard.target_source:
             self.backend.set_assumed_source(self.guard.target_source)
@@ -265,6 +278,7 @@ class TVManager:
         self._last_tick = dt_util.utcnow()
         self._recompute(fire_events=False)
         self._log_power()
+        self._tv_was_on = self.backend.is_on
         self.guard.async_start()
         if self.mode_sync:
             self.mode_sync.async_start()
@@ -272,6 +286,7 @@ class TVManager:
             self._box_was_on = self.box.is_on
             self.box.async_start(self._on_box_update)
             self._log_app()
+            self._log_media()
             self.box.evaluate()
         self._record_today()
 
@@ -302,6 +317,11 @@ class TVManager:
         self._log_power()
         self._recompute()
         self.guard.handle_backend_update()
+        turned_on = self.backend.is_on is True and self._tv_was_on is False
+        if self.backend.is_on is not None:
+            self._tv_was_on = self.backend.is_on
+        if turned_on:
+            self._wake_apple_tv()
         self._enforce_power()
         self.notify()
 
@@ -310,6 +330,8 @@ class TVManager:
         self._count_usage()  # credit time to the app that was open until now
         if self.box and self.box.refresh_app():
             self._log_app()
+        if self.box and self.box.refresh_media():
+            self._log_media()
         if self.box:
             woke = self.box.is_on and self._box_was_on is False
             self._box_was_on = self.box.is_on
@@ -320,6 +342,26 @@ class TVManager:
             self.box.evaluate()
         self._enforce_power()
         self.notify()
+
+    # ---- wake the Apple TV when the TV turns on ------------------------------------------
+
+    @callback
+    def _wake_apple_tv(self) -> None:
+        """The TV came on: wake its Apple TV, unless the TV is blocked or rules are off.
+
+        Waking it usually brings the TV to its input over HDMI-CEC, and if not,
+        the Apple TV waking makes TV Mgmt switch the TV to it.
+        """
+        if not (
+            self.box
+            and self.wake_with_tv
+            and self._lock_active()
+            and self._enforcing_actions()
+        ):
+            return
+        if self.box.wake_if_asleep():
+            _LOGGER.info("TV Mgmt %s: TV turned on, waking the Apple TV", self.name)
+            self._log(act.EV_BOX_WAKE)
 
     # ---- switch to the Apple TV when it wakes ------------------------------------------
 
@@ -391,6 +433,23 @@ class TVManager:
             self._logged_app = app_id
 
     @callback
+    def _log_media(self) -> None:
+        """Log each new episode, movie or song once, with the app it's in."""
+        if not self.box:
+            return
+        media = self.box.media
+        key = media_key(media)
+        if key is None or key == self._logged_media:
+            return
+        self._logged_media = key
+        show = show_of(media)
+        app_name = self.box.app_name
+        if show and app_name and self.state.media_apps.get(show) != app_name:
+            self.state.media_apps[show] = app_name
+            self.store.schedule_save()
+        self._log(act.EV_MEDIA, **media, app=self.box.app_id, name=app_name)
+
+    @callback
     def _on_tick(self, _now: datetime) -> None:
         self._count_usage()
         self._recompute()
@@ -446,17 +505,19 @@ class TVManager:
 
         tv_on = bool(self.backend.is_on)
         app = self.box.app_id if self.box else None
-        if last is not None and (tv_on or app):
+        # Only time something is actually playing counts toward a show.
+        show = show_of(self.box.media) if self.box and self.box.media_playing else None
+        if last is not None and (tv_on or app or show):
             elapsed = now - last
             if timedelta(0) < elapsed <= MAX_TICK_GAP:
                 # Split at midnight so viewing books to the right day.
                 midnight = dt_util.start_of_local_day(local_now)
                 local_last = dt_util.as_local(last)
                 if local_last < midnight:
-                    self._credit(int((midnight - local_last).total_seconds()), tv_on, app)
+                    self._credit(int((midnight - local_last).total_seconds()), tv_on, app, show)
                     self._rollover_if_needed(local_now)
                     elapsed = local_now - midnight
-                self._credit(int(elapsed.total_seconds()), tv_on, app)
+                self._credit(int(elapsed.total_seconds()), tv_on, app, show)
                 self.store.schedule_save()
 
         self._rollover_if_needed(local_now)
@@ -465,11 +526,13 @@ class TVManager:
             self.state.adult_mode_until = None
             self.store.schedule_save()
 
-    def _credit(self, seconds: int, tv_on: bool, app: str | None) -> None:
+    def _credit(self, seconds: int, tv_on: bool, app: str | None, show: str | None = None) -> None:
         if tv_on:
             self.state.used_seconds += seconds
         if app:
             self.state.app_seconds[app] = self.state.app_seconds.get(app, 0) + seconds
+        if show:
+            self.state.media_seconds[show] = self.state.media_seconds.get(show, 0) + seconds
 
     @callback
     def _recompute(self, *, fire_events: bool = True) -> None:
@@ -687,5 +750,6 @@ class TVManager:
             blocked=self.state.blocked_switches,
             apps=self.state.app_seconds,
             apps_stopped=self.state.apps_stopped,
+            media=self.state.media_seconds,
         ):
             self.activity_store.schedule_save()

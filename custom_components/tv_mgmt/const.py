@@ -45,6 +45,8 @@ CONF_APP_LIMITS = "app_limits"  # {app: minutes}
 CONF_APP_ACTION = "app_action"  # home / sleep
 CONF_SLEEP_ON_BLOCK = "sleep_on_block"
 DEFAULT_SLEEP_ON_BLOCK = True
+CONF_WAKE_WITH_TV = "wake_with_tv"
+DEFAULT_WAKE_WITH_TV = True
 APP_STOP_DELAY = 2  # seconds before stopping an app that isn't allowed
 APPLE_TV_DOMAIN = "apple_tv"
 

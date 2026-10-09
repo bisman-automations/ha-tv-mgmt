@@ -179,3 +179,74 @@ async def test_android_tv_reports_app_but_switches_by_hdmi(
     await hass.async_block_till_done()
     await tick(hass, freezer, 2)
     assert remote_calls[-1].data == {"entity_id": "remote.family_room_tv", "command": ["KEYCODE_TV_INPUT_HDMI_2"]}
+
+
+def box_asleep(hass, features=128 | 256):
+    hass.states.async_set(BOX, "standby", {"friendly_name": "Living Room Apple TV", "supported_features": features})
+
+
+async def test_tv_on_wakes_apple_tv(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    turn_on = async_mock_service(hass, "media_player", "turn_on")
+    set_tv(hass, state="off", source=None)
+    box_asleep(hass)
+    entry = await setup_pinned(hass)
+
+    set_tv(hass, source="Live TV")
+    await hass.async_block_till_done()
+    assert [c.data for c in turn_on] == [{"entity_id": BOX}]
+    assert entry.runtime_data.activity.events[-1]["type"] == "box_wake"
+
+    # Already on: TV input changes don't wake it again.
+    set_tv(hass, source="HDMI 2")
+    await hass.async_block_till_done()
+    assert len(turn_on) == 1
+
+    # The Apple TV waking then brings the TV to its input if CEC didn't.
+    set_tv(hass, source="Live TV")
+    set_box(hass, DISNEY)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 4)
+    assert calls["select_source"][-1].data == {"entity_id": TV, "source": "HDMI 2"}
+
+
+async def test_tv_on_doesnt_wake_when_off_or_not_enforced(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+    from pytest_homeassistant_custom_component.common import async_mock_service
+
+    turn_on = async_mock_service(hass, "media_player", "turn_on")
+    set_tv(hass, state="off", source=None)
+    box_asleep(hass)
+    entry = await setup_pinned(hass)
+    manager = entry.runtime_data
+
+    # Monitor only: leave it.
+    manager.set_mode("monitor_only")
+    set_tv(hass, source="Live TV")
+    await hass.async_block_till_done()
+    assert turn_on == []
+
+    # Turned off in settings.
+    manager.set_mode("enforced")
+    set_tv(hass, state="off", source=None)
+    await hass.async_block_till_done()
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "apple_tv": {**entry.options["apple_tv"], "wake_with_tv": False}}
+    )
+    await hass.async_block_till_done()
+    set_tv(hass, source="Live TV")
+    await hass.async_block_till_done()
+    assert turn_on == []
+
+    # Can't be woken (no turn-on support).
+    entry = hass.config_entries.async_get_entry(entry.entry_id)
+    hass.config_entries.async_update_entry(
+        entry, options={**entry.options, "apple_tv": {**entry.options["apple_tv"], "wake_with_tv": True}}
+    )
+    await hass.async_block_till_done()
+    set_tv(hass, state="off", source=None)
+    box_asleep(hass, features=256)
+    await hass.async_block_till_done()
+    set_tv(hass, source="Live TV")
+    await hass.async_block_till_done()
+    assert turn_on == []
