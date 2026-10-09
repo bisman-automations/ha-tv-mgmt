@@ -49,8 +49,10 @@ EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from . import websocket
+    from .access import async_get_access
     from .panel import async_register_panel
 
+    await async_get_access(hass)
     _register_services(hass)
     websocket.async_register(hass)
     await async_register_panel(hass)
@@ -157,20 +159,22 @@ def _manager(hass: HomeAssistant, call: ServiceCall) -> TVManager:
 
 @callback
 def _register_services(hass: HomeAssistant) -> None:
-    @callback
-    def grant_extension(call: ServiceCall) -> None:
+    from .access import async_ensure_allowed
+
+    async def grant_extension(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
         _manager(hass, call).grant_extension(call.data[ATTR_MINUTES])
 
-    @callback
-    def force_block(call: ServiceCall) -> None:
+    async def force_block(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
         _manager(hass, call).force_block()
 
-    @callback
-    def unblock(call: ServiceCall) -> None:
+    async def unblock(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
         _manager(hass, call).unblock()
 
-    @callback
-    def reset_usage(call: ServiceCall) -> None:
+    async def reset_usage(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
         _manager(hass, call).reset_usage()
 
     hass.services.async_register(DOMAIN, SERVICE_GRANT_EXTENSION, grant_extension, EXTENSION_SCHEMA)

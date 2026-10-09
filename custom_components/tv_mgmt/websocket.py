@@ -7,13 +7,17 @@ from typing import Any
 
 import voluptuous as vol
 
+from functools import wraps
+
 from homeassistant.components import websocket_api
+from homeassistant.exceptions import Unauthorized
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
+from .access import get_access
 from .activity import summarize
 from .const import (
     CONF_ADULT_MODE_DURATION,
@@ -64,11 +68,26 @@ def async_register(hass: HomeAssistant) -> None:
         ws_action,
         ws_remote,
         ws_subscribe,
+        ws_access_me,
+        ws_access_get,
+        ws_access_set,
     ):
         websocket_api.async_register_command(hass, command)
 
 
 # ---- helpers -------------------------------------------------------------------
+
+
+def require_access(func):
+    """Only admins and the parents an admin allowed may use the sidebar app."""
+
+    @wraps(func)
+    def with_access(hass: HomeAssistant, connection, msg) -> None:
+        if not get_access(hass).allows(connection.user):
+            raise Unauthorized
+        func(hass, connection, msg)
+
+    return with_access
 
 
 def _managers(hass: HomeAssistant) -> list[TVManager]:
@@ -192,6 +211,7 @@ def _local_day_bounds(day: date) -> tuple[datetime, datetime]:
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/profiles"})
+@require_access
 @callback
 def ws_profiles(hass: HomeAssistant, connection, msg) -> None:
     managers = sorted(_managers(hass), key=lambda m: m.name.lower())
@@ -208,6 +228,7 @@ def ws_profiles(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("date"): str,
     }
 )
+@require_access
 @callback
 def ws_activity(hass: HomeAssistant, connection, msg) -> None:
     if (manager := _manager(hass, connection, msg)) is None:
@@ -246,6 +267,7 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("days", default=7): vol.All(int, vol.Range(min=1, max=366)),
     }
 )
+@require_access
 @callback
 def ws_analytics(hass: HomeAssistant, connection, msg) -> None:
     today = dt_util.now().date()
@@ -279,6 +301,7 @@ def _named_summary(manager: TVManager, summary: dict[str, Any]) -> dict[str, Any
 @websocket_api.websocket_command(
     {vol.Required("type"): f"{DOMAIN}/limits/get", vol.Required("entry_id"): str}
 )
+@require_access
 @callback
 def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
     if (manager := _manager(hass, connection, msg)) is None:
@@ -307,7 +330,7 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional(CONF_ADULT_MODE_DURATION): vol.All(int, vol.Range(min=5, max=720)),
     }
 )
-@websocket_api.require_admin
+@require_access
 @callback
 def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
     if (manager := _manager(hass, connection, msg)) is None:
@@ -340,7 +363,7 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Required("names"): {str: str},
     }
 )
-@websocket_api.require_admin
+@require_access
 @callback
 def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
     """Replace this TV's custom input names. Blank names are removed."""
@@ -365,7 +388,7 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("sleep_on_block"): bool,
     }
 )
-@websocket_api.require_admin
+@require_access
 @callback
 def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
     """Change this TV's Apple TV app rules (not which Apple TV it is)."""
@@ -405,7 +428,7 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("enabled"): bool,
     }
 )
-@websocket_api.require_admin
+@require_access
 @callback
 def ws_action(hass: HomeAssistant, connection, msg) -> None:
     if (manager := _manager(hass, connection, msg)) is None:
@@ -440,7 +463,7 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
         vol.Required("key"): str,
     }
 )
-@websocket_api.require_admin
+@require_access
 @websocket_api.async_response
 async def ws_remote(hass: HomeAssistant, connection, msg) -> None:
     """Press a remote button on the TV or its Apple TV."""
@@ -457,17 +480,72 @@ async def ws_remote(hass: HomeAssistant, connection, msg) -> None:
         )
         return
     try:
-        await hass.services.async_call(press.domain, press.service, press.data, blocking=True)
+        await hass.services.async_call(
+            press.domain, press.service, press.data, blocking=True, context=connection.context(msg)
+        )
     except Exception as err:  # noqa: BLE001 - report any failure to the panel
         connection.send_error(msg["id"], "press_failed", str(err))
         return
     connection.send_result(msg["id"], {"key": msg["key"], "service": f"{press.domain}.{press.service}"})
 
 
+# ---- access ---------------------------------------------------------------------
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/access/me"})
+@callback
+def ws_access_me(hass: HomeAssistant, connection, msg) -> None:
+    """Whether the person viewing may use the app, so it can say so."""
+    user = connection.user
+    connection.send_result(
+        msg["id"],
+        {
+            "allowed": get_access(hass).allows(user),
+            "is_admin": bool(user and user.is_admin),
+            "user_id": user.id if user else None,
+            "name": user.name if user else None,
+        },
+    )
+
+
+async def _people(hass: HomeAssistant) -> list[dict[str, Any]]:
+    users = [u for u in await hass.auth.async_get_users() if not u.system_generated and u.is_active]
+    return [
+        {"id": u.id, "name": u.name or u.id, "is_admin": u.is_admin, "is_owner": u.is_owner}
+        for u in sorted(users, key=lambda u: (u.name or "").casefold())
+    ]
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/access/get"})
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_access_get(hass: HomeAssistant, connection, msg) -> None:
+    connection.send_result(
+        msg["id"], {"user_ids": list(get_access(hass).user_ids), "people": await _people(hass)}
+    )
+
+
+@websocket_api.websocket_command(
+    {vol.Required("type"): f"{DOMAIN}/access/set", vol.Required("user_ids"): [str]}
+)
+@websocket_api.require_admin
+@websocket_api.async_response
+async def ws_access_set(hass: HomeAssistant, connection, msg) -> None:
+    from .panel import async_register_panel
+
+    access = get_access(hass)
+    await access.async_set(msg["user_ids"])
+    await async_register_panel(hass, update=True)
+    connection.send_result(
+        msg["id"], {"user_ids": list(access.user_ids), "people": await _people(hass)}
+    )
+
+
 # ---- live updates -------------------------------------------------------------------
 
 
 @websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/subscribe"})
+@require_access
 @callback
 def ws_subscribe(hass: HomeAssistant, connection, msg) -> None:
     """Send an event whenever any profile changes, carrying its entry_id."""

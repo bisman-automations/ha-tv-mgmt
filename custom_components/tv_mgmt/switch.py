@@ -41,9 +41,11 @@ class InputLockSwitch(TVMgmtEntity, SwitchEntity):
         }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
         self.manager.set_input_lock(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
         self.manager.set_input_lock(False)
 
 
@@ -63,7 +65,9 @@ class AdultModeSwitch(TVMgmtEntity, SwitchEntity):
         return {"until": until.isoformat() if until and self.is_on else None}
 
     async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
         self.manager.set_adult_mode(True)
 
     async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
         self.manager.set_adult_mode(False)

@@ -24,21 +24,36 @@ def _version() -> str:
     return manifest.get("version", "0")
 
 
-async def async_register_panel(hass: HomeAssistant) -> None:
-    """Add the sidebar entry. Needs the frontend, which every real install has."""
-    if hass.data.get(_REGISTERED):
+async def async_register_panel(hass: HomeAssistant, *, update: bool = False) -> None:
+    """Add the sidebar entry. Needs the frontend, which every real install has.
+
+    The entry is admin-only, unless an admin gave a parent who isn't an admin
+    access. Home Assistant can't show a sidebar entry to just some users, so
+    then everyone sees it, and the app itself turns away anyone not allowed.
+    """
+    if hass.data.get(_REGISTERED) and not update:
         return
     if "frontend" not in hass.config.components or hass.http is None:
         _LOGGER.debug("Frontend not loaded; not adding the TV Mgmt sidebar panel")
         return
 
-    from homeassistant.components import panel_custom
+    from homeassistant.components import frontend, panel_custom
     from homeassistant.components.http import StaticPathConfig
 
-    version = await hass.async_add_executor_job(_version)
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
-    )
+    from .access import async_get_access
+
+    require_admin = not await (await async_get_access(hass)).async_listed_non_admins()
+    if hass.data.get(_REGISTERED):
+        if hass.data[_REGISTERED] == ("admin" if require_admin else "all"):
+            return
+        frontend.async_remove_panel(hass, PANEL_URL_PATH, warn_if_unknown=False)
+    else:
+        version = await hass.async_add_executor_job(_version)
+        hass.data[f"{_REGISTERED}_version"] = version
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(STATIC_URL, str(FRONTEND_DIR), cache_headers=False)]
+        )
+    version = hass.data[f"{_REGISTERED}_version"]
     await panel_custom.async_register_panel(
         hass,
         frontend_url_path=PANEL_URL_PATH,
@@ -47,7 +62,7 @@ async def async_register_panel(hass: HomeAssistant) -> None:
         sidebar_icon="mdi:television-shimmer",
         # The version busts the browser cache after an update.
         module_url=f"{STATIC_URL}/tv-mgmt-panel.js?v={version}",
-        require_admin=True,
+        require_admin=require_admin,
         config={},
     )
-    hass.data[_REGISTERED] = True
+    hass.data[_REGISTERED] = "admin" if require_admin else "all"

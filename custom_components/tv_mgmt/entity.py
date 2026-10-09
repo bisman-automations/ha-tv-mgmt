@@ -7,6 +7,7 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import Entity
 
+from .access import async_ensure_allowed
 from .const import DOMAIN, SIGNAL_UPDATED
 from .manager import TVManager
 
@@ -29,6 +30,10 @@ class TVMgmtEntity(Entity):
             entry_type=DeviceEntryType.SERVICE,
             via_device=_tv_device(manager),
         )
+
+    async def _ensure_allowed(self) -> None:
+        """Only admins and allowed parents may change TV Mgmt from the UI."""
+        await async_ensure_allowed(self.hass, self._context)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()

@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-10-09
+
+### Added
+
+- **Choose who can use TV Mgmt.** A new **Access** tab in the sidebar app, for admins, lists the people in Home Assistant. Check the ones who can use TV Mgmt, such as a parent who isn't an admin. Admins always can.
+  - Anyone else who opens the sidebar app sees a page saying they don't have access, with their user ID.
+  - The sidebar entry stays admin-only until you give access to someone who isn't an admin. Home Assistant can't show it to only some people, so from then on everyone sees it.
+- **Any amount of extra time.** Next to the extra time buttons on the dashboard, type a number of minutes and press **Add**. Use a minus sign to take time away.
+
+### Changed
+
+- **Only admins and people with access can change TV Mgmt.** This covers the **Input lock** and **Adult mode** switches, the **Mode** select, and the `tv_mgmt.*` actions, wherever they're used. That way a child with a Home Assistant login can't turn on adult mode from a regular dashboard. Automations and scripts that Home Assistant runs on its own aren't affected. If a parent who isn't an admin used these before, give them access under **Access**.
+- The sidebar app's data, not just its controls, now needs access too.
+
 ## [1.6.0] - 2026-10-09
 
 ### Added
@@ -202,7 +216,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...HEAD
+[1.7.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...v1.5.0
 [1.4.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...v1.4.0

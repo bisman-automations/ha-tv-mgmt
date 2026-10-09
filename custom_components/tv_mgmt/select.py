@@ -30,4 +30,5 @@ class ModeSelect(TVMgmtEntity, SelectEntity):
         return self.manager.state.mode
 
     async def async_select_option(self, option: str) -> None:
+        await self._ensure_allowed()
         self.manager.set_mode(option)

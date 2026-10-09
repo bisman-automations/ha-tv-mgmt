@@ -282,6 +282,9 @@
     },
     "profile_not_loaded": {
       "message": "The TV Mgmt profile {profile} isn't loaded."
+    },
+    "not_allowed": {
+      "message": "You don't have access to TV Mgmt. An admin can give you access in the TV Mgmt sidebar app, under Access."
     }
   },
   "selector": {

@@ -76,7 +76,7 @@ Screen-time limits and quiet windows work on any TV Home Assistant can turn off.
 
 ## Sidebar app
 
-TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admin users. It needs no add-on or extra setup, and works in the browser and the Companion app.
+TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and for any parents you give access to (see [Who can use TV Mgmt](#who-can-use-tv-mgmt)). It needs no add-on or extra setup, and works in the browser and the Companion app.
 
 <p>
 <img src="docs/images/panel-dashboard.png" alt="Dashboard: each TV drawn as a screen showing its current input, with time used and parent controls" width="240">
@@ -90,7 +90,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admin users. 
   - what it's showing, and whether that's allowed
   - time used and time left
   - extra time, blocked switches and the last input someone tried
-  - controls to add or take away time, block now, change the mode, and turn the input lock or adult mode on and off
+  - controls to add or take away time (15, 30 or 60 minutes, or any number you type), block now, change the mode, and turn the input lock or adult mode on and off
   - a remote for the TV: power, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
   - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
 - **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
@@ -108,6 +108,20 @@ Remote buttons appear only when the TV's integration can press them:
 | Other TVs | if the media player supports it | — |
 
 The panel updates live as things change. Activity history starts when you install 1.2.0. TV Mgmt keeps 90 days of activity and about a year of daily totals.
+
+## Who can use TV Mgmt
+
+Admins can always use TV Mgmt. To let someone else in, such as a parent who isn't a Home Assistant admin, open the sidebar app's **Access** tab, check them, and save. Everyone else is turned away, kids included.
+
+The same rule covers:
+
+- the sidebar app: anyone not allowed sees a page saying they don't have access, with their user ID
+- TV Mgmt's **Input lock** and **Adult mode** switches and **Mode** select, wherever they're used, such as on a regular dashboard
+- the `tv_mgmt.*` actions
+
+Automations and scripts that Home Assistant runs on its own aren't affected.
+
+Only admins see TV Mgmt in the sidebar until you give access to someone who isn't an admin. Home Assistant can't show a sidebar entry to only some people, so from then on everyone sees it, and anyone not allowed gets the no-access page.
 
 ## Naming inputs
 

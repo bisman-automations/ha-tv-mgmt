@@ -212,6 +212,7 @@ nav button {
   border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px;
 }
 nav button[aria-selected="true"] { opacity: 1; border-bottom-color: currentColor; }
+@media (max-width: 420px) { nav { gap: 0; padding: 0 4px; } nav button { padding: 12px 10px 10px; } }
 nav button:focus-visible, .btn:focus-visible, .seg button:focus-visible, .chip:focus-visible, input:focus-visible {
   outline: 2px solid var(--primary-color); outline-offset: 2px;
 }
@@ -446,6 +447,16 @@ input[type="number"] { width: 140px; }
 input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; accent-color: var(--primary-color); }
 @media (max-width: 600px) { .name-row { grid-template-columns: 1fr; gap: 4px; } }
 .saved { color: var(--tm-good); font-size: 14px; }
+.custom-time { display: inline-flex; gap: 8px; align-items: center; max-width: none; }
+.custom-time input[type="number"] { width: 110px; min-height: 38px; padding: 6px 10px; }
+
+/* Access */
+.denied code { font-size: 13px; overflow-wrap: anywhere; }
+.people { display: grid; }
+.person { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--divider-color); font-size: 15px; }
+.person:first-child { border-top: 0; }
+.person .tag { font-size: 12px; color: var(--secondary-text-color); }
+.person input:disabled { opacity: .6; }
 
 @media (max-width: 600px) {
   main { padding: 12px 10px 40px; }
@@ -552,9 +563,27 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _start() {
+    try {
+      this._me = await this._ws({ type: "tv_mgmt/access/me" });
+    } catch (err) {
+      this._me = null; // Older backend: carry on, the commands still check.
+    }
     this._renderShell();
+    if (this._me && !this._me.allowed) {
+      this._renderDenied();
+      return;
+    }
     await this._loadProfiles();
     this._subscribe();
+  }
+
+  _renderDenied() {
+    const me = this._me;
+    this.shadowRoot.getElementById("main").innerHTML = `<div class="empty denied" role="alert">
+      <h2>You don't have access to TV Mgmt</h2>
+      <p>Ask an admin to give you access. They can do it in TV Mgmt, under Access.</p>
+      ${me.user_id ? `<p class="muted">Signed in as ${esc(me.name || "")}<br>User ID <code>${esc(me.user_id)}</code></p>` : ""}
+    </div>`;
   }
 
   _subscribe() {
@@ -668,7 +697,7 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   _errorText(err) {
-    if (err?.code === "unauthorized") return "Only administrators can change TV Mgmt.";
+    if (err?.code === "unauthorized") return "You don't have access to TV Mgmt. An admin can give you access under Access.";
     return err?.message || String(err);
   }
 
@@ -691,13 +720,18 @@ class TvMgmtPanel extends HTMLElement {
 
   // ---- rendering -------------------------------------------------------------------
 
+  _tabs() {
+    if (this._me && !this._me.allowed) return [];
+    return this._me?.is_admin ? [...TABS, { id: "access", label: "Access" }] : TABS;
+  }
+
   _renderShell() {
     this.shadowRoot.innerHTML = `
       <style>${STYLES}</style>
       <header>
         <div class="bar"><span id="menu"></span><h1>TV Mgmt</h1></div>
         <nav role="tablist" aria-label="TV Mgmt sections">
-          ${TABS.map((t) => `<button role="tab" data-tab="${t.id}" aria-selected="${t.id === this._tab}">${t.label}</button>`).join("")}
+          ${this._tabs().map((t) => `<button role="tab" data-tab="${t.id}" aria-selected="${t.id === this._tab}">${t.label}</button>`).join("")}
         </nav>
       </header>
       <main id="main" aria-live="polite"></main>`;
@@ -720,7 +754,9 @@ class TvMgmtPanel extends HTMLElement {
     this.shadowRoot.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === this._tab)));
 
     let body;
-    if (this._profiles === null) {
+    if (this._tab === "access") {
+      body = this._renderAccess();
+    } else if (this._profiles === null) {
       body = this._error ? "" : `<p class="empty">Loading your TVs…</p>`;
     } else if (!this._profiles.length) {
       body = `<div class="empty"><h2>No TVs yet</h2><p>Add a TV under Settings, Devices &amp; services, TV Mgmt, and it will show up here.</p></div>`;
@@ -804,6 +840,10 @@ class TvMgmtPanel extends HTMLElement {
             <button class="btn" data-act="grant_extension" data-id="${id}" data-minutes="15">+15 min</button>
             <button class="btn" data-act="grant_extension" data-id="${id}" data-minutes="30">+30 min</button>
             <button class="btn" data-act="grant_extension" data-id="${id}" data-minutes="60">+1 h</button>
+            <form class="custom-time" data-extra="${id}" novalidate>
+              <input type="number" name="minutes" min="-240" max="720" step="1" inputmode="numeric" placeholder="Minutes" aria-label="Extra minutes for ${esc(p.name)}. Use a minus sign to take time away.">
+              <button class="btn" type="submit">Add</button>
+            </form>
           </div>
           <div class="row">
             <span class="label">Mode${p.mode_sync_entity ? " (kept in sync with Apple TV Mgmt)" : ""}</span>
@@ -1014,6 +1054,70 @@ class TvMgmtPanel extends HTMLElement {
       <div class="atv-head"><span class="label">Apple TV apps today</span></div>
       ${list}
     </div>`;
+  }
+
+  // Access ---------------------------------------------------------------------------
+
+  _renderAccess() {
+    const d = this._accessDraft;
+    if (!d) {
+      if (!this._loadingAccess) {
+        this._loadingAccess = true;
+        this._ws({ type: "tv_mgmt/access/get" })
+          .then((res) => {
+            this._accessDraft = { people: res.people, ids: new Set(res.user_ids) };
+          })
+          .catch((err) => (this._error = this._errorText(err)))
+          .finally(() => {
+            this._loadingAccess = false;
+            this._render();
+          });
+      }
+      return `<p class="empty">Loading people…</p>`;
+    }
+    const rows = d.people
+      .map((u, i) => {
+        const checked = u.is_admin || d.ids.has(u.id);
+        const tag = u.is_owner ? "Owner" : u.is_admin ? "Admin" : "";
+        return `<div class="person">
+          <input type="checkbox" class="check" id="person-${i}" data-person="${esc(u.id)}" ${checked ? "checked" : ""} ${u.is_admin ? "disabled" : ""}>
+          <label for="person-${i}">${esc(u.name)}</label>
+          <span class="tag">${tag}</span>
+        </div>`;
+      })
+      .join("");
+    return `<section class="card"><div class="card-body">
+      <form id="access" novalidate>
+        <div class="field">
+          <label>Who can use TV Mgmt</label>
+          <small>Admins always can. Check the other people who can use this app and change TV Mgmt's switches, mode and actions, such as a parent who isn't an admin. Everyone else, kids included, is turned away. Automations aren't affected.</small>
+        </div>
+        <div class="people">${rows}</div>
+        ${[...d.ids].some((uid) => d.people.some((u) => u.id === uid && !u.is_admin))
+          ? `<small class="muted">Home Assistant can't show a sidebar entry to only some people, so everyone will see TV Mgmt in the sidebar. People who aren't checked get a page saying they don't have access.</small>`
+          : `<small class="muted">Only admins see TV Mgmt in the sidebar.</small>`}
+        <div class="form-actions">
+          <button class="btn primary" type="submit" ${this._busy ? "disabled" : ""}>Save</button>
+          ${this._accessNote ? `<span class="saved" role="status">${esc(this._accessNote)}</span>` : ""}
+        </div>
+      </form>
+    </div></section>`;
+  }
+
+  async _saveAccess() {
+    const d = this._accessDraft;
+    this._busy = true;
+    this._render();
+    try {
+      const res = await this._ws({ type: "tv_mgmt/access/set", user_ids: [...d.ids] });
+      this._accessDraft = { people: res.people, ids: new Set(res.user_ids) };
+      this._accessNote = "Access saved";
+      this._error = null;
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busy = false;
+    this._render();
   }
 
   // Activity -------------------------------------------------------------------------
@@ -1411,6 +1515,10 @@ class TvMgmtPanel extends HTMLElement {
 
     if (el.dataset.tab) {
       this._tab = el.dataset.tab;
+      if (this._tab === "access") {
+        this._accessDraft = null;
+        this._accessNote = "";
+      }
       this._error = null;
       this._savedNote = "";
       this._render();
@@ -1492,6 +1600,13 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (input.dataset.person !== undefined && this._accessDraft) {
+      if (input.checked) this._accessDraft.ids.add(input.dataset.person);
+      else this._accessDraft.ids.delete(input.dataset.person);
+      this._accessNote = "";
+      this._render();
+      return;
+    }
     const d = this._appsDraft;
     if (d && input.dataset.appCheck !== undefined) {
       const key = input.dataset.appCheck;
@@ -1565,6 +1680,23 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.dataset.extra) {
+      ev.preventDefault();
+      const field = ev.target.elements.minutes;
+      const minutes = Number(field.value);
+      if (!field.value || !Number.isInteger(minutes) || minutes === 0 || minutes < -240 || minutes > 720) {
+        this._error = "Enter a whole number of minutes from -240 to 720. Use a minus sign to take time away.";
+        this._render();
+        return;
+      }
+      await this._action(ev.target.dataset.extra, "grant_extension", { minutes });
+      return;
+    }
+    if (ev.target.id === "access") {
+      ev.preventDefault();
+      await this._saveAccess();
+      return;
+    }
     if (ev.target.id === "apps") {
       ev.preventDefault();
       await this._saveApps();
