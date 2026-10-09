@@ -63,18 +63,22 @@ function stateInfo(p) {
   }
 }
 
-function describeEvent(e) {
+// Display name for an input, using the names set for that TV.
+const nameOf = (p, raw) => (raw == null ? raw : p?.input_names?.[raw] ?? p?.custom_input_names?.[raw] ?? raw);
+
+function describeEvent(e, p) {
+  const n = (raw) => nameOf(p, raw);
   switch (e.type) {
     case "tv_on":
-      return { icon: "power", text: e.source ? `TV turned on, showing ${e.source}` : "TV turned on" };
+      return { icon: "power", text: e.source ? `TV turned on, showing ${n(e.source)}` : "TV turned on" };
     case "tv_off":
       return { icon: "power-off", text: "TV turned off" };
     case "input":
-      return { icon: "input", text: `Switched to ${e.source}` };
+      return { icon: "input", text: `Switched to ${n(e.source)}` };
     case "input_blocked":
       return e.reverted
-        ? { icon: "shield", tone: "bad", text: `Tried ${e.source ?? "another input"}, switched back to ${e.target}` }
-        : { icon: "eye", tone: "warn", text: `Switched to ${e.source ?? "another input"}, which isn't allowed (monitor only)` };
+        ? { icon: "shield", tone: "bad", text: `Tried ${n(e.source) ?? "another input"}, switched back to ${n(e.target)}` }
+        : { icon: "eye", tone: "warn", text: `Switched to ${n(e.source) ?? "another input"}, which isn't allowed (monitor only)` };
     case "enforcement": {
       const text =
         e.state === "enforcing"
@@ -294,6 +298,11 @@ input[type="number"] { width: 140px; }
 .window input[type="text"] { min-width: 0; }
 .window .btn { padding: 6px; }
 .form-actions { display: flex; gap: 12px; align-items: center; }
+.names { display: grid; gap: 10px; }
+.name-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
+.name-row .raw { font-size: 14px; color: var(--secondary-text-color); overflow-wrap: anywhere; }
+.name-row input { width: 100%; }
+@media (max-width: 600px) { .name-row { grid-template-columns: 1fr; gap: 4px; } }
 .saved { color: var(--tm-good); font-size: 14px; }
 
 @media (max-width: 600px) {
@@ -393,6 +402,13 @@ class TvMgmtPanel extends HTMLElement {
   async _loadProfiles({ quiet = false } = {}) {
     try {
       const res = await this._ws({ type: "tv_mgmt/profiles" });
+      // Saving settings briefly reloads a TV's profile. If the TV on screen is
+      // missing from a background refresh, keep what we have and look again.
+      if (quiet && this._selected && !res.profiles.some((p) => p.entry_id === this._selected)) {
+        clearTimeout(this._retryTimer);
+        this._retryTimer = setTimeout(() => this._loadProfiles({ quiet: true }), 1500);
+        return;
+      }
       this._profiles = res.profiles;
       if (!this._selected || !this._profiles.some((p) => p.entry_id === this._selected)) {
         this._selected = this._profiles[0]?.entry_id ?? null;
@@ -544,10 +560,10 @@ class TvMgmtPanel extends HTMLElement {
     const unknown = p.is_on === null;
     const blocked = p.state === "enforcing";
     const screenClass = ["screen", off || unknown ? "off" : "", blocked ? "blocked" : "", p.input_allowed === false ? "not-allowed" : ""].join(" ");
-    const now = unknown ? "Can't reach the TV" : off ? "TV off" : esc(p.current_input ?? "Unknown input");
+    const now = unknown ? "Can't reach the TV" : off ? "TV off" : esc(nameOf(p, p.current_input) ?? "Unknown input");
     let sub = "";
     if (!off && !unknown && p.input_lock) {
-      sub = p.input_allowed ? "Allowed input" : `Not allowed, switching back to ${esc(p.target_input ?? "")}`;
+      sub = p.input_allowed ? "Allowed input" : `Not allowed, switching back to ${esc(nameOf(p, p.target_input) ?? "")}`;
     } else if (!off && !unknown && !p.input_lock) {
       sub = "Input lock is off";
     }
@@ -561,7 +577,7 @@ class TvMgmtPanel extends HTMLElement {
          <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limit}" aria-valuenow="${usedMin}" aria-label="Screen time used"><div class="tone-${state.tone === "bad" ? "bad" : state.tone === "warn" ? "warn" : "info"}" style="width:${pct}%"></div></div>`
       : `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">today</span></span><span class="muted">No daily limit</span></div>`;
 
-    const lastBlocked = p.last_blocked_input && p.last_blocked_at ? `${esc(p.last_blocked_input)} at ${timeOf(p.last_blocked_at)}` : "None";
+    const lastBlocked = p.last_blocked_input && p.last_blocked_at ? `${esc(nameOf(p, p.last_blocked_input))} at ${timeOf(p.last_blocked_at)}` : "None";
     const adultOn = p.state === "adult_mode" || !!p.adult_mode_until;
     const id = p.entry_id;
 
@@ -583,7 +599,7 @@ class TvMgmtPanel extends HTMLElement {
             <dt>Extra time today</dt><dd>${p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min` : "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
             <dt>Last tried</dt><dd>${lastBlocked}</dd>
-            <dt>Allowed</dt><dd>${esc((p.allowed_inputs || []).join(", ") || "Not set")}</dd>
+            <dt>Allowed</dt><dd>${esc((p.allowed_inputs || []).map((raw) => nameOf(p, raw)).join(", ") || "Not set")}</dd>
           </dl>
           <div class="row">
             <span class="label">Extra time</span>
@@ -598,7 +614,7 @@ class TvMgmtPanel extends HTMLElement {
               ${MODES.map((m) => `<button data-act="set_mode" data-id="${id}" data-mode="${m.id}" aria-pressed="${p.mode === m.id}">${m.label}</button>`).join("")}
             </div>
           </div>
-          <label class="toggle"><span>Input lock<small>Keep the TV on ${esc(p.target_input ?? "its allowed input")}</small></span>
+          <label class="toggle"><span>Input lock<small>Keep the TV on ${esc(nameOf(p, p.target_input) ?? "its allowed input")}</small></span>
             <span class="switch"><input type="checkbox" data-toggle="set_input_lock" data-id="${id}" ${p.input_lock ? "checked" : ""}><span></span></span></label>
           <label class="toggle"><span>Adult mode<small>${adultOn && p.adult_mode_until ? `Rules lifted until ${timeOf(p.adult_mode_until)}` : `Lift every rule for ${duration(p.adult_mode_duration * 60)}`}</small></span>
             <span class="switch"><input type="checkbox" data-toggle="set_adult_mode" data-id="${id}" ${adultOn ? "checked" : ""}><span></span></span></label>
@@ -634,7 +650,7 @@ class TvMgmtPanel extends HTMLElement {
         const left = pos(s.start);
         const width = Math.max(0.3, pos(s.end) - left);
         const cls = ["seg-bar", allowed.size && !allowed.has(s.source) ? "not-allowed" : "", s.live ? "live" : ""].join(" ");
-        return `<div class="${cls}" style="left:${left}%;width:${width}%" title="${esc(s.source ?? "Unknown")}: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
+        return `<div class="${cls}" style="left:${left}%;width:${width}%" title="${esc(nameOf(profile, s.source) ?? "Unknown")}: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
       })
       .join("");
     const isToday = a.date === a.today;
@@ -647,13 +663,13 @@ class TvMgmtPanel extends HTMLElement {
     for (const s of a.segments) bySource[s.source ?? "Unknown"] = (bySource[s.source ?? "Unknown"] || 0) + s.seconds;
     const legend = Object.entries(bySource)
       .sort((x, y) => y[1] - x[1])
-      .map(([src, secs]) => `<span><i class="${allowed.size && !allowed.has(src) ? "not-allowed" : ""}"></i>${esc(src)}: ${duration(secs)}</span>`)
+      .map(([src, secs]) => `<span><i class="${allowed.size && !allowed.has(src) ? "not-allowed" : ""}"></i>${esc(nameOf(profile, src))}: ${duration(secs)}</span>`)
       .join("");
 
     const events = a.events.length
       ? `<ul class="log">${a.events
           .map((e) => {
-            const d = describeEvent(e);
+            const d = describeEvent(e, profile);
             return `<li class="${d.tone ? `tone-${d.tone}` : ""}"><time datetime="${e.t}">${timeOf(e.t)}</time>${icon(d.icon)}<span>${esc(d.text)}</span></li>`;
           })
           .join("")}</ul>`
@@ -822,7 +838,40 @@ class TvMgmtPanel extends HTMLElement {
             ${this._savedNote ? `<span class="saved" role="status">${esc(this._savedNote)}</span>` : ""}
           </div>
         </form>
-      </div></section>`;
+      </div></section>
+      ${this._renderNames()}`;
+  }
+
+  _renderNames() {
+    const p = this._profiles.find((x) => x.entry_id === this._selected);
+    if (!p) return "";
+    if (!this._namesDraft || this._namesFor !== p.entry_id) {
+      this._namesFor = p.entry_id;
+      this._namesDraft = { ...(p.custom_input_names || {}) };
+    }
+    const raws = [...new Set([...Object.keys(p.input_names || {}), ...Object.keys(this._namesDraft)])];
+    const rows = raws
+      .map((raw, i) => {
+        const fallback = p.input_names?.[raw] && !(raw in (p.custom_input_names || {})) ? p.input_names[raw] : raw;
+        return `<div class="name-row">
+          <label for="name-${i}"><span class="raw">${esc(raw)}</span></label>
+          <input id="name-${i}" type="text" data-name-for="${esc(raw)}" value="${esc(this._namesDraft[raw] ?? "")}" placeholder="${esc(fallback)}">
+        </div>`;
+      })
+      .join("");
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <form id="names" novalidate>
+        <div class="field">
+          <label>Input names</label>
+          <small>Give an input a name you'll recognise, like Apple TV for com.tcl.tv. TV Mgmt shows the name everywhere, and still matches on what the TV reports. Leave a box empty to use the value shown in grey.</small>
+        </div>
+        ${rows ? `<div class="names">${rows}</div>` : `<p class="muted">Turn the TV on and switch between inputs, and they'll appear here to name.</p>`}
+        <div class="form-actions">
+          <button type="submit" class="btn primary" ${this._busyNames ? "disabled" : ""}>${this._busyNames ? "Saving…" : "Save names"}</button>
+          ${this._namesNote ? `<span class="saved" role="status">${esc(this._namesNote)}</span>` : ""}
+        </div>
+      </form>
+    </div></section>`;
   }
 
   // ---- events ------------------------------------------------------------------------
@@ -843,7 +892,9 @@ class TvMgmtPanel extends HTMLElement {
       this._activity = null;
       this._activityDate = null;
       this._limitsDraft = null;
+      this._namesDraft = null;
       this._savedNote = "";
+      this._namesNote = "";
       this._render();
       return;
     }
@@ -889,6 +940,30 @@ class TvMgmtPanel extends HTMLElement {
 
   _onInput(ev) {
     if (ev.target.closest("#limits")) this._savedNote = "";
+    if (ev.target.dataset.nameFor !== undefined) {
+      this._namesDraft[ev.target.dataset.nameFor] = ev.target.value;
+      this._namesNote = "";
+    }
+  }
+
+  async _saveNames() {
+    const names = {};
+    for (const [raw, name] of Object.entries(this._namesDraft || {})) {
+      if (name.trim() && name.trim() !== raw) names[raw] = name.trim();
+    }
+    this._busyNames = true;
+    this._error = null;
+    this._render();
+    try {
+      await this._ws({ type: "tv_mgmt/input_names/set", entry_id: this._selected, names });
+      this._namesDraft = names;
+      this._namesNote = "Names saved";
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyNames = false;
+    this._render();
   }
 
   _syncLimitInputs() {
@@ -904,6 +979,11 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.id === "names") {
+      ev.preventDefault();
+      await this._saveNames();
+      return;
+    }
     if (ev.target.id !== "limits") return;
     ev.preventDefault();
     this._syncLimitInputs();

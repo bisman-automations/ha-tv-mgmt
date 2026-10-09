@@ -18,6 +18,7 @@ from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_ALLOWED_SOURCES,
     CONF_DAILY_BUDGET,
+    CONF_INPUT_NAMES,
     CONF_ENFORCE_ON_POWER_ON,
     CONF_MAX_ATTEMPTS,
     APPLETV_MGMT_DOMAIN,
@@ -42,6 +43,7 @@ from .const import (
 )
 from .manager import flatten_options
 from .mode_sync import suggest_mode_select
+from .names import InputNames, format_names, parse_names
 from .quiet import parse_windows
 
 # Extra guidance shown in the form, per adapter.
@@ -60,11 +62,19 @@ NOTES = {
 NOTES["android_tv_adb"] = NOTES["android_tv_remote"]
 
 
-def _select(options: list[str], *, multiple: bool = False) -> selector.SelectSelector:
-    """Dropdown that also accepts typed values (e.g. TV was off during setup)."""
+def _select(
+    options: list[str], *, multiple: bool = False, names: InputNames | None = None
+) -> selector.SelectSelector:
+    """Dropdown that also accepts typed values (e.g. TV was off during setup).
+
+    With names, each input shows its display name next to the raw value.
+    """
+    choices: list[Any] = options
+    if names is not None:
+        choices = [selector.SelectOptionDict(value=o, label=names.label(o)) for o in options]
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
-            options=options,
+            options=choices,
             multiple=multiple,
             custom_value=True,
             mode=selector.SelectSelectorMode.DROPDOWN,
@@ -81,27 +91,45 @@ def _number(min_: int, max_: int, unit: str | None = None) -> selector.NumberSel
     return selector.NumberSelector(config)
 
 
-def _input_lock_schema(backend: TVBackend, d: Mapping[str, Any]) -> vol.Schema:
+def _names_text(value: Any) -> str:
+    """Input names are stored as a dict but edited as "raw = Name" lines."""
+    return format_names(value) if isinstance(value, dict) else (value or "")
+
+
+def _input_lock_schema(
+    backend: TVBackend, d: Mapping[str, Any], seen: list[str]
+) -> vol.Schema:
     fields: dict[Any, Any] = {}
     allowed = list(d.get(CONF_ALLOWED_SOURCES, []))
+    try:
+        names = InputNames(parse_names(_names_text(d.get(CONF_INPUT_NAMES))))
+    except ValueError:
+        names = InputNames()
 
     if backend.reports_source:
         if not allowed and (current := backend.current_source):
             allowed = [current]
-        sources = list(dict.fromkeys([*backend.source_list, *allowed]))
+        sources = list(dict.fromkeys([*backend.source_list, *seen, *allowed]))
         targets = list(dict.fromkeys([*backend.target_list, *allowed]))
         fields[vol.Required(CONF_ALLOWED_SOURCES, default=allowed)] = _select(
-            sources, multiple=True
+            sources, multiple=True, names=names
         )
         fields[
             vol.Optional(
                 CONF_TARGET_SOURCE, description={"suggested_value": d.get(CONF_TARGET_SOURCE)}
             )
-        ] = _select(targets)
+        ] = _select(targets, names=names)
     else:
         fields[
             vol.Required(CONF_TARGET_SOURCE, default=d.get(CONF_TARGET_SOURCE, HDMI_INPUTS[0]))
-        ] = _select(backend.target_list)
+        ] = _select(backend.target_list, names=names)
+
+    fields[
+        vol.Optional(
+            CONF_INPUT_NAMES,
+            description={"suggested_value": _names_text(d.get(CONF_INPUT_NAMES))},
+        )
+    ] = selector.TextSelector(selector.TextSelectorConfig(multiline=True))
 
     fields[vol.Required(CONF_REVERT_DELAY, default=d.get(CONF_REVERT_DELAY, DEFAULT_REVERT_DELAY))] = _number(0, 60, "s")
     fields[
@@ -154,12 +182,17 @@ def _sync_schema(hass: HomeAssistant, tv_entity_id: str, d: Mapping[str, Any]) -
 
 
 def _settings_schema(
-    hass: HomeAssistant, backend: TVBackend, defaults: Mapping[str, Any]
+    hass: HomeAssistant,
+    backend: TVBackend,
+    defaults: Mapping[str, Any],
+    seen: list[str] | None = None,
 ) -> vol.Schema:
     flat = flatten_options(dict(defaults))
     return vol.Schema(
         {
-            vol.Required(SECTION_INPUT_LOCK): section(_input_lock_schema(backend, flat)),
+            vol.Required(SECTION_INPUT_LOCK): section(
+                _input_lock_schema(backend, flat, seen or [])
+            ),
             vol.Required(SECTION_SCREEN_TIME): section(_screen_time_schema(flat)),
             # Required with no default, like the other sections: an optional
             # section with a default is submitted as that default, dropping
@@ -190,6 +223,11 @@ def _process(
     else:
         # Nothing to observe, so the only allowed input is the target.
         lock[CONF_ALLOWED_SOURCES] = [lock[CONF_TARGET_SOURCE]]
+
+    try:
+        lock[CONF_INPUT_NAMES] = parse_names(_names_text(lock.get(CONF_INPUT_NAMES)))
+    except ValueError:
+        errors["base"] = "bad_input_names"
 
     try:
         windows = parse_windows(screen.get(CONF_QUIET_WINDOWS))
@@ -286,7 +324,12 @@ class TVMgmtOptionsFlow(OptionsFlow):
 
         return self.async_show_form(
             step_id="init",
-            data_schema=_settings_schema(self.hass, backend, user_input or entry.options),
+            data_schema=_settings_schema(
+                self.hass,
+                backend,
+                user_input or entry.options,
+                manager.known_inputs() if manager else None,
+            ),
             errors=errors,
             description_placeholders=_placeholders(backend),
         )

@@ -41,7 +41,7 @@ def _current_input(m: TVManager) -> str | None:
         return None
     if not m.backend.is_on:
         return TV_OFF
-    return m.backend.current_source
+    return m.name_for(m.backend.current_source)
 
 
 SENSORS: tuple[TVMgmtSensorDescription, ...] = (
@@ -86,7 +86,9 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         key="current_input",
         value_fn=lambda m: _current_input(m),
         attrs_fn=lambda m: {
-            "allowed": m.guard.is_allowed(m.backend.current_source) if m.backend.is_on else None
+            # The value the TV reports, before renaming.
+            "source": m.backend.current_source if m.backend.is_on else None,
+            "allowed": m.guard.is_allowed(m.backend.current_source) if m.backend.is_on else None,
         },
     ),
     TVMgmtSensorDescription(
@@ -94,7 +96,7 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda m: m.state.blocked_switches,
         attrs_fn=lambda m: {
-            "last_blocked_input": m.state.last_blocked_source,
+            "last_blocked_input": m.name_for(m.state.last_blocked_source),
             "last_blocked_at": m.state.last_blocked_at,
         },
     ),

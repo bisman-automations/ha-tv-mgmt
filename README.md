@@ -96,6 +96,27 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admin users. 
 
 The panel updates live as things change. Activity history starts when you install 1.2.0. TV Mgmt keeps 90 days of activity and about a year of daily totals.
 
+## Naming inputs
+
+TVs report inputs however their integration knows them. Android TV, for example, reports the app on screen, so an HDMI input can show up as `com.tcl.tv`. Give it a name you'll recognise, like **Apple TV**, and TV Mgmt shows that name everywhere:
+
+- the **Current input** sensor
+- the sidebar app
+- the settings dropdowns
+- `tv_mgmt_input_blocked` events
+
+TV Mgmt still matches on the real value, so the input lock isn't affected.
+
+- **In the sidebar app:** **Limits → Input names** lists every input the TV has reported. Type a name next to any of them and save.
+- **In settings:** **Configure → Input lock → Input names**, one per line:
+
+  ```
+  com.tcl.tv = Apple TV
+  HDMI 2 = Apple TV
+  ```
+
+Common Android TV and Google TV apps already have readable names, such as YouTube, Netflix and Google TV home. Your names take priority.
+
 ## Using it with Apple TV Mgmt
 
 If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the Apple TV plugged into this TV, link the two so their **Mode** stays the same. Under **Apple TV Mgmt → Keep mode in sync with**, pick that profile's **Mode** select. It's preselected when an Apple TV Mgmt profile uses this TV as its TV entity, or when you only have one.
@@ -116,7 +137,7 @@ Each profile is a device named like Apple TV Mgmt's, such as **TV Mgmt — Famil
 | **Enforcement state** (sensor) | `OK`, `Warning`, `Blocked`, `Paused` or `Adult mode`, with the reason and any active quiet window. |
 | **Time used today** / **Time remaining today** (sensors) | Today's screen time. Remaining is unknown when there's no daily limit. |
 | **Extra time today** (sensor) | Minutes granted (or taken) today. |
-| **Current input** (sensor) | What the TV is showing, and whether it's allowed. Shows `TV off` when the TV is off. |
+| **Current input** (sensor) | What the TV is showing, using your [input names](#naming-inputs), and whether it's allowed. Shows `TV off` when the TV is off. The `source` attribute has the value the TV reports. |
 | **Blocked switches today** (sensor) | How many times someone tried another input, and the last one tried. |
 
 Counters, extra time and manual blocks reset at midnight. Mode, input lock and adult mode survive restarts.
@@ -189,6 +210,7 @@ automation:
 | Delay before switching back | 2 s | Grace period before switching back. |
 | Enforce when the TV turns on | on | Also corrects the input at power-on. |
 | Max retries per minute | 5 | Pauses the lock if the TV keeps refusing. |
+| Input names | none | Names to show instead of what the TV reports. See [Naming inputs](#naming-inputs). |
 
 **Screen time**
 

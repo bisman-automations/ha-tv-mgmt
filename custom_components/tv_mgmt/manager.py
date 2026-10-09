@@ -19,6 +19,7 @@ from .backends import TVBackend
 from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_DAILY_BUDGET,
+    CONF_INPUT_NAMES,
     CONF_MEDIA_PLAYER,
     CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
@@ -37,6 +38,7 @@ from .const import (
 )
 from .guard import InputGuard
 from .mode_sync import ModeSync
+from .names import InputNames
 from .quiet import QuietWindow, parse_windows
 from .state import (
     MODE_ENFORCED,
@@ -76,6 +78,7 @@ class TVManager:
         self.backend = backend
         self.options = flatten_options(dict(entry.options))
         self.store = ProfileStore(hass, entry.entry_id)
+        self.input_names = InputNames(self.options.get(CONF_INPUT_NAMES))
         self.activity_store = ActivityStore(hass, entry.entry_id)
         # Last power/input state written to the activity log.
         self._logged_on: bool | None = None
@@ -145,6 +148,25 @@ class TVManager:
     def adult_mode_active(self) -> bool:
         until = self.state.adult_mode_until_dt
         return until is not None and until > dt_util.utcnow()
+
+    def name_for(self, raw: str | None) -> str | None:
+        """Display name for an input (the raw value if it has none)."""
+        return self.input_names.name(raw)
+
+    def known_inputs(self) -> list[str]:
+        """Every input this TV has reported, most relevant first."""
+        seen = [
+            e["source"] for e in reversed(self.activity.events)
+            if e.get("source") and e["type"] in (act.EV_TV_ON, act.EV_INPUT, act.EV_INPUT_BLOCKED)
+        ]
+        current = [self.backend.current_source] if self.backend.is_on else []
+        return [
+            s for s in dict.fromkeys(
+                [*self.guard.allowed_sources, self.guard.target_source, *current, *seen,
+                 *self.backend.source_list, *self.input_names.user]
+            )
+            if s
+        ]
 
     def _enforcing_actions(self) -> bool:
         """Act on rules (enforced) vs. only report them (monitor only)."""
@@ -240,7 +262,9 @@ class TVManager:
                 "tv": self.name,
                 ATTR_ENTITY_ID: self.tv_entity_id,
                 "blocked_source": source,
+                "blocked_source_name": self.name_for(source),
                 "target_source": target,
+                "target_source_name": self.name_for(target),
                 "reverted": self._enforcing_actions(),
             },
         )

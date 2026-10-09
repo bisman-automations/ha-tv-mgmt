@@ -20,13 +20,15 @@
               "target_source": "Input to force back to",
               "revert_delay": "Delay before switching back",
               "enforce_on_power_on": "Enforce when the TV turns on",
-              "max_attempts": "Max retries per minute"
+              "max_attempts": "Max retries per minute",
+              "input_names": "Input names"
             },
             "data_description": {
               "allowed_sources": "Usually just one, e.g. the Apple TV's HDMI input. Anything else gets switched away from.",
               "target_source": "Leave empty to use the first allowed input.",
               "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
-              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed."
+              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed.",
+              "input_names": "Show an input under a name you choose, one per line, e.g. com.tcl.tv = Apple TV. Matching still uses the real value."
             }
           },
           "screen_time": {
@@ -62,7 +64,8 @@
       "no_sources": "Pick at least one allowed input.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
-      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas."
+      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",
+      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV."
     },
     "abort": {
       "already_configured": "This TV already has a profile."
@@ -82,13 +85,15 @@
               "target_source": "Input to force back to",
               "revert_delay": "Delay before switching back",
               "enforce_on_power_on": "Enforce when the TV turns on",
-              "max_attempts": "Max retries per minute"
+              "max_attempts": "Max retries per minute",
+              "input_names": "Input names"
             },
             "data_description": {
               "allowed_sources": "Usually just one, e.g. the Apple TV's HDMI input. Anything else gets switched away from.",
               "target_source": "Leave empty to use the first allowed input.",
               "enforce_on_power_on": "Also switch to the input when the TV powers on without reporting one.",
-              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed."
+              "max_attempts": "Pauses the lock if the TV keeps refusing, so it isn't spammed.",
+              "input_names": "Show an input under a name you choose, one per line, e.g. com.tcl.tv = Apple TV. Matching still uses the real value."
             }
           },
           "screen_time": {
@@ -124,7 +129,8 @@
       "no_sources": "Pick at least one allowed input.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
-      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas."
+      "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",
+      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV."
     }
   },
   "entity": {

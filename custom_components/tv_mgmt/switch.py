@@ -35,8 +35,8 @@ class InputLockSwitch(TVMgmtEntity, SwitchEntity):
     def extra_state_attributes(self) -> dict[str, Any]:
         guard = self.manager.guard
         return {
-            "allowed_inputs": guard.allowed_sources,
-            "target_input": guard.target_source,
+            "allowed_inputs": [self.manager.name_for(s) for s in guard.allowed_sources],
+            "target_input": self.manager.name_for(guard.target_source),
             "paused_reason": guard.paused_reason,
         }
 

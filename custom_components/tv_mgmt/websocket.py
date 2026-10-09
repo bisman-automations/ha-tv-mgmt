@@ -17,14 +17,17 @@ from .activity import summarize
 from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_DAILY_BUDGET,
+    CONF_INPUT_NAMES,
     CONF_QUIET_WINDOWS,
     CONF_WARN_MINUTES,
     DEFAULT_QUIET_WINDOWS,
     DOMAIN,
+    SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
     SIGNAL_ANY_UPDATED,
 )
 from .manager import TVManager
+from .names import clean_names
 from .quiet import parse_windows
 from .state import MODES
 
@@ -47,6 +50,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_analytics,
         ws_limits_get,
         ws_limits_set,
+        ws_input_names_set,
         ws_action,
         ws_subscribe,
     ):
@@ -109,6 +113,9 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "last_blocked_at": state.last_blocked_at,
         "mode_sync_entity": manager.mode_sync.entity_id if manager.mode_sync else None,
         "quiet_windows": [w.format() for w in manager.quiet_windows],
+        # Display names for every input this TV has reported (raw -> name).
+        "input_names": {raw: manager.name_for(raw) for raw in manager.known_inputs()},
+        "custom_input_names": dict(manager.input_names.user),
     }
 
 
@@ -258,6 +265,27 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
     # Saving options reloads the profile with the new limits.
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": changes})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/input_names/set",
+        vol.Required("entry_id"): str,
+        vol.Required("names"): {str: str},
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
+    """Replace this TV's custom input names. Blank names are removed."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    names = clean_names(msg["names"])
+    entry = manager.entry
+    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options.setdefault(SECTION_INPUT_LOCK, {})[CONF_INPUT_NAMES] = names
+    hass.config_entries.async_update_entry(entry, options=options)
+    connection.send_result(msg["id"], {"saved": names})
 
 
 @websocket_api.websocket_command(

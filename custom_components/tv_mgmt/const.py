@@ -17,6 +17,7 @@ CONF_TARGET_SOURCE = "target_source"
 CONF_REVERT_DELAY = "revert_delay"
 CONF_ENFORCE_ON_POWER_ON = "enforce_on_power_on"
 CONF_MAX_ATTEMPTS = "max_attempts"
+CONF_INPUT_NAMES = "input_names"  # {raw input: display name}
 
 DEFAULT_REVERT_DELAY = 2  # seconds
 DEFAULT_ENFORCE_ON_POWER_ON = True

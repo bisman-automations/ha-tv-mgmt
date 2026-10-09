@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-09
+
+### Added
+
+- **Input names.** Give any input a name you'll recognise. For example, show `com.tcl.tv` as **Apple TV**. TV Mgmt still matches on what the TV reports, so the input lock and allowed inputs keep working.
+  - Set names in the sidebar app under **Limits → Input names**, which lists every input the TV has reported, or under **Configure → Input lock → Input names** as `com.tcl.tv = Apple TV` lines.
+  - Names show on the **Current input** sensor, the input lock switch's attributes, the sidebar app's dashboard, activity strip and log, and the settings dropdowns.
+  - Common Android TV and Google TV packages have readable names built in, such as Google TV home, YouTube and Netflix. Your names take priority.
+- The **Current input** sensor has a `source` attribute with the value the TV reports.
+- `tv_mgmt_input_blocked` events include `blocked_source_name` and `target_source_name`.
+
+### Changed
+
+- Home Assistant's history for the **Current input** sensor shows names from now on. Earlier entries keep the value the TV reported.
+
 ## [1.2.0] - 2026-10-08
 
 ### Added
@@ -134,7 +149,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.1...v1.1.2
