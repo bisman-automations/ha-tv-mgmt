@@ -10,6 +10,7 @@ CONF_MEDIA_PLAYER = "media_player"
 SECTION_INPUT_LOCK = "input_lock"
 SECTION_SCREEN_TIME = "screen_time"
 SECTION_SYNC = "sync"
+SECTION_APPLE_TV = "apple_tv"
 
 # Input lock
 CONF_ALLOWED_SOURCES = "allowed_sources"
@@ -33,6 +34,17 @@ DEFAULT_DAILY_BUDGET = 0
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_QUIET_WINDOWS = ""
 DEFAULT_ADULT_MODE_DURATION = 120
+
+# Apple TV (streaming box) linked to this TV
+CONF_STREAMING_PLAYER = "streaming_player"
+CONF_APP_MODE = "app_mode"  # block / allow
+CONF_APPS = "apps"  # apps blocked (block mode) or allowed (allow mode)
+CONF_APP_LIMITS = "app_limits"  # {app: minutes}
+CONF_APP_ACTION = "app_action"  # home / sleep
+CONF_SLEEP_ON_BLOCK = "sleep_on_block"
+DEFAULT_SLEEP_ON_BLOCK = True
+APP_STOP_DELAY = 2  # seconds before stopping an app that isn't allowed
+APPLE_TV_DOMAIN = "apple_tv"
 
 # Sync with Apple TV Mgmt
 APPLETV_MGMT_DOMAIN = "appletv_mgmt"
@@ -63,6 +75,7 @@ ATTR_MINUTES = "minutes"
 EVENT_INPUT_BLOCKED = f"{DOMAIN}_input_blocked"
 EVENT_ENFORCEMENT_CHANGED = f"{DOMAIN}_enforcement_changed"
 EVENT_WARNING = f"{DOMAIN}_warning"
+EVENT_APP_BLOCKED = f"{DOMAIN}_app_blocked"
 
 SIGNAL_UPDATED = f"{DOMAIN}_updated_{{}}"
 SIGNAL_ANY_UPDATED = f"{DOMAIN}_any_updated"

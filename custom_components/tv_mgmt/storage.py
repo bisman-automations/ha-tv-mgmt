@@ -32,6 +32,13 @@ class ProfileState:
     last_blocked_source: str | None = None
     last_blocked_at: str | None = None
 
+    # Streaming box (Apple TV)
+    app_seconds: dict[str, int] = field(default_factory=dict)  # today, by app ID
+    apps_stopped: int = 0  # today
+    last_stopped_app: str | None = None
+    last_stopped_at: str | None = None
+    known_apps: dict[str, str] = field(default_factory=dict)  # app ID -> name, kept
+
     def reset_day(self, day: date) -> None:
         """Start a new day. Extensions and manual blocks don't carry over."""
         self.day = day.isoformat()
@@ -39,6 +46,8 @@ class ProfileState:
         self.extension_minutes = 0
         self.blocked_switches = 0
         self.force_block = False
+        self.app_seconds = {}
+        self.apps_stopped = 0
 
     @property
     def adult_mode_until_dt(self) -> datetime | None:

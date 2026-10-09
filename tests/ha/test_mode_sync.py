@@ -122,6 +122,7 @@ async def test_options_flow_saves_link_and_shows_it_again(
             "input_lock": {"allowed_sources": ["HDMI 2"], "revert_delay": 2,
                            "enforce_on_power_on": True, "max_attempts": 5},
             "screen_time": {"daily_budget": 0, "warn_minutes": 5, "adult_mode_duration": 120},
+            "apple_tv": {},
             "sync": {"mode_sync_entity": ATV_MODE},
         },
     )

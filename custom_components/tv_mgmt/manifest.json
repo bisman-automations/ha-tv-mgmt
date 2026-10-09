@@ -4,6 +4,7 @@
   "after_dependencies": [
     "androidtv",
     "androidtv_remote",
+    "apple_tv",
     "appletv_mgmt",
     "frontend",
     "panel_custom",
@@ -24,5 +25,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/bisman-automations/ha-tv-mgmt/issues",
   "requirements": [],
-  "version": "1.3.0"
+  "version": "1.4.0"
 }

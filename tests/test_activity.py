@@ -99,3 +99,26 @@ def test_round_trip():
     again = ActivityLog(log.as_dict())
     assert again.events == log.events and again.daily == log.daily
     assert again.first_day == "2026-10-08"
+
+
+def test_app_segments():
+    from tv_mgmt_pure.activity import EV_APP
+
+    log = ActivityLog()
+    log.add(at(15), EV_APP, app="com.google.ios.youtube", name="YouTube")
+    log.add(at(15, 20), EV_APP, app=None, name=None)  # home screen
+    log.add(at(15, 25), EV_APP, app="com.disney.disneyplus", name="Disney+")
+    segs = log.app_segments(at(0), at(0, day=9), now=at(16))
+    assert [(s["name"], s["seconds"]) for s in segs] == [("YouTube", 1200), ("Disney+", 2100)]
+    assert segs[-1]["live"] is True
+
+
+def test_daily_apps_and_top_apps():
+    log = ActivityLog()
+    log.record_day("2026-10-07", used_seconds=60, budget_minutes=0, extension_minutes=0, blocked=0,
+                   apps={"yt": 600, "disney": 300}, apps_stopped=2)
+    log.record_day("2026-10-08", used_seconds=60, budget_minutes=0, extension_minutes=0, blocked=0,
+                   apps={"disney": 900})
+    summary = summarize(log.daily_series(date(2026, 10, 8), 2))
+    assert summary["top_apps"] == [{"app": "disney", "seconds": 1200}, {"app": "yt", "seconds": 600}]
+    assert summary["apps_stopped"] == 2

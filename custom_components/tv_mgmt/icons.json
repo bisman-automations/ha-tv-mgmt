@@ -12,11 +12,15 @@
     "switch": {
       "input_lock": {
         "default": "mdi:television-shimmer",
-        "state": { "off": "mdi:television-off" }
+        "state": {
+          "off": "mdi:television-off"
+        }
       },
       "adult_mode": {
         "default": "mdi:account-tie",
-        "state": { "off": "mdi:account-child" }
+        "state": {
+          "off": "mdi:account-child"
+        }
       }
     },
     "sensor": {
@@ -29,17 +33,41 @@
           "adult_mode": "mdi:account-tie"
         }
       },
-      "time_used_today": { "default": "mdi:timer-sand" },
-      "time_remaining_today": { "default": "mdi:timer-outline" },
-      "extension_today": { "default": "mdi:timer-plus" },
-      "current_input": { "default": "mdi:video-input-hdmi" },
-      "blocked_switches_today": { "default": "mdi:shield-alert" }
+      "time_used_today": {
+        "default": "mdi:timer-sand"
+      },
+      "time_remaining_today": {
+        "default": "mdi:timer-outline"
+      },
+      "extension_today": {
+        "default": "mdi:timer-plus"
+      },
+      "current_input": {
+        "default": "mdi:video-input-hdmi"
+      },
+      "blocked_switches_today": {
+        "default": "mdi:shield-alert"
+      },
+      "current_app": {
+        "default": "mdi:television-box"
+      },
+      "app_time_today": {
+        "default": "mdi:apps"
+      }
     }
   },
   "services": {
-    "grant_extension": { "service": "mdi:timer-plus" },
-    "force_block": { "service": "mdi:television-off" },
-    "unblock": { "service": "mdi:television" },
-    "reset_usage": { "service": "mdi:restore" }
+    "grant_extension": {
+      "service": "mdi:timer-plus"
+    },
+    "force_block": {
+      "service": "mdi:television-off"
+    },
+    "unblock": {
+      "service": "mdi:television"
+    },
+    "reset_usage": {
+      "service": "mdi:restore"
+    }
   }
 }

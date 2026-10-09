@@ -15,18 +15,27 @@ from homeassistant.helpers.event import async_call_later, async_track_time_inter
 from homeassistant.util import dt as dt_util
 
 from . import activity as act
+from .apps import ACTION_HOME, APP_MODE_BLOCK, AppRules
 from .backends import TVBackend
 from .const import (
     CONF_ADULT_MODE_DURATION,
+    CONF_APP_ACTION,
+    CONF_APP_LIMITS,
+    CONF_APP_MODE,
+    CONF_APPS,
     CONF_DAILY_BUDGET,
     CONF_INPUT_NAMES,
     CONF_MEDIA_PLAYER,
     CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
+    CONF_SLEEP_ON_BLOCK,
+    CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
+    DEFAULT_SLEEP_ON_BLOCK,
     DEFAULT_WARN_MINUTES,
+    EVENT_APP_BLOCKED,
     EVENT_ENFORCEMENT_CHANGED,
     EVENT_INPUT_BLOCKED,
     EVENT_WARNING,
@@ -50,6 +59,7 @@ from .state import (
     decide,
 )
 from .storage import ActivityStore, ProfileState, ProfileStore
+from .streaming import StreamingBox
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -104,6 +114,25 @@ class TVManager:
                 get_mode=lambda: self.state.mode,
                 set_mode=lambda mode: self.set_mode(mode, from_sync=True),
             )
+
+        self.box: StreamingBox | None = None
+        if box_entity := self.options.get(CONF_STREAMING_PLAYER):
+            self.box = StreamingBox(
+                hass,
+                box_entity,
+                AppRules(
+                    mode=self.options.get(CONF_APP_MODE) or APP_MODE_BLOCK,
+                    apps=list(self.options.get(CONF_APPS) or []),
+                    limits=dict(self.options.get(CONF_APP_LIMITS) or {}),
+                ),
+                self.options.get(CONF_APP_ACTION) or ACTION_HOME,
+                rules_active=lambda: self.decision.state in (STATE_OK, STATE_WARNING),
+                should_act=self._enforcing_actions,
+                used_seconds=lambda app: self.state.app_seconds.get(app, 0),
+                on_stop=self._on_app_stopped,
+                on_update=self.notify,
+            )
+        self._logged_app: str | None = None
 
         self._last_tick: datetime | None = None
         self._last_turn_off: datetime | None = None
@@ -168,6 +197,25 @@ class TVManager:
             if s
         ]
 
+    @property
+    def sleep_on_block(self) -> bool:
+        return bool(self.options.get(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK))
+
+    def app_name_for(self, app_id: str | None) -> str | None:
+        if app_id is None:
+            return None
+        return self.state.known_apps.get(app_id, app_id)
+
+    def known_apps(self) -> dict[str, str]:
+        """Apps this Apple TV has opened or lists (ID or name -> name)."""
+        apps = dict(self.state.known_apps)
+        if self.box:
+            named = set(apps.values())
+            for name in self.box.source_list:
+                if name not in named:
+                    apps[name] = name
+        return apps
+
     def _enforcing_actions(self) -> bool:
         """Act on rules (enforced) vs. only report them (monitor only)."""
         return self.state.mode == MODE_ENFORCED
@@ -189,6 +237,10 @@ class TVManager:
         await self.activity_store.async_load()
         self.activity.prune(dt_util.utcnow())
         self._logged_on, self._logged_source = self.activity.last_power
+        self._logged_app = next(
+            (e.get("app") for e in reversed(self.activity.events) if e["type"] == act.EV_APP),
+            None,
+        )
         self._rollover_if_needed(dt_util.now())
         if hasattr(self.backend, "set_assumed_source") and self.guard.target_source:
             self.backend.set_assumed_source(self.guard.target_source)
@@ -207,6 +259,10 @@ class TVManager:
         self.guard.async_start()
         if self.mode_sync:
             self.mode_sync.async_start()
+        if self.box:
+            self.box.async_start(self._on_box_update)
+            self._log_app()
+            self.box.evaluate()
         self._record_today()
 
     async def async_stop(self) -> None:
@@ -218,6 +274,8 @@ class TVManager:
         self.guard.async_stop()
         if self.mode_sync:
             self.mode_sync.async_stop()
+        if self.box:
+            self.box.async_stop()
         await self.backend.async_stop()
         self._record_today()
         await self.store.async_save()
@@ -235,9 +293,59 @@ class TVManager:
         self.notify()
 
     @callback
+    def _on_box_update(self) -> None:
+        self._count_usage()  # credit time to the app that was open until now
+        if self.box and self.box.refresh_app():
+            self._log_app()
+        self._recompute()
+        if self.box:
+            self.box.evaluate()
+        self._enforce_power()
+        self.notify()
+
+    @callback
+    def _on_app_stopped(
+        self, app_id: str, name: str | None, reason: str, action: str, acted: bool
+    ) -> None:
+        now = dt_util.utcnow()
+        self.state.apps_stopped += 1
+        self.state.last_stopped_app = app_id
+        self.state.last_stopped_at = now.isoformat()
+        self.store.schedule_save()
+        self._log(act.EV_APP_STOPPED, app=app_id, name=name, reason=reason, action=action, acted=acted)
+        self.hass.bus.async_fire(
+            EVENT_APP_BLOCKED,
+            {
+                "profile_id": self.entry.entry_id,
+                "tv": self.name,
+                ATTR_ENTITY_ID: self.box.entity_id if self.box else None,
+                "app_id": app_id,
+                "app_name": name,
+                "reason": reason,
+                "action": action,
+                "acted": acted,
+            },
+        )
+        self.notify()
+
+    @callback
+    def _log_app(self) -> None:
+        if not self.box:
+            return
+        app_id, name = self.box.app_id, self.box.app_name
+        if app_id and name and self.state.known_apps.get(app_id) != name:
+            self.state.known_apps[app_id] = name
+            self.store.schedule_save()
+        if app_id != self._logged_app:
+            self._log(act.EV_APP, app=app_id, name=name)
+            self._logged_app = app_id
+
+    @callback
     def _on_tick(self, _now: datetime) -> None:
         self._count_usage()
         self._recompute()
+        if self.box:
+            self.box.evaluate()
         self.guard.evaluate()
         self._enforce_power()
         self.notify()
@@ -286,17 +394,19 @@ class TVManager:
         last, self._last_tick = self._last_tick, now
         local_now = dt_util.as_local(now)
 
-        if last is not None and self.backend.is_on:
+        tv_on = bool(self.backend.is_on)
+        app = self.box.app_id if self.box else None
+        if last is not None and (tv_on or app):
             elapsed = now - last
             if timedelta(0) < elapsed <= MAX_TICK_GAP:
                 # Split at midnight so viewing books to the right day.
                 midnight = dt_util.start_of_local_day(local_now)
                 local_last = dt_util.as_local(last)
                 if local_last < midnight:
-                    self.state.used_seconds += int((midnight - local_last).total_seconds())
+                    self._credit(int((midnight - local_last).total_seconds()), tv_on, app)
                     self._rollover_if_needed(local_now)
                     elapsed = local_now - midnight
-                self.state.used_seconds += int(elapsed.total_seconds())
+                self._credit(int(elapsed.total_seconds()), tv_on, app)
                 self.store.schedule_save()
 
         self._rollover_if_needed(local_now)
@@ -304,6 +414,12 @@ class TVManager:
         if self.state.adult_mode_until and not self.adult_mode_active:
             self.state.adult_mode_until = None
             self.store.schedule_save()
+
+    def _credit(self, seconds: int, tv_on: bool, app: str | None) -> None:
+        if tv_on:
+            self.state.used_seconds += seconds
+        if app:
+            self.state.app_seconds[app] = self.state.app_seconds.get(app, 0) + seconds
 
     @callback
     def _recompute(self, *, fire_events: bool = True) -> None:
@@ -359,6 +475,14 @@ class TVManager:
 
     @callback
     def _enforce_power(self) -> None:
+        if (
+            self.box
+            and self.sleep_on_block
+            and self.decision.state == STATE_ENFORCING
+            and self._enforcing_actions()
+            and self.box.sleep_if_on()
+        ):
+            self._log(act.EV_BOX_SLEEP, reason=self.decision.reason)
         if not (
             self.decision.state == STATE_ENFORCING
             and self._enforcing_actions()
@@ -511,5 +635,7 @@ class TVManager:
             budget_minutes=self.daily_budget,
             extension_minutes=self.state.extension_minutes,
             blocked=self.state.blocked_switches,
+            apps=self.state.app_seconds,
+            apps_stopped=self.state.apps_stopped,
         ):
             self.activity_store.schedule_save()

@@ -40,5 +40,21 @@ async def async_get_config_entry_diagnostics(
             if manager.mode_sync
             else None
         ),
+        "apple_tv": (
+            {
+                **manager.box.summary(),
+                "rules": {
+                    "mode": manager.box.rules.mode,
+                    "apps": manager.box.rules.apps,
+                    "limits": manager.box.rules.limits,
+                    "action": manager.box.action,
+                },
+                "box_state": (
+                    s.as_dict() if (s := hass.states.get(manager.box.entity_id)) else None
+                ),
+            }
+            if manager.box
+            else None
+        ),
         "tv_entity_state": tv_state.as_dict() if tv_state else None,
     }

@@ -44,6 +44,56 @@ def _current_input(m: TVManager) -> str | None:
     return m.name_for(m.backend.current_source)
 
 
+def _current_app(m: TVManager) -> str | None:
+    box = m.box
+    if box is None or not box.available:
+        return None
+    if not box.is_on:
+        return "Asleep"
+    return box.app_name or "Home screen"
+
+
+def _current_app_attrs(m: TVManager) -> dict[str, Any]:
+    box = m.box
+    app_id = box.app_id if box else None
+    limit = box.rules.limit_for(app_id, box.app_name) if box and app_id else None
+    return {
+        "app_id": app_id,
+        "allowed": None if not app_id else box.stop_reason is None,
+        "stop_reason": box.stop_reason if box else None,
+        "minutes_today": _minutes(m.state.app_seconds.get(app_id, 0)) if app_id else None,
+        "limit_minutes": limit,
+    }
+
+
+def _app_time_attrs(m: TVManager) -> dict[str, Any]:
+    ranked = sorted(m.state.app_seconds.items(), key=lambda item: item[1], reverse=True)
+    return {
+        "apps": {m.app_name_for(app): _minutes(secs) for app, secs in ranked},
+        "apps_stopped": m.state.apps_stopped,
+        "last_stopped_app": m.app_name_for(m.state.last_stopped_app),
+        "last_stopped_at": m.state.last_stopped_at,
+    }
+
+
+APPLE_TV_SENSORS: tuple[TVMgmtSensorDescription, ...] = (
+    TVMgmtSensorDescription(
+        key="current_app",
+        value_fn=_current_app,
+        attrs_fn=_current_app_attrs,
+    ),
+    TVMgmtSensorDescription(
+        key="app_time_today",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        suggested_display_precision=0,
+        value_fn=lambda m: _minutes(sum(m.state.app_seconds.values())),
+        attrs_fn=_app_time_attrs,
+    ),
+)
+
+
 SENSORS: tuple[TVMgmtSensorDescription, ...] = (
     TVMgmtSensorDescription(
         key="enforcement_state",
@@ -109,7 +159,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     manager = entry.runtime_data
-    async_add_entities(TVMgmtSensor(manager, description) for description in SENSORS)
+    descriptions = SENSORS + (APPLE_TV_SENSORS if manager.box else ())
+    async_add_entities(TVMgmtSensor(manager, description) for description in descriptions)
 
 
 class TVMgmtSensor(TVMgmtEntity, SensorEntity):

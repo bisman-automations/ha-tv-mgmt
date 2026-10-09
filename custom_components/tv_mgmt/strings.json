@@ -47,6 +47,25 @@
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
             }
           },
+          "apple_tv": {
+            "name": "Apple TV",
+            "description": "Add the Apple TV plugged into this TV to track its apps and set rules for them. Leave the Apple TV empty to skip this.",
+            "data": {
+              "streaming_player": "Apple TV",
+              "app_mode": "Use the app list to",
+              "apps": "Apps",
+              "app_limits": "Daily limits per app",
+              "app_action": "When an app isn't allowed",
+              "sleep_on_block": "Put the Apple TV to sleep when the TV is blocked"
+            },
+            "data_description": {
+              "streaming_player": "The Apple TV's media player from Home Assistant's Apple TV integration.",
+              "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
+              "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
+              "app_action": "Going home leaves the Apple TV on so other apps still work.",
+              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV."
+            }
+          },
           "sync": {
             "name": "Apple TV Mgmt",
             "description": "Link this TV to an Apple TV Mgmt profile.",
@@ -65,7 +84,8 @@
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
       "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",
-      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV."
+      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV.",
+      "bad_app_limits": "Daily limits per app must be one per line, like YouTube = 30."
     },
     "abort": {
       "already_configured": "This TV already has a profile."
@@ -112,6 +132,25 @@
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
             }
           },
+          "apple_tv": {
+            "name": "Apple TV",
+            "description": "Add the Apple TV plugged into this TV to track its apps and set rules for them. Leave the Apple TV empty to skip this.",
+            "data": {
+              "streaming_player": "Apple TV",
+              "app_mode": "Use the app list to",
+              "apps": "Apps",
+              "app_limits": "Daily limits per app",
+              "app_action": "When an app isn't allowed",
+              "sleep_on_block": "Put the Apple TV to sleep when the TV is blocked"
+            },
+            "data_description": {
+              "streaming_player": "The Apple TV's media player from Home Assistant's Apple TV integration.",
+              "apps": "Pick from apps the Apple TV has opened or lists, or type an app's name.",
+              "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
+              "app_action": "Going home leaves the Apple TV on so other apps still work.",
+              "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV."
+            }
+          },
           "sync": {
             "name": "Apple TV Mgmt",
             "description": "Link this TV to an Apple TV Mgmt profile.",
@@ -130,7 +169,8 @@
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
       "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",
-      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV."
+      "bad_input_names": "Input names must be one per line, like com.tcl.tv = Apple TV.",
+      "bad_app_limits": "Daily limits per app must be one per line, like YouTube = 30."
     }
   },
   "entity": {
@@ -177,6 +217,12 @@
       },
       "blocked_switches_today": {
         "name": "Blocked switches today"
+      },
+      "current_app": {
+        "name": "Current app"
+      },
+      "app_time_today": {
+        "name": "App time today"
       }
     }
   },
@@ -232,6 +278,20 @@
     },
     "profile_not_loaded": {
       "message": "The TV Mgmt profile {profile} isn't loaded."
+    }
+  },
+  "selector": {
+    "app_mode": {
+      "options": {
+        "block": "Block these apps",
+        "allow": "Allow only these apps"
+      }
+    },
+    "app_action": {
+      "options": {
+        "home": "Go back to the Apple TV home screen",
+        "sleep": "Put the Apple TV to sleep"
+      }
     }
   }
 }

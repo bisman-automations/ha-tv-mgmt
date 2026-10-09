@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-09
+
+### Added
+
+- **Apple TV support.** Link the Apple TV plugged into a TV, under **Configure → Apple TV**, so the room has one set of rules for both. It uses Home Assistant's Apple TV integration.
+  - **Time per app:** which app is open and for how long. The home screen isn't counted.
+  - **Block apps, or allow only a few:** block the apps you pick, or allow only those and block everything else.
+  - **Daily limits per app,** such as `YouTube = 30`.
+  - A stopped app sends the Apple TV back to its home screen, or puts it to sleep if you choose.
+  - When the TV is blocked (limit reached, quiet window, or Block now), the Apple TV goes to sleep too. This can be turned off.
+  - App rules follow the TV's mode: monitor only reports without closing apps, and paused or adult mode lifts them.
+- **Sensors:** **Current app** and **App time today**, with per-app minutes. They're added only when an Apple TV is linked.
+- **Event:** `tv_mgmt_app_blocked`, for automations.
+- **Sidebar app:**
+  - The dashboard shows the Apple TV's current app and today's top apps, with progress toward per-app limits.
+  - Activity has a strip of app use with a colour per app, plus app opens, stops and sleeps in the log.
+  - Analytics shows the top apps and how many apps were stopped.
+  - **Limits → Apple TV apps** edits the app rules, with a separate checklist for block and allow-only modes.
+- Diagnostics include the Apple TV and its rules.
+
 ## [1.3.0] - 2026-10-09
 
 ### Added
@@ -150,7 +170,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.3...v1.2.0
 [1.1.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.1.2...v1.1.3

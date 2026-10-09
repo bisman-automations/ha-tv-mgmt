@@ -12,6 +12,7 @@ Smart TVs have no real way to say "only the Apple TV." Kids flip to the built-in
 - **Locks the input.** If the TV switches to anything but the allowed input, it's switched straight back.
 - **Limits screen time.** It counts how long the TV is on each day. When the limit is reached, the TV is turned off, and it stays off if someone turns it back on.
 - **Keeps quiet windows.** The TV stays off during bedtime, school hours, or whatever windows you set.
+- **Manages the Apple TV too.** Link the Apple TV plugged into the TV to see time per app, block apps (or allow only a few), and give apps their own daily limits.
 - **Leaves parents in charge.** You can grant extra time, block now, pause the rules, or use **adult mode** to lift everything for a movie night.
 
 It's modeled on [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt), but it controls the TV itself, so it works whatever is plugged into it.
@@ -117,6 +118,32 @@ TV Mgmt still matches on the real value, so the input lock isn't affected.
 
 Common Android TV and Google TV apps already have readable names, such as YouTube, Netflix and Google TV home. Your names take priority.
 
+## Apple TV apps
+
+Link the Apple TV that's plugged into a TV, and the room gets one set of rules for both. It uses Home Assistant's [Apple TV integration](https://www.home-assistant.io/integrations/apple_tv/), so set that up first.
+
+Open **Configure** on the TV's profile and pick the Apple TV under **Apple TV**. It's preselected if you have only one. Then:
+
+- **Time per app.** TV Mgmt records which app is open and for how long. The home screen doesn't count. It shows on two new sensors, **Current app** and **App time today**, and in the sidebar app's dashboard, activity and analytics.
+- **Block apps, or allow only a few.** Either block the apps you check (say Roblox), or allow only the apps you check (say Disney+ and PBS KIDS Video) and block everything else.
+- **Daily limits per app.** For example, YouTube 30 minutes. When an app hits its limit, it's stopped for the rest of the day.
+- **What happens.** A stopped app sends the Apple TV back to its home screen, so other apps still work, or puts it to sleep if you prefer.
+- **Sleep with the TV.** When the TV is blocked (limit reached, quiet window, or Block now), the Apple TV is put to sleep too.
+
+App rules follow the TV's **Mode**:
+
+- **Monitor only:** stopped apps are logged and reported, but nothing is closed.
+- **Paused** and **Adult mode:** app rules are lifted.
+
+Edit app rules in the sidebar app under **Limits → Apple TV apps**: check apps and type a daily limit next to any of them. Or use **Configure → Apple TV**, with limits one per line:
+
+```
+YouTube = 30
+Netflix = 60
+```
+
+Rules match the app's name or its ID, like `com.google.ios.youtube`. Going back to the home screen uses the Apple TV's `remote` entity. If there isn't one, TV Mgmt puts the Apple TV to sleep instead.
+
 ## Using it with Apple TV Mgmt
 
 If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the Apple TV plugged into this TV, link the two so their **Mode** stays the same. Under **Apple TV Mgmt → Keep mode in sync with**, pick that profile's **Mode** select. It's preselected when an Apple TV Mgmt profile uses this TV as its TV entity, or when you only have one.
@@ -165,6 +192,7 @@ data:
 | Event | When |
 | --- | --- |
 | `tv_mgmt_input_blocked` | Someone switched to an input that isn't allowed. Includes `blocked_source`, `target_source`, and whether it was `reverted`. |
+| `tv_mgmt_app_blocked` | An Apple TV app was stopped. Includes `app_id`, `app_name`, `reason` (`blocked`, `not_allowed` or `limit`), `action` (`home` or `sleep`), and whether it `acted` (false in monitor-only mode). |
 | `tv_mgmt_warning` | Time is about to run out. Includes `remaining_minutes`. |
 | `tv_mgmt_enforcement_changed` | The enforcement state changed. Includes `state`, `previous_state`, `reason` and `quiet_window`. |
 
@@ -220,6 +248,17 @@ automation:
 | Warn before time runs out | 5 min | When `tv_mgmt_warning` fires. |
 | Quiet windows | none | Times the TV stays off, e.g. `20:30-07:00 Bedtime, 08:00-15:00 School`. |
 | Adult mode lasts | 120 min | How long adult mode lifts the rules. |
+
+**Apple TV**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| Apple TV | the only one, if any | The Apple TV's media player. Leave empty to skip. |
+| Use the app list to | Block these apps | Block the listed apps, or allow only them. |
+| Apps | none | The apps to block or allow. |
+| Daily limits per app | none | Minutes per day, e.g. `YouTube = 30`. |
+| When an app isn't allowed | Go back to the home screen | Or put the Apple TV to sleep. |
+| Put the Apple TV to sleep when the TV is blocked | on | Sleeps it along with turning the TV off. |
 
 **Apple TV Mgmt**
 

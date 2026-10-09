@@ -16,17 +16,24 @@ from homeassistant.util import dt as dt_util
 from .activity import summarize
 from .const import (
     CONF_ADULT_MODE_DURATION,
+    CONF_APP_ACTION,
+    CONF_APP_LIMITS,
+    CONF_APP_MODE,
+    CONF_APPS,
     CONF_DAILY_BUDGET,
     CONF_INPUT_NAMES,
     CONF_QUIET_WINDOWS,
+    CONF_SLEEP_ON_BLOCK,
     CONF_WARN_MINUTES,
     DEFAULT_QUIET_WINDOWS,
     DOMAIN,
+    SECTION_APPLE_TV,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
     SIGNAL_ANY_UPDATED,
 )
 from .manager import TVManager
+from .apps import ACTIONS as APP_ACTIONS, APP_MODES
 from .names import clean_names
 from .quiet import parse_windows
 from .state import MODES
@@ -51,6 +58,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_limits_get,
         ws_limits_set,
         ws_input_names_set,
+        ws_apple_tv_set,
         ws_action,
         ws_subscribe,
     ):
@@ -116,6 +124,39 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         # Display names for every input this TV has reported (raw -> name).
         "input_names": {raw: manager.name_for(raw) for raw in manager.known_inputs()},
         "custom_input_names": dict(manager.input_names.user),
+        "apple_tv": apple_tv_summary(manager),
+    }
+
+
+def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
+    box = manager.box
+    if box is None:
+        return None
+    state = manager.state
+    ranked = sorted(state.app_seconds.items(), key=lambda item: item[1], reverse=True)
+    return {
+        **box.summary(),
+        "apps_today": [
+            {
+                "app": app,
+                "name": manager.app_name_for(app),
+                "seconds": secs,
+                "limit_minutes": box.rules.limit_for(app, manager.app_name_for(app)),
+            }
+            for app, secs in ranked
+        ],
+        "app_seconds_today": sum(state.app_seconds.values()),
+        "apps_stopped": state.apps_stopped,
+        "last_stopped_app": manager.app_name_for(state.last_stopped_app),
+        "last_stopped_at": state.last_stopped_at,
+        "known_apps": manager.known_apps(),
+        "rules": {
+            "mode": box.rules.mode,
+            "apps": list(box.rules.apps),
+            "limits": dict(box.rules.limits),
+            "action": box.action,
+            "sleep_on_block": manager.sleep_on_block,
+        },
     }
 
 
@@ -164,6 +205,7 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
     now = dt_util.utcnow()
     log = manager.activity
     segments = log.viewing_segments(start, end, now)
+    app_segments = log.app_segments(start, end, now)
     record = log.daily.get(day.isoformat())
     connection.send_result(
         msg["id"],
@@ -175,6 +217,7 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
             "events": list(reversed(log.events_between(start, end))),
             "segments": segments,
             "viewing_seconds": sum(s["seconds"] for s in segments),
+            "app_segments": app_segments,
             "totals": record,
         },
     )
@@ -204,10 +247,17 @@ def ws_analytics(hass: HomeAssistant, connection, msg) -> None:
                 "entry_id": manager.entry.entry_id,
                 "name": manager.name,
                 "days": series,
-                "summary": summarize(series),
+                "summary": _named_summary(manager, summarize(series)),
+                "has_apple_tv": manager.box is not None,
             }
         )
     connection.send_result(msg["id"], {"profiles": result, "days": msg["days"]})
+
+
+def _named_summary(manager: TVManager, summary: dict[str, Any]) -> dict[str, Any]:
+    for item in summary.get("top_apps", []):
+        item["name"] = manager.app_name_for(item["app"])
+    return summary
 
 
 @websocket_api.websocket_command(
@@ -286,6 +336,47 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
     options.setdefault(SECTION_INPUT_LOCK, {})[CONF_INPUT_NAMES] = names
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": names})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/apple_tv/set",
+        vol.Required("entry_id"): str,
+        vol.Optional("mode"): vol.In(APP_MODES),
+        vol.Optional("apps"): [str],
+        vol.Optional("limits"): {str: vol.All(int, vol.Range(min=0, max=1440))},
+        vol.Optional("action"): vol.In(APP_ACTIONS),
+        vol.Optional("sleep_on_block"): bool,
+    }
+)
+@websocket_api.require_admin
+@callback
+def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
+    """Change this TV's Apple TV app rules (not which Apple TV it is)."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    if manager.box is None:
+        connection.send_error(msg["id"], "not_supported", "This TV has no Apple TV linked")
+        return
+    changes: dict[str, Any] = {}
+    if "mode" in msg:
+        changes[CONF_APP_MODE] = msg["mode"]
+    if "apps" in msg:
+        changes[CONF_APPS] = list(dict.fromkeys(a.strip() for a in msg["apps"] if a.strip()))
+    if "limits" in msg:
+        # 0 or blank means no limit for that app.
+        changes[CONF_APP_LIMITS] = {
+            app.strip(): minutes for app, minutes in msg["limits"].items() if app.strip() and minutes
+        }
+    if "action" in msg:
+        changes[CONF_APP_ACTION] = msg["action"]
+    if "sleep_on_block" in msg:
+        changes[CONF_SLEEP_ON_BLOCK] = msg["sleep_on_block"]
+    entry = manager.entry
+    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options.setdefault(SECTION_APPLE_TV, {}).update(changes)
+    hass.config_entries.async_update_entry(entry, options=options)
+    connection.send_result(msg["id"], {"saved": changes})
 
 
 @websocket_api.websocket_command(

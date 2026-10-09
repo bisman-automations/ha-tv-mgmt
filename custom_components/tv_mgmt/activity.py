@@ -31,10 +31,15 @@ EV_EXTENSION = "extension"  # minutes
 EV_BLOCK = "block"
 EV_UNBLOCK = "unblock"
 EV_RESET = "reset"
+# Streaming box (Apple TV)
+EV_APP = "app"  # app, name; app is None on the home screen or when asleep
+EV_APP_STOPPED = "app_stopped"  # app, name, reason, action, acted
+EV_BOX_SLEEP = "box_sleep"  # reason: TV Mgmt put the Apple TV to sleep
 
 EVENT_TYPES = [
     EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
     EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
+    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP,
 ]
 
 KEEP_EVENT_DAYS = 90
@@ -79,15 +84,21 @@ class ActivityLog:
         budget_minutes: int,
         extension_minutes: int,
         blocked: int,
+        apps: dict[str, int] | None = None,
+        apps_stopped: int = 0,
     ) -> bool:
         """Store a day's totals. Returns True if anything changed."""
         key = day if isinstance(day, str) else day.isoformat()
-        record = {
+        record: dict[str, Any] = {
             "used_seconds": int(used_seconds),
             "budget_minutes": int(budget_minutes),
             "extension_minutes": int(extension_minutes),
             "blocked": int(blocked),
         }
+        if apps:
+            record["apps"] = {app: int(secs) for app, secs in apps.items() if secs}
+        if apps_stopped:
+            record["apps_stopped"] = int(apps_stopped)
         if self.daily.get(key) == record:
             return False
         self.daily[key] = record
@@ -108,7 +119,12 @@ class ActivityLog:
                 ),
                 None,
             )
-            self.events = ([carry] if carry else []) + self.events[first_kept:]
+            carry_app = next(
+                (e for e in reversed(self.events[:first_kept]) if e["type"] == EV_APP),
+                None,
+            )
+            carried = sorted((e for e in (carry, carry_app) if e), key=_ts)
+            self.events = carried + self.events[first_kept:]
 
         oldest_day = (now.date() - timedelta(days=KEEP_DAILY_DAYS)).isoformat()
         for key in [k for k in self.daily if k < oldest_day]:
@@ -190,6 +206,46 @@ class ActivityLog:
                 segments[-1]["live"] = True
         return segments
 
+    def app_segments(
+        self, start: datetime, end: datetime, now: datetime
+    ) -> list[dict[str, Any]]:
+        """Stretches of time an app was open on the streaming box, clipped to [start, end)."""
+        stop = min(end, now)
+        segments: list[dict[str, Any]] = []
+        app: str | None = None
+        name: str | None = None
+        since: datetime | None = None
+
+        def close(at: datetime) -> None:
+            if app is None or since is None:
+                return
+            seg_start, seg_end = max(since, start), min(at, stop)
+            if seg_end > seg_start:
+                segments.append(
+                    {
+                        "start": seg_start.isoformat(),
+                        "end": seg_end.isoformat(),
+                        "seconds": int((seg_end - seg_start).total_seconds()),
+                        "app": app,
+                        "name": name,
+                        "live": False,
+                    }
+                )
+
+        for event in self.events:
+            when = _ts(event)
+            if when >= stop:
+                break
+            if event["type"] == EV_APP and event.get("app") != app:
+                close(when)
+                app, name, since = event.get("app"), event.get("name"), when
+
+        if app is not None and since is not None:
+            close(stop)
+            if segments and stop == now and segments[-1]["end"] == stop.isoformat():
+                segments[-1]["live"] = True
+        return segments
+
     def daily_series(self, today: date, days: int) -> list[dict[str, Any]]:
         """Totals for the last `days` days, oldest first, zero-filled."""
         series = []
@@ -203,6 +259,8 @@ class ActivityLog:
                     "budget_minutes": record["budget_minutes"] if record else 0,
                     "extension_minutes": record["extension_minutes"] if record else 0,
                     "blocked": record["blocked"] if record else 0,
+                    "apps": dict(record.get("apps", {})) if record else {},
+                    "apps_stopped": record.get("apps_stopped", 0) if record else 0,
                     "recorded": record is not None,
                 }
             )
@@ -224,5 +282,17 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
         "active_days": len(active),
         "days_over_limit": len(over),
         "blocked": sum(d["blocked"] for d in recorded),
+        "apps_stopped": sum(d.get("apps_stopped", 0) for d in recorded),
+        "top_apps": top_apps(recorded),
         "recorded_days": len(recorded),
     }
+
+
+def top_apps(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
+    """Apps with the most time over these days."""
+    totals: dict[str, int] = {}
+    for day in days:
+        for app, seconds in day.get("apps", {}).items():
+            totals[app] = totals.get(app, 0) + seconds
+    ranked = sorted(totals.items(), key=lambda item: item[1], reverse=True)[:limit]
+    return [{"app": app, "seconds": seconds} for app, seconds in ranked]

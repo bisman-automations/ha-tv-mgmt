@@ -23,7 +23,7 @@ async def test_flow_tv_on(hass: HomeAssistant) -> None:
         {
             "input_lock": {"allowed_sources": ["HDMI 2"], "revert_delay": 2, "enforce_on_power_on": True, "max_attempts": 5},
             "screen_time": {"daily_budget": 60, "warn_minutes": 5, "quiet_windows": "20:30-07:00 Bedtime", "adult_mode_duration": 120},
-            "sync": {},
+            "apple_tv": {}, "sync": {},
         },
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY, result

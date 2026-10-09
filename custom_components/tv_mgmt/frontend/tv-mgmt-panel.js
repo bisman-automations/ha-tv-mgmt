@@ -16,6 +16,9 @@ const MODES = [
 
 const RANGES = [7, 30, 90];
 
+// Colours for apps on the Apple TV strip, chosen to stay apart in light and dark themes.
+const APP_COLOURS = ["#29b6f6", "#ab47bc", "#26a69a", "#ffa726", "#ec407a", "#8d9aa5"];
+
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 
@@ -104,6 +107,16 @@ function describeEvent(e, p) {
       return { icon: "shield", text: "Unblocked" };
     case "reset":
       return { icon: "clock", text: "Today's time reset" };
+    case "app":
+      return { icon: "box", text: e.app ? `Opened ${e.name ?? e.app} on the Apple TV` : "Closed the app on the Apple TV" };
+    case "app_stopped": {
+      const app = e.name ?? e.app;
+      const why = { blocked: `Tried ${app}, which is blocked`, not_allowed: `Tried ${app}, which isn't on the allowed list`, limit: `${app} reached its daily limit` }[e.reason] || `Stopped ${app}`;
+      const did = !e.acted ? " (monitor only)" : e.action === "sleep" ? ", put the Apple TV to sleep" : ", went back to the home screen";
+      return { icon: "shield", tone: e.acted ? "bad" : "warn", text: why + did };
+    }
+    case "box_sleep":
+      return { icon: "power-off", tone: "bad", text: "TV Mgmt put the Apple TV to sleep" };
     default:
       return { icon: "clock", text: e.type };
   }
@@ -123,6 +136,7 @@ const ICONS = {
   plus: "M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z",
   left: "M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z",
   right: "M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z",
+  box: "M3,8H21A1,1 0 0,1 22,9V15A1,1 0 0,1 21,16H3A1,1 0 0,1 2,15V9A1,1 0 0,1 3,8M17,11A1,1 0 0,0 16,12A1,1 0 0,0 17,13A1,1 0 0,0 18,12A1,1 0 0,0 17,11M5,17H7V18H5V17M17,17H19V18H17V17Z",
   delete: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
 };
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] ?? ICONS.clock}"/></svg>`;
@@ -233,6 +247,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
 .seg { display: inline-flex; border: 1px solid var(--divider-color); border-radius: 8px; overflow: hidden; }
 .seg button { background: none; border: 0; padding: 8px 12px; cursor: pointer; font-size: 14px; min-height: 36px; }
 .seg button + button { border-left: 1px solid var(--divider-color); }
+.seg.wide { display: grid; grid-template-columns: 1fr 1fr; width: 100%; max-width: 480px; }
 .seg button[aria-pressed="true"] { background: var(--primary-color); color: var(--text-primary-color, #fff); }
 
 .toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 14px; }
@@ -302,6 +317,33 @@ input[type="number"] { width: 140px; }
 .name-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
 .name-row .raw { font-size: 14px; color: var(--secondary-text-color); overflow-wrap: anywhere; }
 .name-row input { width: 100%; }
+
+/* Apple TV */
+.atv { border-top: 1px solid var(--divider-color); padding-top: 14px; display: grid; gap: 10px; }
+.atv-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.atv-head .label { color: var(--secondary-text-color); }
+.atv-head strong { font-weight: 500; font-size: 16px; }
+.apps-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; font-size: 14px; }
+.apps-list li { display: grid; gap: 4px; }
+.apps-list .row-line { display: flex; justify-content: space-between; gap: 8px; }
+.apps-list .meter { margin-top: 0; height: 6px; }
+.tape.apps-tape .seg-bar { background: var(--tm-info); }
+.tape-label { font-size: 13px; color: var(--secondary-text-color); margin: 12px 0 6px; display: flex; align-items: center; gap: 6px; }
+.legend i.app { background: var(--tm-info); }
+.top-apps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; font-size: 14px; }
+.top-apps li { display: grid; grid-template-columns: minmax(0, 9em) 1fr 6.5em; gap: 10px; align-items: center; }
+.top-apps li > .muted { text-align: right; }
+.top-apps .bar-track { height: 10px; border-radius: 5px; background: var(--divider-color); overflow: hidden; }
+.top-apps .bar-fill { height: 100%; background: var(--tm-info); border-radius: 5px; }
+.top-apps .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-rules { display: grid; gap: 4px; }
+.app-rule { display: grid; grid-template-columns: auto minmax(0, 1fr) 7.5em; gap: 10px; align-items: center; padding: 6px 0; border-top: 1px solid var(--divider-color); font-size: 14px; }
+.app-rule:first-child { border-top: 0; }
+.app-rule input[type="number"] { width: 100%; }
+.app-rule .raw { display: block; font-size: 12px; color: var(--secondary-text-color); overflow-wrap: anywhere; }
+.app-rules-head { display: grid; grid-template-columns: auto minmax(0, 1fr) 7.5em; gap: 10px; font-size: 12px; color: var(--secondary-text-color); }
+.radio { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 32px; }
+input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; accent-color: var(--primary-color); }
 @media (max-width: 600px) { .name-row { grid-template-columns: 1fr; gap: 4px; } }
 .saved { color: var(--tm-good); font-size: 14px; }
 
@@ -595,6 +637,7 @@ class TvMgmtPanel extends HTMLElement {
         </div>
         <div class="card-body">
           <div>${timeLine}</div>
+          ${p.apple_tv ? this._renderAppleTv(p) : ""}
           <dl class="facts">
             <dt>Extra time today</dt><dd>${p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min` : "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
@@ -626,6 +669,30 @@ class TvMgmtPanel extends HTMLElement {
           </div>
         </div>
       </section>`;
+  }
+
+  _renderAppleTv(p) {
+    const a = p.apple_tv;
+    const now = !a.available ? "Can't reach it" : !a.is_on ? "Asleep" : a.app_name || "Home screen";
+    const chip = a.stop_reason
+      ? `<span class="chip tone-bad">${{ blocked: "Blocked app", not_allowed: "Not allowed", limit: "Limit reached" }[a.stop_reason] || "Not allowed"}</span>`
+      : "";
+    const apps = (a.apps_today || []).slice(0, 4);
+    const list = apps.length
+      ? `<ul class="apps-list">${apps
+          .map((app) => {
+            const mins = minutes(app.seconds);
+            const limit = app.limit_minutes;
+            const over = limit && mins >= limit;
+            return `<li><div class="row-line"><span>${esc(app.name)}</span><span class="muted">${limit ? `${mins} of ${limit} min` : duration(app.seconds)}</span></div>
+              ${limit ? `<div class="meter"><div class="${over ? "tone-bad" : "tone-info"}" style="width:${Math.min(100, (mins / limit) * 100)}%"></div></div>` : ""}</li>`;
+          })
+          .join("")}</ul>`
+      : `<p class="muted" style="margin:0">No apps opened today.</p>`;
+    return `<div class="atv">
+      <div class="atv-head">${icon("box")}<span class="label">Apple TV</span><strong>${esc(now)}</strong>${chip}</div>
+      ${list}
+    </div>`;
   }
 
   // Activity -------------------------------------------------------------------------
@@ -684,9 +751,34 @@ class TvMgmtPanel extends HTMLElement {
           <div class="tape" role="img" aria-label="When the TV was on, by input">${bars}${nowLine}</div>
           <div class="hours">${hours}</div>
           ${legend ? `<div class="legend">${legend}</div>` : ""}
+          ${profile?.apple_tv ? this._appTape(a, pos, nowLine) : ""}
         </div>
       </div></section>
       <section class="card" style="margin-top:20px"><div class="card-body">${events}</div></section>`;
+  }
+
+  _appTape(a, pos, nowLine) {
+    const segs = a.app_segments || [];
+    const byApp = {};
+    for (const s of segs) byApp[s.name ?? s.app] = (byApp[s.name ?? s.app] || 0) + s.seconds;
+    const ranked = Object.entries(byApp).sort((x, y) => y[1] - x[1]);
+    // Most-used apps get their own colour; the rest share the last one.
+    const colour = {};
+    ranked.forEach(([name], i) => (colour[name] = APP_COLOURS[Math.min(i, APP_COLOURS.length - 1)]));
+    const bars = segs
+      .map((s) => {
+        const left = pos(s.start);
+        const width = Math.max(0.3, pos(s.end) - left);
+        const name = s.name ?? s.app;
+        return `<div class="seg-bar${s.live ? " live" : ""}" style="left:${left}%;width:${width}%;background-color:${colour[name]}" title="${esc(name)}: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
+      })
+      .join("");
+    const legend = ranked
+      .map(([name, secs]) => `<span><i style="background:${colour[name]}"></i>${esc(name)}: ${duration(secs)}</span>`)
+      .join("");
+    return `<div class="tape-label">${icon("box")} Apple TV apps</div>
+      <div class="tape apps-tape" role="img" aria-label="When apps were open on the Apple TV">${bars}${nowLine}</div>
+      ${legend ? `<div class="legend">${legend}</div>` : `<p class="muted">No apps opened on the Apple TV this day.</p>`}`;
   }
 
   _activityToolbar(a) {
@@ -723,6 +815,7 @@ class TvMgmtPanel extends HTMLElement {
         <div class="card stat"><b>${duration(s.average_seconds)}</b><span>Daily average</span></div>
         <div class="card stat"><b>${s.days_over_limit}</b><span>Days the limit was reached</span></div>
         <div class="card stat"><b>${s.blocked}</b><span>Blocked input switches</span></div>
+        ${data.has_apple_tv ? `<div class="card stat"><b>${s.apps_stopped ?? 0}</b><span>Apple TV apps stopped</span></div>` : ""}
       </div>`;
     const note = s.recorded_days < data.days.length
       ? `<p class="muted">TV Mgmt has ${s.recorded_days} day${s.recorded_days === 1 ? "" : "s"} of history so far. Days before that show as empty.</p>`
@@ -732,7 +825,19 @@ class TvMgmtPanel extends HTMLElement {
         <div><strong>Screen time per day</strong><div class="muted">The dashed line is the daily limit, including extra time.</div></div>
         ${this._chart(data.days)}
         ${note}
-      </div></section>`;
+      </div></section>
+      ${data.has_apple_tv ? this._topApps(s.top_apps || []) : ""}`;
+  }
+
+  _topApps(apps) {
+    const max = Math.max(1, ...apps.map((a) => a.seconds));
+    const rows = apps.length
+      ? `<ul class="top-apps">${apps
+          .map((a) => `<li><span class="name">${esc(a.name ?? a.app)}</span><div class="bar-track"><div class="bar-fill" style="width:${(a.seconds / max) * 100}%"></div></div><span class="muted">${duration(a.seconds)}</span></li>`)
+          .join("")}</ul>`
+      : `<p class="muted">No Apple TV apps in this range yet.</p>`;
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <div><strong>Top Apple TV apps</strong></div>${rows}</div></section>`;
   }
 
   _analyticsToolbar() {
@@ -839,7 +944,110 @@ class TvMgmtPanel extends HTMLElement {
           </div>
         </form>
       </div></section>
+      ${this._renderAppRules()}
       ${this._renderNames()}`;
+  }
+
+  _renderAppRules() {
+    const p = this._profiles.find((x) => x.entry_id === this._selected);
+    const a = p?.apple_tv;
+    if (!a) return "";
+    if (!this._appsDraft || this._appsFor !== p.entry_id) {
+      this._appsFor = p.entry_id;
+      this._appsDraft = {
+        mode: a.rules.mode,
+        apps: [...a.rules.apps],
+        // The other mode's checklist starts empty: switching never turns a
+        // blocked app into an allowed one.
+        byMode: { [a.rules.mode]: [...a.rules.apps] },
+        limits: { ...a.rules.limits },
+        action: a.rules.action,
+        sleep: a.rules.sleep_on_block,
+      };
+    }
+    const d = this._appsDraft;
+    const fold = (x) => String(x).toLowerCase();
+    // One row per app: what the Apple TV has opened or lists, plus anything in the rules.
+    const rows = new Map();
+    for (const [key, name] of Object.entries(a.known_apps || {})) rows.set(key, name);
+    for (const key of [...d.apps, ...Object.keys(d.limits)]) {
+      const exists = [...rows.entries()].some(([k, n]) => fold(k) === fold(key) || fold(n) === fold(key));
+      if (!exists) rows.set(key, key);
+    }
+    const listed = (key, name) => d.apps.some((x) => fold(x) === fold(key) || fold(x) === fold(name));
+    const limitOf = (key, name) => {
+      const hit = Object.entries(d.limits).find(([k]) => fold(k) === fold(key) || fold(k) === fold(name));
+      return hit ? hit[1] : "";
+    };
+    const sorted = [...rows.entries()].sort((x, y) => x[1].localeCompare(y[1]));
+    const appRows = sorted
+      .map(([key, name], i) => `<div class="app-rule">
+          <input type="checkbox" class="check" id="app-${i}" data-app-check="${esc(key)}" ${listed(key, name) ? "checked" : ""}>
+          <label for="app-${i}">${esc(name)}${name !== key ? `<span class="raw">${esc(key)}</span>` : ""}</label>
+          <input type="number" min="0" max="1440" step="5" aria-label="Daily minutes for ${esc(name)}" placeholder="No limit" data-app-limit="${esc(key)}" value="${esc(limitOf(key, name))}">
+        </div>`)
+      .join("");
+    const checkLabel = d.mode === "allow" ? "Allowed" : "Blocked";
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <form id="apps" novalidate>
+        <div class="field">
+          <label>Apple TV apps</label>
+          <small>Rules for apps on the Apple TV plugged into this TV. They pause in adult mode and when the mode is Paused.</small>
+          <div class="seg wide" role="group" aria-label="How the app list is used">
+            <button type="button" data-appmode="block" aria-pressed="${d.mode === "block"}">Block checked apps</button>
+            <button type="button" data-appmode="allow" aria-pressed="${d.mode === "allow"}">Allow only checked apps</button>
+          </div>
+        </div>
+        <div class="field">
+          ${appRows
+            ? `<div class="app-rules-head"><span>${checkLabel}</span><span>App</span><span>Daily limit (min)</span></div><div class="app-rules">${appRows}</div>`
+            : `<p class="muted">Open a few apps on the Apple TV and they'll appear here.</p>`}
+        </div>
+        <div class="field">
+          <label>When an app isn't allowed</label>
+          <label class="radio"><input type="radio" name="app_action" value="home" data-app-action ${d.action === "home" ? "checked" : ""}> Go back to the Apple TV home screen</label>
+          <label class="radio"><input type="radio" name="app_action" value="sleep" data-app-action ${d.action === "sleep" ? "checked" : ""}> Put the Apple TV to sleep</label>
+          ${a.has_remote ? "" : `<small>No Apple TV remote entity was found, so going home falls back to sleep.</small>`}
+        </div>
+        <label class="toggle"><span>Sleep the Apple TV when the TV is blocked<small>When the daily limit runs out, a quiet window starts, or you block the TV.</small></span>
+          <span class="switch"><input type="checkbox" data-app-sleep ${d.sleep ? "checked" : ""}><span></span></span></label>
+        <div class="form-actions">
+          <button type="submit" class="btn primary" ${this._busyApps ? "disabled" : ""}>${this._busyApps ? "Saving…" : "Save app rules"}</button>
+          ${this._appsNote ? `<span class="saved" role="status">${esc(this._appsNote)}</span>` : ""}
+        </div>
+      </form>
+    </div></section>`;
+  }
+
+  async _saveApps() {
+    const d = this._appsDraft;
+    const limits = {};
+    for (const [key, value] of Object.entries(d.limits)) {
+      const n = Number(value);
+      if (value === "" || value === null) continue;
+      if (!Number.isInteger(n) || n < 0 || n > 1440) {
+        this._error = `Daily limits per app need a whole number of minutes from 0 to 1440.`;
+        this._render();
+        return;
+      }
+      if (n > 0) limits[key] = n;
+    }
+    this._busyApps = true;
+    this._error = null;
+    this._render();
+    try {
+      await this._ws({
+        type: "tv_mgmt/apple_tv/set", entry_id: this._selected,
+        mode: d.mode, apps: d.apps, limits, action: d.action, sleep_on_block: d.sleep,
+      });
+      this._appsNote = "App rules saved";
+      this._appsDraft = null;
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyApps = false;
+    this._render();
   }
 
   _renderNames() {
@@ -893,6 +1101,8 @@ class TvMgmtPanel extends HTMLElement {
       this._activityDate = null;
       this._limitsDraft = null;
       this._namesDraft = null;
+      this._appsDraft = null;
+      this._appsNote = "";
       this._savedNote = "";
       this._namesNote = "";
       this._render();
@@ -917,6 +1127,16 @@ class TvMgmtPanel extends HTMLElement {
       this._render();
       return;
     }
+    if (el.dataset.appmode && this._appsDraft) {
+      if (this._limitsDraft) this._syncLimitInputs();
+      const d = this._appsDraft;
+      d.byMode[d.mode] = [...d.apps];
+      d.mode = el.dataset.appmode;
+      d.apps = [...(d.byMode[d.mode] || [])];
+      this._appsNote = "";
+      this._render();
+      return;
+    }
     if (el.hasAttribute("data-add-window")) {
       this._syncLimitInputs();
       this._limitsDraft.windows.push({ start: "20:30", end: "07:00", label: "Bedtime" });
@@ -932,6 +1152,24 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    const d = this._appsDraft;
+    if (d && input.dataset.appCheck !== undefined) {
+      const key = input.dataset.appCheck;
+      d.apps = d.apps.filter((x) => x.toLowerCase() !== key.toLowerCase());
+      if (input.checked) d.apps.push(key);
+      this._appsNote = "";
+      return;
+    }
+    if (d && input.dataset.appAction !== undefined) {
+      d.action = input.value;
+      this._appsNote = "";
+      return;
+    }
+    if (d && input.dataset.appSleep !== undefined) {
+      d.sleep = input.checked;
+      this._appsNote = "";
+      return;
+    }
     if (input.dataset.toggle) {
       const extra = { enabled: input.checked };
       this._action(input.dataset.id, input.dataset.toggle, extra);
@@ -940,6 +1178,14 @@ class TvMgmtPanel extends HTMLElement {
 
   _onInput(ev) {
     if (ev.target.closest("#limits")) this._savedNote = "";
+    if (this._appsDraft && ev.target.dataset.appLimit !== undefined) {
+      const key = ev.target.dataset.appLimit;
+      for (const k of Object.keys(this._appsDraft.limits)) {
+        if (k.toLowerCase() === key.toLowerCase()) delete this._appsDraft.limits[k];
+      }
+      this._appsDraft.limits[key] = ev.target.value;
+      this._appsNote = "";
+    }
     if (ev.target.dataset.nameFor !== undefined) {
       this._namesDraft[ev.target.dataset.nameFor] = ev.target.value;
       this._namesNote = "";
@@ -979,6 +1225,11 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.id === "apps") {
+      ev.preventDefault();
+      await this._saveApps();
+      return;
+    }
     if (ev.target.id === "names") {
       ev.preventDefault();
       await this._saveNames();
