@@ -312,6 +312,32 @@
           "description": "The TV Mgmt profile (one per TV)."
         }
       }
+    },
+    "send_message": {
+      "name": "Send a message to the TV",
+      "description": "Show a message full screen on the Apple TV with AirPlay, on the TV screen, or say it on speakers, using the profile's Warnings on the TV settings.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        },
+        "message": {
+          "name": "Message",
+          "description": "Up to 120 characters."
+        },
+        "apple_tv": {
+          "name": "On the Apple TV",
+          "description": "AirPlay it to the linked Apple TV as a 10-second full-screen message. It interrupts what's playing."
+        },
+        "screen": {
+          "name": "On the TV screen",
+          "description": "Show it with the notify service picked under Warnings on the TV."
+        },
+        "speak": {
+          "name": "Say it",
+          "description": "Say it on the speakers picked under Warnings on the TV."
+        }
+      }
     }
   },
   "exceptions": {
@@ -320,6 +346,9 @@
     },
     "profile_not_loaded": {
       "message": "The TV Mgmt profile {profile} isn't loaded."
+    },
+    "nowhere_to_send": {
+      "message": "There's nowhere to send this message. Link an Apple TV, or set up Warnings on the TV."
     },
     "not_allowed": {
       "message": "You don't have access to TV Mgmt. An admin can give you access in the TV Mgmt sidebar app, under Access."

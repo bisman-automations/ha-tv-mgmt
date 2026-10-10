@@ -10,7 +10,7 @@ import voluptuous as vol
 from functools import wraps
 
 from homeassistant.components import websocket_api
-from homeassistant.exceptions import Unauthorized
+from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
@@ -41,6 +41,7 @@ from .const import (
 from .manager import TVManager
 from .apps import ACTIONS as APP_ACTIONS, APP_MODES
 from .media import describe
+from .messages import MAX_LENGTH as MAX_MESSAGE_LENGTH, PRESETS as MESSAGE_PRESETS
 from .names import clean_names
 from .quiet import parse_windows
 from .remote_keys import DEVICE_APPLE_TV, DEVICE_TV, available_keys, presses
@@ -69,6 +70,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_apple_tv_set,
         ws_action,
         ws_remote,
+        ws_message,
         ws_subscribe,
         ws_access_me,
         ws_access_get,
@@ -150,6 +152,8 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "custom_input_names": dict(manager.input_names.user),
         "remote_keys": available_keys(manager.hass, manager.tv_entity_id),
         "entities": profile_entities(manager),
+        "message_targets": manager.message_targets(),
+        "message_presets": MESSAGE_PRESETS,
         "apple_tv": apple_tv_summary(manager),
     }
 
@@ -501,6 +505,37 @@ async def ws_remote(hass: HomeAssistant, connection, msg) -> None:
         connection.send_error(msg["id"], "press_failed", str(err))
         return
     connection.send_result(msg["id"], {"key": msg["key"], "service": f"{press.domain}.{press.service}"})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/message",
+        vol.Required("entry_id"): str,
+        vol.Required("text"): vol.All(str, vol.Strip, vol.Length(min=1, max=MAX_MESSAGE_LENGTH)),
+        vol.Optional("apple_tv", default=False): bool,
+        vol.Optional("screen", default=False): bool,
+        vol.Optional("speak", default=False): bool,
+    }
+)
+@require_access
+@websocket_api.async_response
+async def ws_message(hass: HomeAssistant, connection, msg) -> None:
+    """Send a message to the TV: on the Apple TV, the TV screen, or speakers."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    targets = manager.message_targets()
+    wanted = {key: msg[key] and targets[key] for key in ("apple_tv", "screen", "speak")}
+    if not any(wanted.values()):
+        connection.send_error(msg["id"], "not_supported", "Pick where to send the message")
+        return
+    try:
+        sent = await manager.async_send_message(
+            msg["text"], **wanted, by=connection.user.name if connection.user else None
+        )
+    except HomeAssistantError as err:
+        connection.send_error(msg["id"], "send_failed", str(err))
+        return
+    connection.send_result(msg["id"], {"sent": sent})
 
 
 # ---- access ---------------------------------------------------------------------

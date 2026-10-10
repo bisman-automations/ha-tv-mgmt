@@ -1,6 +1,7 @@
 """Warnings said on speakers and shown on the TV screen."""
 
 from datetime import timedelta
+import pathlib
 
 from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
 
@@ -99,3 +100,75 @@ def test_slides_exist() -> None:
     for name in names:
         assert (folder / f"{name}.mp4").stat().st_size > 10_000
     assert warning_slide(7) == "left-7" and warning_slide(17) == "almost-up"
+
+
+async def test_dashboard_message(hass: HomeAssistant, hass_ws_client, calls, box_calls) -> None:
+    hass.config.internal_url = "http://homeassistant.local:8123"
+    play = async_mock_service(hass, "media_player", "play_media")
+    screen = async_mock_service(hass, "notify", "family_room_tv")
+    set_tv(hass)
+    set_box(hass, YT)
+    entry = await setup(hass, options={
+        "input_lock": LOCK,
+        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+        "apple_tv": {"streaming_player": BOX},
+        "announcements": {"announce_screen": "notify.family_room_tv"},
+        "sync": {},
+    })
+    client = await hass_ws_client(hass)
+
+    async def call(**msg):
+        await client.send_json_auto_id(msg)
+        return await client.receive_json()
+
+    profile = (await call(type="tv_mgmt/profiles"))["result"]["profiles"][0]
+    assert profile["message_targets"] == {"apple_tv": True, "screen": True, "speak": False}
+    assert "Dinner is ready" in profile["message_presets"]
+
+    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="  Dinner is ready  ",
+                     apple_tv=True, screen=True)
+    assert res["success"], res
+    assert res["result"]["sent"] == ["apple_tv", "screen"]
+    url = play[0].data["media_content_id"]
+    assert url.startswith("http://homeassistant.local:8123/tv_mgmt_messages/") and url.endswith(".mp4")
+    assert play[0].data["media_content_type"] == "video"
+    video = pathlib.Path(hass.config.path(".storage", "tv_mgmt_messages", url.rsplit("/", 1)[1]))
+    assert video.stat().st_size > 10_000
+    assert screen[0].data == {"message": "Dinner is ready", "title": "TV Mgmt"}
+    event = entry.runtime_data.activity.events[-1]
+    assert event["type"] == "message" and event["text"] == "Dinner is ready"
+
+    # The same message reuses its video.
+    await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="Dinner is ready", apple_tv=True)
+    assert play[1].data["media_content_id"] == url
+
+    # Nowhere to send it.
+    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="Hi", speak=True)
+    assert not res["success"] and res["error"]["code"] == "not_supported"
+    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="   ", screen=True)
+    assert not res["success"]
+
+
+async def test_send_message_service(hass: HomeAssistant, calls) -> None:
+    import pytest
+
+    from homeassistant.exceptions import ServiceValidationError
+
+    screen = async_mock_service(hass, "notify", "family_room_tv")
+    set_tv(hass)
+    entry = await setup(hass, options={
+        "input_lock": LOCK,
+        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+        "apple_tv": {},
+        "announcements": {"announce_screen": "notify.family_room_tv"},
+        "sync": {},
+    })
+    await hass.services.async_call(
+        "tv_mgmt", "send_message", {"profile_id": entry.entry_id, "message": "Time for bed"}, blocking=True
+    )
+    assert screen[0].data == {"message": "Time for bed", "title": "TV Mgmt"}
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            "tv_mgmt", "send_message",
+            {"profile_id": entry.entry_id, "message": "Hi", "screen": False}, blocking=True,
+        )

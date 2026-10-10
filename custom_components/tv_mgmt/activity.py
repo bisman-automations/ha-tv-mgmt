@@ -37,12 +37,13 @@ EV_APP_STOPPED = "app_stopped"  # app, name, reason, action, acted
 EV_BOX_SLEEP = "box_sleep"  # reason: TV Mgmt put the Apple TV to sleep
 EV_FOLLOW = "follow"  # source, target: Apple TV woke, TV switched to its input
 EV_BOX_WAKE = "box_wake"  # TV turned on, TV Mgmt woke the Apple TV
+EV_MESSAGE = "message"  # text, sent (where), by: a parent sent a message to the TV
 EV_MEDIA = "media"  # series, season, episode, title, artist, app, name: started watching
 
 EVENT_TYPES = [
     EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
     EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
-    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW, EV_BOX_WAKE, EV_MEDIA,
+    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW, EV_BOX_WAKE, EV_MEDIA, EV_MESSAGE,
 ]
 
 KEEP_EVENT_DAYS = 90

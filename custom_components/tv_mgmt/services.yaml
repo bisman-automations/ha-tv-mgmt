@@ -37,3 +37,28 @@ reset_usage:
       selector:
         config_entry:
           integration: tv_mgmt
+
+send_message:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+    message:
+      required: true
+      example: Dinner is ready
+      selector:
+        text:
+    apple_tv:
+      default: true
+      selector:
+        boolean:
+    screen:
+      default: true
+      selector:
+        boolean:
+    speak:
+      default: false
+      selector:
+        boolean:

@@ -31,6 +31,7 @@ from .const import (
     SERVICE_FORCE_BLOCK,
     SERVICE_GRANT_EXTENSION,
     SERVICE_RESET_USAGE,
+    SERVICE_SEND_MESSAGE,
     SERVICE_UNBLOCK,
 )
 from .manager import TVManager
@@ -42,6 +43,14 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 type TVMgmtConfigEntry = ConfigEntry[TVManager]
 
 PROFILE_SCHEMA = vol.Schema({vol.Required(ATTR_PROFILE_ID): cv.string})
+MESSAGE_SCHEMA = PROFILE_SCHEMA.extend(
+    {
+        vol.Required("message"): vol.All(cv.string, vol.Strip, vol.Length(min=1, max=120)),
+        vol.Optional("apple_tv", default=True): cv.boolean,
+        vol.Optional("screen", default=True): cv.boolean,
+        vol.Optional("speak", default=False): cv.boolean,
+    }
+)
 EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
     {vol.Required(ATTR_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=-240, max=240))}
 )
@@ -197,3 +206,14 @@ def _register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(DOMAIN, SERVICE_FORCE_BLOCK, force_block, PROFILE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_UNBLOCK, unblock, PROFILE_SCHEMA)
     hass.services.async_register(DOMAIN, SERVICE_RESET_USAGE, reset_usage, PROFILE_SCHEMA)
+
+    async def send_message(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
+        manager = _manager(hass, call)
+        targets = manager.message_targets()
+        wanted = {key: call.data[key] and targets[key] for key in ("apple_tv", "screen", "speak")}
+        if not any(wanted.values()):
+            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="nowhere_to_send")
+        await manager.async_send_message(call.data["message"], **wanted)
+
+    hass.services.async_register(DOMAIN, SERVICE_SEND_MESSAGE, send_message, MESSAGE_SCHEMA)

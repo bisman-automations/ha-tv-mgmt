@@ -116,6 +116,11 @@ function describeEvent(e, p) {
       return { icon: "shield", text: "Unblocked" };
     case "reset":
       return { icon: "clock", text: "Today's time reset" };
+    case "message": {
+      const where = { apple_tv: "the Apple TV", screen: "the TV screen", speak: "the speakers" };
+      const to = (e.sent || []).map((k) => where[k] || k).join(" and ");
+      return { icon: "remote", text: `${e.by ? `${e.by} sent` : "Sent"} "${e.text}"${to ? ` to ${to}` : ""}` };
+    }
     case "media": {
       const what = describeMedia(e);
       return { icon: "play", text: `Watching ${what}${e.name ? ` in ${e.name}` : ""}` };
@@ -484,6 +489,18 @@ input[type="number"] { width: 140px; }
 input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; accent-color: var(--primary-color); }
 @media (max-width: 600px) { .name-row { grid-template-columns: 1fr; gap: 4px; } }
 .saved { color: var(--tm-good); font-size: 14px; }
+.message-box { display: grid; gap: 8px; }
+.message-box > .label { font-size: 14px; color: var(--secondary-text-color); }
+.message-form { display: grid; gap: 10px; max-width: none; }
+.message-row { display: flex; gap: 8px; }
+.message-row input { flex: 1; min-width: 0; }
+.presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-btn { font-size: 13px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--divider-color);
+  background: transparent; cursor: pointer; color: var(--primary-text-color); }
+.chip-btn:hover { background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
+.chip-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.message-where { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
+.message-where label { display: inline-flex; align-items: center; gap: 6px; }
 .custom-time { display: inline-flex; gap: 8px; align-items: center; max-width: none; }
 .custom-time input[type="number"] { width: 110px; min-height: 38px; padding: 6px 10px; }
 
@@ -522,6 +539,8 @@ class TvMgmtPanel extends HTMLElement {
     this._busy = false;
     this._savedNote = "";
     this._remoteOpen = new Set();
+    this._msgDrafts = {};
+    this._msgNote = {};
   }
 
   set hass(hass) {
@@ -669,7 +688,12 @@ class TvMgmtPanel extends HTMLElement {
       if (!quiet) this._error = this._errorText(err);
     }
     // The limits form keeps what you're typing; don't redraw it on live updates.
-    if (!(quiet && this._tab === "limits")) this._render();
+    if (quiet && this._tab === "limits") return;
+    if (quiet && this._typing()) {
+      this._renderLater = true;
+      return;
+    }
+    this._render();
   }
 
   async _loadActivity({ quiet = false } = {}) {
@@ -783,6 +807,15 @@ class TvMgmtPanel extends HTMLElement {
     this.shadowRoot.addEventListener("change", (ev) => this._onChange(ev));
     this.shadowRoot.addEventListener("input", (ev) => this._onInput(ev));
     this.shadowRoot.addEventListener("submit", (ev) => this._onSubmit(ev));
+    this.shadowRoot.addEventListener("focusout", () => {
+      // Catch up on live updates held back while typing.
+      setTimeout(() => {
+        if (this._renderLater && !this._typing()) {
+          this._renderLater = false;
+          this._render();
+        }
+      }, 0);
+    });
   }
 
   _render() {
@@ -867,6 +900,7 @@ class TvMgmtPanel extends HTMLElement {
         <div class="card-body">
           <div class="tv-remote" id="tvr-${id}">${this._tvRemote(p)}</div>
           <div>${timeLine}</div>
+          ${this._messageBox(p)}
         </div>
         </div>
         ${p.apple_tv ? `<div class="col col-atv card-body">${this._renderAppleTv(p)}</div>` : ""}
@@ -978,6 +1012,74 @@ class TvMgmtPanel extends HTMLElement {
       ${progress}
       ${controls ? `<div class="np-controls">${controls}</div>` : ""}
       ${remote}`;
+  }
+
+  _msg(id) {
+    return (this._msgDrafts[id] ||= { text: "", apple_tv: true, screen: true, speak: true });
+  }
+
+  // Send a message to the TV: AirPlayed to the Apple TV, on the TV screen, or spoken.
+  _messageBox(p) {
+    const t = p.message_targets || {};
+    const id = p.entry_id;
+    const d = this._msg(id);
+    const where = [
+      t.apple_tv && { key: "apple_tv", label: "Apple TV (AirPlay)" },
+      t.screen && { key: "screen", label: "TV screen" },
+      t.speak && { key: "speak", label: "Speakers" },
+    ].filter(Boolean);
+    if (!where.length) {
+      return `<div class="message-box"><span class="label">Message the TV</span>
+        <small class="muted">Link an Apple TV, or set up Configure → Warnings on the TV, to send messages to the TV.</small></div>`;
+    }
+    const busy = this._msgBusy === id;
+    return `<div class="message-box">
+      <label class="label" for="msg-${id}">Message the TV</label>
+      <form class="message-form" data-message="${id}" novalidate>
+        <div class="message-row">
+          <input id="msg-${id}" type="text" name="message" maxlength="120" placeholder="Type a message" value="${esc(d.text)}" autocomplete="off">
+          <button class="btn primary" type="submit" ${busy ? "disabled" : ""}>${busy ? "Sending…" : "Send"}</button>
+        </div>
+        <div class="presets">${(p.message_presets || [])
+          .map((m) => `<button type="button" class="chip-btn" data-preset="${esc(m)}" data-id="${id}">${esc(m)}</button>`)
+          .join("")}</div>
+        <div class="message-where" role="group" aria-label="Send to">${where
+          .map((w) => `<label><input type="checkbox" class="check" data-msg-where="${w.key}" data-id="${id}" ${d[w.key] ? "checked" : ""}> ${w.label}</label>`)
+          .join("")}</div>
+        ${this._msgNote[id] ? `<span class="saved" role="status">${esc(this._msgNote[id])}</span>` : ""}
+      </form>
+    </div>`;
+  }
+
+  async _sendMessage(id) {
+    const d = this._msg(id);
+    const text = (d.text || "").trim();
+    if (!text) {
+      this._error = "Type a message, or pick one.";
+      this._render();
+      return;
+    }
+    const p = this._profiles.find((x) => x.entry_id === id);
+    const t = p?.message_targets || {};
+    const pick = { apple_tv: !!(t.apple_tv && d.apple_tv), screen: !!(t.screen && d.screen), speak: !!(t.speak && d.speak) };
+    if (!Object.values(pick).some(Boolean)) {
+      this._error = "Pick where to send the message.";
+      this._render();
+      return;
+    }
+    this._msgBusy = id;
+    this._error = null;
+    this._render();
+    try {
+      const res = await this._ws({ type: "tv_mgmt/message", entry_id: id, text, ...pick });
+      const names = { apple_tv: "the Apple TV", screen: "the TV screen", speak: "the speakers" };
+      this._msgNote[id] = `Sent to ${res.sent.map((k) => names[k]).join(" and ")}`;
+      d.text = "";
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._msgBusy = null;
+    this._render();
   }
 
   // Links that open Home Assistant's dialog for each of this TV's entities.
@@ -1628,6 +1730,14 @@ class TvMgmtPanel extends HTMLElement {
       this._callService("media_player", el.dataset.media, { entity_id: el.dataset.eid });
       return;
     }
+    if (el.dataset.preset) {
+      const d = this._msg(el.dataset.id);
+      d.text = el.dataset.preset;
+      this._msgNote[el.dataset.id] = "";
+      this._render();
+      this.shadowRoot.getElementById(`msg-${el.dataset.id}`)?.focus();
+      return;
+    }
     if (el.dataset.moreInfo) {
       this.dispatchEvent(new CustomEvent("hass-more-info", { detail: { entityId: el.dataset.moreInfo }, bubbles: true, composed: true }));
       return;
@@ -1668,6 +1778,10 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (input.dataset.msgWhere) {
+      this._msg(input.dataset.id)[input.dataset.msgWhere] = input.checked;
+      return;
+    }
     if (input.dataset.person !== undefined && this._accessDraft) {
       if (input.checked) this._accessDraft.ids.add(input.dataset.person);
       else this._accessDraft.ids.delete(input.dataset.person);
@@ -1704,7 +1818,18 @@ class TvMgmtPanel extends HTMLElement {
     }
   }
 
+  // Someone is typing in a text or number field on the dashboard.
+  _typing() {
+    const el = this.shadowRoot.activeElement;
+    return !!el && el.tagName === "INPUT" && ["text", "number"].includes(el.type);
+  }
+
   _onInput(ev) {
+    if (ev.target.name === "message" && ev.target.closest("form[data-message]")) {
+      const id = ev.target.closest("form[data-message]").dataset.message;
+      this._msg(id).text = ev.target.value;
+      this._msgNote[id] = "";
+    }
     if (ev.target.closest("#limits")) this._savedNote = "";
     if (this._appsDraft && ev.target.dataset.appLimit !== undefined) {
       const key = ev.target.dataset.appLimit;
@@ -1753,6 +1878,11 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.dataset.message) {
+      ev.preventDefault();
+      await this._sendMessage(ev.target.dataset.message);
+      return;
+    }
     if (ev.target.dataset.extra) {
       ev.preventDefault();
       const field = ev.target.elements.minutes;

@@ -617,6 +617,31 @@ class TVManager:
 
     # ---- power enforcement ------------------------------------------------------------
 
+    def message_targets(self) -> dict[str, bool]:
+        """Where a parent can send a message from the dashboard."""
+        return {
+            "apple_tv": self.box is not None,
+            "screen": bool(self.announcer.screen),
+            "speak": self.announcer.speaks,
+        }
+
+    async def async_send_message(
+        self, text: str, *, apple_tv: bool, screen: bool, speak: bool, by: str | None = None
+    ) -> list[str]:
+        from .messages import async_send_message
+
+        sent = await async_send_message(
+            self.hass,
+            text,
+            apple_tv=self.box.entity_id if apple_tv and self.box else None,
+            screen=self.announcer.screen if screen else None,
+            tts_entity=self.announcer.tts_entity if speak else None,
+            players=self.announcer.players if speak else None,
+        )
+        self._log(act.EV_MESSAGE, text=text, sent=sent, by=by)
+        self.notify()
+        return sent
+
     def _box_on(self) -> bool:
         return bool(self.box and self.box.is_on)
 

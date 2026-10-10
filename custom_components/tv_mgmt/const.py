@@ -78,6 +78,7 @@ SERVICE_GRANT_EXTENSION = "grant_extension"
 SERVICE_FORCE_BLOCK = "force_block"
 SERVICE_UNBLOCK = "unblock"
 SERVICE_RESET_USAGE = "reset_usage"
+SERVICE_SEND_MESSAGE = "send_message"
 ATTR_PROFILE_ID = "profile_id"
 ATTR_MINUTES = "minutes"
 

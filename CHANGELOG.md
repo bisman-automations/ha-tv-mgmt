@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-09
+
+### Added
+
+- **Message the TV from the dashboard.** Type a message, or tap one like "Dinner is ready" or "Time to get ready for bed", and send it to:
+  - **the Apple TV:** full screen for 10 seconds with AirPlay. It interrupts what's playing.
+  - **the TV screen:** with the notify service under **Warnings on the TV**, such as Notifications for Android TV / Fire TV.
+  - **speakers:** with the voice and speakers under **Warnings on the TV**.
+
+  Only places that are set up are offered. Each message is listed in the activity log, with who sent it.
+- **`tv_mgmt.send_message` action,** to send the same messages from automations.
+
+### Changed
+
+- Live updates no longer redraw the dashboard while you're typing in it, such as a message or extra minutes. It catches up when you leave the field.
+
 ## [1.9.0] - 2026-10-09
 
 ### Added
@@ -253,7 +269,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...HEAD
+[1.10.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...v1.8.0

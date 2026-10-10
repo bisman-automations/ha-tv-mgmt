@@ -135,6 +135,8 @@ TV Mgmt can tell the room when TV time is running low, at the **Warn before time
   The Apple TV fetches the video from Home Assistant's local address, so set one under **Settings → System → Network**. The Apple TV integration needs AirPlay set up, which it does when you pair it.
 - **Show it on the TV screen** with a notify service that puts messages on the TV, over any input. On Android TV and Google TV, use the [Notifications for Android TV / Fire TV](https://www.home-assistant.io/integrations/nfandroidtv/) integration and its app on the TV. LG webOS has one built in.
 
+You can also send your own message from the dashboard: type it under **Message the TV**, or tap one like "Dinner is ready", and pick where it goes: the Apple TV, the TV screen or the speakers. It's also the `tv_mgmt.send_message` action, for automations. On the Apple TV, TV Mgmt turns the message into a 10-second video with ffmpeg, which Home Assistant includes.
+
 When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
 
 ## Naming inputs
@@ -236,12 +238,22 @@ All services take the profile (`profile_id`) to act on.
 | `tv_mgmt.force_block` | Turn the TV off and keep it off until unblocked or the day ends. |
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
+| `tv_mgmt.send_message` | Send a message to the TV: full screen on the Apple TV with AirPlay (`apple_tv`), on the TV screen (`screen`), or spoken (`speak`). |
 
 ```yaml
 action: tv_mgmt.grant_extension
 data:
   profile_id: 01JABCDEF...   # pick it from the dropdown in the UI
   minutes: 30
+```
+
+```yaml
+action: tv_mgmt.send_message
+data:
+  profile_id: 01JABCDEF...
+  message: Dinner is ready
+  apple_tv: true   # full screen on the Apple TV, for 10 seconds
+  screen: true     # with the notify service under Warnings on the TV
 ```
 
 ## Events
