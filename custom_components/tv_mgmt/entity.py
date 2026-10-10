@@ -49,6 +49,9 @@ class TVMgmtEntity(Entity):
 def _tv_device(manager: TVManager) -> tuple[str, str] | None:
     """Show the profile under the TV's own device, when it has one."""
     hass = manager.hass
+    if hasattr(dr.async_get(hass), "async_get_devices"):
+        # Newer Home Assistant shows them as linked devices instead.
+        return None
     entity = er.async_get(hass).async_get(manager.tv_entity_id)
     if entity is None or entity.device_id is None:
         return None

@@ -52,13 +52,12 @@ async def test_lock_still_matches_raw_value(hass: HomeAssistant, freezer, calls)
 
 
 async def test_options_flow_edits_names_as_text(hass: HomeAssistant, calls) -> None:
-    from homeassistant.helpers import config_validation as cv
-    import voluptuous_serialize
+    from tests.ha.form import fields as serialize
 
     set_tv(hass)
     entry = await setup_named(hass, {"HDMI 2": "Apple TV"})
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    fields = voluptuous_serialize.convert(result["data_schema"], custom_serializer=cv.custom_serializer)
+    fields = serialize(result["data_schema"])
     lock = next(f for f in fields if f["name"] == "input_lock")["schema"]
     names_field = next(f for f in lock if f["name"] == "input_names")
     assert names_field["description"]["suggested_value"] == "HDMI 2 = Apple TV"

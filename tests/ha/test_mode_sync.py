@@ -92,8 +92,7 @@ async def test_suggests_matching_profile(hass: HomeAssistant, entity_registry: e
 async def test_options_flow_saves_link_and_shows_it_again(
     hass: HomeAssistant, entity_registry: er.EntityRegistry
 ) -> None:
-    from homeassistant.helpers import config_validation as cv
-    import voluptuous_serialize
+    from tests.ha.form import fields as serialize
 
     atv_entry = MockConfigEntry(domain="appletv_mgmt", options={"tv_entity_id": TV})
     atv_entry.add_to_hass(hass)
@@ -108,9 +107,7 @@ async def test_options_flow_saves_link_and_shows_it_again(
     await hass.async_block_till_done()
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    sync_field = voluptuous_serialize.convert(
-        result["data_schema"], custom_serializer=cv.custom_serializer
-    )[-1]
+    sync_field = serialize(result["data_schema"])[-1]
     # The frontend only sends a section's prefilled values if the section
     # has no default of its own.
     assert sync_field["name"] == "sync"
@@ -131,7 +128,5 @@ async def test_options_flow_saves_link_and_shows_it_again(
     assert entry.runtime_data.mode_sync.entity_id == ATV_MODE
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    sync_field = voluptuous_serialize.convert(
-        result["data_schema"], custom_serializer=cv.custom_serializer
-    )[-1]
+    sync_field = serialize(result["data_schema"])[-1]
     assert sync_field["schema"][0]["description"]["suggested_value"] == ATV_MODE

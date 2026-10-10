@@ -20,6 +20,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
+- **Linked devices on Home Assistant 2026.8 and newer.** TV Mgmt now shows under **Linked devices** on the TV's and the Apple TV's device pages, and they show under TV Mgmt's.
+  - Home Assistant 2026.8 gave each device a single integration, so the earlier link, which added TV Mgmt to the TV's device, no longer showed.
+  - TV Mgmt's device no longer says "connected via" the TV on these versions; the linked devices replace that.
+  - Copies of the TV's and the Apple TV's devices that the 2026.8 upgrade made for TV Mgmt are removed. The TV's and the Apple TV's own devices aren't touched.
+  - Older Home Assistant versions keep the earlier link.
 - Live updates no longer redraw the dashboard while you're typing in it, such as a message or extra minutes. It catches up when you leave the field.
 
 ## [1.9.0] - 2026-10-09
