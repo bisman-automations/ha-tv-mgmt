@@ -15,7 +15,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - TV Mgmt's device no longer says "connected via" the TV on these versions; the linked devices replace that.
   - Copies of the TV's and the Apple TV's devices that the 2026.8 upgrade made for TV Mgmt are removed. The TV's and the Apple TV's own devices aren't touched.
   - Older Home Assistant versions keep the earlier link.
-- A message that fails to send for an unexpected reason now says why on the dashboard, instead of "Unknown error".
+- Sending a message to the Apple TV could fail with "Unknown error" when Home Assistant's web server was already running, because TV Mgmt only set up the address for message videos when the first one was sent. It's set up at startup now.
+- A message that fails to send for another reason now says why on the dashboard, instead of "Unknown error".
 
 ## [1.10.0] - 2026-10-09
 

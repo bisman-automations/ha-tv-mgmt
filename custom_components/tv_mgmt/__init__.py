@@ -65,6 +65,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     _register_services(hass)
     websocket.async_register(hass)
     await async_register_panel(hass)
+    # Serve message videos for the Apple TV; registered up front, while the web
+    # server still accepts new routes.
+    from .messages import async_register_messages_path
+
+    await async_register_messages_path(hass)
     return True
 
 

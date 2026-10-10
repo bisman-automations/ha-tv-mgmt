@@ -45,7 +45,7 @@ def messages_dir(hass: HomeAssistant) -> Path:
 
 
 async def async_register_messages_path(hass: HomeAssistant) -> None:
-    if hass.data.get(_REGISTERED) or hass.http is None:
+    if hass.data.get(_REGISTERED) or hass.http is None or "http" not in hass.config.components:
         return
     from homeassistant.components.http import StaticPathConfig
 
