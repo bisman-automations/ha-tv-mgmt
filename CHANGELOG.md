@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.10.1] - 2026-10-10
+
+### Fixed
+
+- **Linked devices on Home Assistant 2026.8 and newer.** TV Mgmt shows under **Linked devices** on the TV's and the Apple TV's device pages, and they show under TV Mgmt's.
+  - Home Assistant 2026.8 gave each device a single integration, so the earlier link, which added TV Mgmt to the TV's device, no longer showed.
+  - TV Mgmt's device no longer says "connected via" the TV on these versions; the linked devices replace that.
+  - Copies of the TV's and the Apple TV's devices that the 2026.8 upgrade made for TV Mgmt are removed. The TV's and the Apple TV's own devices aren't touched.
+  - Older Home Assistant versions keep the earlier link.
+- A message that fails to send for an unexpected reason now says why on the dashboard, instead of "Unknown error".
+
 ## [1.10.0] - 2026-10-09
 
 ### Added
@@ -20,11 +31,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Changed
 
-- **Linked devices on Home Assistant 2026.8 and newer.** TV Mgmt now shows under **Linked devices** on the TV's and the Apple TV's device pages, and they show under TV Mgmt's.
-  - Home Assistant 2026.8 gave each device a single integration, so the earlier link, which added TV Mgmt to the TV's device, no longer showed.
-  - TV Mgmt's device no longer says "connected via" the TV on these versions; the linked devices replace that.
-  - Copies of the TV's and the Apple TV's devices that the 2026.8 upgrade made for TV Mgmt are removed. The TV's and the Apple TV's own devices aren't touched.
-  - Older Home Assistant versions keep the earlier link.
 - Live updates no longer redraw the dashboard while you're typing in it, such as a message or extra minutes. It catches up when you leave the field.
 
 ## [1.9.0] - 2026-10-09
@@ -274,7 +280,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...HEAD
+[1.10.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...v1.8.1

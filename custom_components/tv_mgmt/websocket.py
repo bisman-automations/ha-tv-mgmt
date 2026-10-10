@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from typing import Any
 
+import logging
+
 import voluptuous as vol
 
 from functools import wraps
@@ -46,6 +48,8 @@ from .names import clean_names
 from .quiet import parse_windows
 from .remote_keys import DEVICE_APPLE_TV, DEVICE_TV, available_keys, presses
 from .state import MODES
+
+_LOGGER = logging.getLogger(__name__)
 
 ACTIONS = [
     "grant_extension",
@@ -534,6 +538,10 @@ async def ws_message(hass: HomeAssistant, connection, msg) -> None:
         )
     except HomeAssistantError as err:
         connection.send_error(msg["id"], "send_failed", str(err))
+        return
+    except Exception as err:  # noqa: BLE001 - tell the parent what went wrong
+        _LOGGER.exception("TV Mgmt couldn't send a message")
+        connection.send_error(msg["id"], "send_failed", f"Couldn't send the message: {err!r}")
         return
     connection.send_result(msg["id"], {"sent": sent})
 
