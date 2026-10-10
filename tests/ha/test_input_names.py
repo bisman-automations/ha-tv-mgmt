@@ -14,7 +14,7 @@ SCREEN = {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode
 async def setup_named(hass, names):
     return await setup(
         hass,
-        options={"input_lock": {**LOCK, "input_names": names}, "screen_time": SCREEN, "apple_tv": {}, "sync": {}},
+        options={"input_lock": {**LOCK, "input_names": names}, "screen_time": SCREEN, "apple_tv": {}, "announcements": {}, "sync": {}},
     )
 
 
@@ -68,13 +68,13 @@ async def test_options_flow_edits_names_as_text(hass: HomeAssistant, calls) -> N
 
     bad = await hass.config_entries.options.async_configure(
         result["flow_id"],
-        {"input_lock": {**LOCK, "input_names": "HDMI 2"}, "screen_time": SCREEN, "apple_tv": {}, "sync": {}},
+        {"input_lock": {**LOCK, "input_names": "HDMI 2"}, "screen_time": SCREEN, "apple_tv": {}, "announcements": {}, "sync": {}},
     )
     assert bad["errors"] == {"base": "bad_input_names"}
 
     done = await hass.config_entries.options.async_configure(
         bad["flow_id"],
-        {"input_lock": {**LOCK, "input_names": "HDMI 2 = Apple TV\nHDMI 1 = Xbox"}, "screen_time": SCREEN, "apple_tv": {}, "sync": {}},
+        {"input_lock": {**LOCK, "input_names": "HDMI 2 = Apple TV\nHDMI 1 = Xbox"}, "screen_time": SCREEN, "apple_tv": {}, "announcements": {}, "sync": {}},
     )
     assert done["type"] == "create_entry"
     await hass.async_block_till_done()

@@ -32,7 +32,7 @@ async def setup_synced(hass, *, atv_mode="enforced"):
                            "enforce_on_power_on": True, "max_attempts": 5},
             "screen_time": {"daily_budget": 0, "warn_minutes": 5,
                             "quiet_windows": "", "adult_mode_duration": 120},
-            "sync": {"mode_sync_entity": ATV_MODE},
+            "announcements": {}, "sync": {"mode_sync_entity": ATV_MODE},
         },
     )
     entry.add_to_hass(hass)
@@ -103,7 +103,7 @@ async def test_options_flow_saves_link_and_shows_it_again(
     )
     entry, _ = await setup_synced(hass)
     hass.config_entries.async_update_entry(
-        entry, options={**entry.options, "sync": {"mode_sync_entity": None}}
+        entry, options={**entry.options, "announcements": {}, "sync": {"mode_sync_entity": None}}
     )
     await hass.async_block_till_done()
 
@@ -123,7 +123,7 @@ async def test_options_flow_saves_link_and_shows_it_again(
                            "enforce_on_power_on": True, "max_attempts": 5},
             "screen_time": {"daily_budget": 0, "warn_minutes": 5, "adult_mode_duration": 120},
             "apple_tv": {},
-            "sync": {"mode_sync_entity": ATV_MODE},
+            "announcements": {}, "sync": {"mode_sync_entity": ATV_MODE},
         },
     )
     await hass.async_block_till_done()

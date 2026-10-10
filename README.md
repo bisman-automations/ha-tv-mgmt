@@ -86,7 +86,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
 
 *Screenshots use sample data.*
 
-- **Dashboard.** Every TV at a glance:
+- **Dashboard.** Every TV at a glance. On a wide screen each TV spreads out into columns, with the TV, the Apple TV and the controls side by side. On a phone they stack.
   - what it's showing, and whether that's allowed
   - time used and time left
   - extra time, blocked switches and the last input someone tried
@@ -122,6 +122,20 @@ The same rule covers:
 Automations and scripts that Home Assistant runs on its own aren't affected.
 
 Only admins see TV Mgmt in the sidebar until you give access to someone who isn't an admin. Home Assistant can't show a sidebar entry to only some people, so from then on everyone sees it, and anyone not allowed gets the no-access page.
+
+## Warnings on the TV
+
+TV Mgmt can tell the room when TV time is running low, at the **Warn before time runs out** time, and again just before it turns the TV off. Set it up under **Configure → Warnings on the TV**. Use any of these:
+
+- **Say it on speakers.** Pick a voice (a text-to-speech entity, such as Piper or Google Translate) and the media players to say it on, such as a HomePod. For example: "5 minutes of TV time left."
+- **Show it on the Apple TV with AirPlay.** TV Mgmt plays a 10-second full-screen message on the linked Apple TV, if it's on. It interrupts what's playing; the warning says how many minutes are left.
+
+  <img src="docs/images/airplay-left-5.jpg" alt="Full-screen message: 5 minutes of TV time left. Finish what you're watching. The TV turns off soon." width="320"> <img src="docs/images/airplay-time-up.jpg" alt="Full-screen message: TV time is up. The TV is turning off now." width="320">
+
+  The Apple TV fetches the video from Home Assistant's local address, so set one under **Settings → System → Network**. The Apple TV integration needs AirPlay set up, which it does when you pair it.
+- **Show it on the TV screen** with a notify service that puts messages on the TV, over any input. On Android TV and Google TV, use the [Notifications for Android TV / Fire TV](https://www.home-assistant.io/integrations/nfandroidtv/) integration and its app on the TV. LG webOS has one built in.
+
+When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
 
 ## Naming inputs
 

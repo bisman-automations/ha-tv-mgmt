@@ -30,7 +30,7 @@ async def setup_box(hass, **apple_tv):
         "screen_time": SCREEN,
         "apple_tv": {"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {},
                      "app_action": "home", "sleep_on_block": True, **apple_tv},
-        "sync": {},
+        "announcements": {}, "sync": {},
     }
     return await setup(hass, options=options)
 
@@ -185,7 +185,7 @@ async def test_options_flow_apple_tv_section(hass: HomeAssistant, calls, box_cal
     entry = await setup(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
 
-    form = {"input_lock": LOCK, "screen_time": SCREEN, "sync": {},
+    form = {"input_lock": LOCK, "screen_time": SCREEN, "announcements": {}, "sync": {},
             "apple_tv": {"streaming_player": BOX, "app_mode": "allow", "apps": ["Disney+"],
                          "app_limits": "Disney+ = nope", "app_action": "home", "sleep_on_block": True}}
     bad = await hass.config_entries.options.async_configure(result["flow_id"], form)

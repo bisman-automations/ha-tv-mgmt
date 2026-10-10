@@ -15,6 +15,13 @@ from homeassistant.helpers.event import async_call_later, async_track_time_inter
 from homeassistant.util import dt as dt_util
 
 from . import activity as act
+from .announce import (
+    Announcer,
+    turning_off_message,
+    turning_off_slide,
+    warning_message,
+    warning_slide,
+)
 from .apps import ACTION_HOME, APP_MODE_BLOCK, AppRules
 from .backends import TVBackend
 from .const import (
@@ -31,6 +38,11 @@ from .const import (
     CONF_QUIET_WINDOWS,
     CONF_SLEEP_ON_BLOCK,
     CONF_WAKE_WITH_TV,
+    CONF_ANNOUNCE_AIRPLAY,
+    CONF_ANNOUNCE_PLAYERS,
+    CONF_ANNOUNCE_SCREEN,
+    CONF_ANNOUNCE_TTS,
+    ANNOUNCE_GRACE,
     CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_DURATION,
@@ -142,6 +154,20 @@ class TVManager:
                 on_stop=self._on_app_stopped,
                 on_update=self.notify,
             )
+        self.announcer = Announcer(
+            hass,
+            tts_entity=self.options.get(CONF_ANNOUNCE_TTS),
+            players=list(self.options.get(CONF_ANNOUNCE_PLAYERS) or []),
+            screen=self.options.get(CONF_ANNOUNCE_SCREEN),
+            airplay=(
+                self.options.get(CONF_STREAMING_PLAYER)
+                if self.options.get(CONF_ANNOUNCE_AIRPLAY)
+                else None
+            ),
+        )
+        # While the "turning off" message plays, the Apple TV is left on.
+        self._hold_box_until: datetime | None = None
+
         self._logged_app: str | None = None
         self._box_was_on: bool | None = None
         self._tv_was_on: bool | None = None
@@ -575,6 +601,11 @@ class TVManager:
             if previous.state != self.decision.state:
                 self.guard.reset()
         if self.decision.state == STATE_WARNING and previous.state != STATE_WARNING:
+            if fire_events and self._enforcing_actions() and self.backend.is_on:
+                minutes = round((self.decision.remaining_seconds or 0) / 60)
+                self.announcer.announce(
+                    warning_message(minutes), warning_slide(minutes), airplay_ok=self._box_on()
+                )
             self.hass.bus.async_fire(
                 EVENT_WARNING,
                 {
@@ -586,8 +617,13 @@ class TVManager:
 
     # ---- power enforcement ------------------------------------------------------------
 
+    def _box_on(self) -> bool:
+        return bool(self.box and self.box.is_on)
+
     @callback
-    def _enforce_power(self) -> None:
+    def _sleep_box_if_blocked(self) -> None:
+        if self._hold_box_until and dt_util.utcnow() < self._hold_box_until:
+            return  # Let the announcement finish first.
         if (
             self.box
             and self.sleep_on_block
@@ -596,21 +632,37 @@ class TVManager:
             and self.box.sleep_if_on()
         ):
             self._log(act.EV_BOX_SLEEP, reason=self.decision.reason)
+
+    @callback
+    def _enforce_power(self) -> None:
         if not (
             self.decision.state == STATE_ENFORCING
             and self._enforcing_actions()
             and self.backend.is_on
         ):
             self._cancel_turn_off()
+            self._sleep_box_if_blocked()
             return
         if self._unsub_turn_off is None:
+            delay = TURN_OFF_DELAY
+            if self.announcer.announce(
+                turning_off_message(self.decision.reason, self.decision.quiet_window),
+                turning_off_slide(self.decision.reason),
+                airplay_ok=self._box_on(),
+            ):
+                # Give everyone a moment to hear or read it.
+                delay = ANNOUNCE_GRACE
+                self._hold_box_until = dt_util.utcnow() + timedelta(seconds=ANNOUNCE_GRACE)
             self._unsub_turn_off = async_call_later(
-                self.hass, TURN_OFF_DELAY, self._turn_off_callback
+                self.hass, delay, self._turn_off_callback
             )
+        self._sleep_box_if_blocked()
 
     @callback
     def _turn_off_callback(self, _now: datetime) -> None:
         self._unsub_turn_off = None
+        self._hold_box_until = None
+        self._sleep_box_if_blocked()
         if not (self.decision.state == STATE_ENFORCING and self._enforcing_actions()):
             return
         if not self.backend.is_on:

@@ -6,6 +6,21 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-10-09
+
+### Added
+
+- **Warnings on the TV.** Under **Configure → Warnings on the TV**, TV Mgmt can tell the room when TV time is running low, and again just before it turns the TV off:
+  - **Say it on speakers:** a text-to-speech voice on the media players you pick, such as "5 minutes of TV time left".
+  - **Show it on the Apple TV with AirPlay:** a 10-second full-screen message, such as "5 minutes of TV time left" or "TV time is up". It interrupts what's playing.
+  - **Show it on the TV screen** with a notify service, such as the Notifications for Android TV / Fire TV integration or LG webOS. Messages show over any input.
+  - With a warning set up, TV Mgmt waits 10 seconds after the "turning off" message before turning off the TV and the Apple TV.
+  - Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
+
+### Changed
+
+- **The dashboard fits the screen.** On a wide screen, each TV's card spreads out into columns: the TV and its remote, the Apple TV and what's playing, and the controls. Cards sit side by side when there's room, and stack on a phone.
+
 ## [1.8.1] - 2026-10-09
 
 ### Changed
@@ -238,7 +253,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...HEAD
+[1.9.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...v1.9.0
 [1.8.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.0...v1.8.1
 [1.8.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.6.0...v1.7.0

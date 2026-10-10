@@ -11,6 +11,7 @@ SECTION_INPUT_LOCK = "input_lock"
 SECTION_SCREEN_TIME = "screen_time"
 SECTION_SYNC = "sync"
 SECTION_APPLE_TV = "apple_tv"
+SECTION_ANNOUNCE = "announcements"
 
 # Input lock
 CONF_ALLOWED_SOURCES = "allowed_sources"
@@ -46,6 +47,11 @@ CONF_APP_ACTION = "app_action"  # home / sleep
 CONF_SLEEP_ON_BLOCK = "sleep_on_block"
 DEFAULT_SLEEP_ON_BLOCK = True
 CONF_WAKE_WITH_TV = "wake_with_tv"
+CONF_ANNOUNCE_TTS = "announce_tts"
+CONF_ANNOUNCE_PLAYERS = "announce_players"
+CONF_ANNOUNCE_SCREEN = "announce_screen"
+CONF_ANNOUNCE_AIRPLAY = "announce_airplay"
+ANNOUNCE_GRACE = 10  # seconds between "the TV is turning off" and turning it off
 DEFAULT_WAKE_WITH_TV = True
 APP_STOP_DELAY = 2  # seconds before stopping an app that isn't allowed
 APPLE_TV_DOMAIN = "apple_tv"

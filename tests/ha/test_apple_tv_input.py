@@ -21,7 +21,7 @@ async def setup_pinned(hass, *, allowed=None, apple_tv_input="HDMI 2", player=BO
             "apple_tv": {"streaming_player": player, "apple_tv_input": apple_tv_input,
                          "app_mode": "block", "apps": [], "app_limits": {}, "app_action": "home",
                          "sleep_on_block": True},
-            "sync": {},
+            "announcements": {}, "sync": {},
         },
     )
 
@@ -56,7 +56,7 @@ async def test_pin_wins_over_other_target(hass: HomeAssistant, calls, box_calls)
             "input_lock": lock(allowed_sources=["HDMI 1"], target_source="HDMI 1"),
             "screen_time": SCREEN,
             "apple_tv": {"streaming_player": BOX, "apple_tv_input": "HDMI 2"},
-            "sync": {},
+            "announcements": {}, "sync": {},
         },
     )
     guard = entry.runtime_data.guard
@@ -124,7 +124,7 @@ async def test_settings_allow_apple_tv_input_alone(hass: HomeAssistant, calls, b
         "screen_time": SCREEN,
         "apple_tv": {"streaming_player": BOX, "apple_tv_input": "HDMI 2", "app_mode": "block",
                      "apps": [], "app_action": "home", "sleep_on_block": True},
-        "sync": {},
+        "announcements": {}, "sync": {},
     }
     done = await hass.config_entries.options.async_configure(result["flow_id"], form)
     assert done["type"] == "create_entry", done
@@ -167,7 +167,7 @@ async def test_android_tv_reports_app_but_switches_by_hdmi(
             "input_lock": lock(target_source="HDMI 2"),
             "screen_time": SCREEN,
             "apple_tv": {"streaming_player": BOX, "apple_tv_input": "com.tcl.tv"},
-            "sync": {},
+            "announcements": {}, "sync": {},
         },
     )
     guard = entry.runtime_data.guard

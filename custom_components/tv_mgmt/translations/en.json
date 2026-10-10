@@ -70,6 +70,22 @@
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
           },
+          "announcements": {
+            "name": "Warnings on the TV",
+            "description": "Say and show when TV time is running out, and just before TV Mgmt turns the TV off. The warning comes at the \"Warn before time runs out\" time under Screen time.",
+            "data": {
+              "announce_tts": "Voice",
+              "announce_players": "Say it on",
+              "announce_screen": "Show on the TV screen with",
+              "announce_airplay": "Show on the Apple TV with AirPlay"
+            },
+            "data_description": {
+              "announce_tts": "A text-to-speech entity, such as Google Translate or Piper.",
+              "announce_players": "Speakers or media players in the room. On the Apple TV, speaking stops what's playing, so a HomePod or other speaker is nicer.",
+              "announce_screen": "A notify service that shows messages on the TV, such as the Notifications for Android TV / Fire TV integration or LG webOS. Messages show over any input, including the Apple TV.",
+              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL."
+            }
+          },
           "sync": {
             "name": "Apple TV Mgmt",
             "description": "Link this TV to an Apple TV Mgmt profile.",
@@ -85,6 +101,7 @@
     },
     "error": {
       "no_sources": "Pick at least one allowed input.",
+      "announce_needs_voice": "Pick a voice to speak warnings, or clear the speakers.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
       "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",
@@ -159,6 +176,22 @@
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
           },
+          "announcements": {
+            "name": "Warnings on the TV",
+            "description": "Say and show when TV time is running out, and just before TV Mgmt turns the TV off. The warning comes at the \"Warn before time runs out\" time under Screen time.",
+            "data": {
+              "announce_tts": "Voice",
+              "announce_players": "Say it on",
+              "announce_screen": "Show on the TV screen with",
+              "announce_airplay": "Show on the Apple TV with AirPlay"
+            },
+            "data_description": {
+              "announce_tts": "A text-to-speech entity, such as Google Translate or Piper.",
+              "announce_players": "Speakers or media players in the room. On the Apple TV, speaking stops what's playing, so a HomePod or other speaker is nicer.",
+              "announce_screen": "A notify service that shows messages on the TV, such as the Notifications for Android TV / Fire TV integration or LG webOS. Messages show over any input, including the Apple TV.",
+              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL."
+            }
+          },
           "sync": {
             "name": "Apple TV Mgmt",
             "description": "Link this TV to an Apple TV Mgmt profile.",
@@ -174,6 +207,7 @@
     },
     "error": {
       "no_sources": "Pick at least one allowed input.",
+      "announce_needs_voice": "Pick a voice to speak warnings, or clear the speakers.",
       "target_not_allowed": "The input to force back to must be one of the allowed inputs.",
       "target_required": "Pick the HDMI input to force back to.",
       "bad_quiet_windows": "Quiet windows must look like 20:30-07:00 Bedtime, separated by commas.",

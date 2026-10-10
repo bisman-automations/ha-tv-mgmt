@@ -240,7 +240,27 @@ main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
   border-left: 4px solid var(--tm-bad); padding: 12px 14px; border-radius: 8px; margin-bottom: 16px;
 }
 
-.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(340px, 420px)); justify-content: center; }
+.grid { display: grid; gap: 20px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); }
+main.wide { max-width: 1760px; }
+
+/* A TV's card: stacked on a phone, side by side when there's room. */
+.tv-card { container: tv / inline-size; }
+.tv-layout { display: grid; }
+.tv-layout > .col + .col.card-body { padding-top: 0; }
+@container tv (min-width: 720px) {
+  .tv-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "tv controls"; }
+  .has-atv .tv-layout { grid-template-areas: "tv atv" "controls atv"; grid-template-rows: auto 1fr; }
+  .col-tv { grid-area: tv; }
+  .col-atv { grid-area: atv; padding-top: 16px !important; border-left: 1px solid var(--divider-color); align-content: start; }
+  .col-controls { grid-area: controls; padding-top: 16px !important; align-content: start; }
+  .tv-card:not(.has-atv) .col-controls { border-left: 1px solid var(--divider-color); }
+  .has-atv .col-controls { border-top: 1px solid var(--divider-color); }
+  .col-atv .atv { border-top: 0; padding-top: 0; }
+}
+@container tv (min-width: 1080px) {
+  .has-atv .tv-layout { grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr) minmax(0, 0.95fr); grid-template-areas: "tv atv controls"; grid-template-rows: auto; }
+  .has-atv .col-controls { border-top: 0; border-left: 1px solid var(--divider-color); }
+}
 .card {
   background: var(--card-background-color, var(--ha-card-background, #fff));
   border-radius: var(--tm-radius);
@@ -786,6 +806,7 @@ class TvMgmtPanel extends HTMLElement {
       }[this._tab]();
     }
     const error = this._error ? `<div class="error" role="alert">${esc(this._error)}</div>` : "";
+    main.classList.toggle("wide", this._tab === "dashboard");
     main.innerHTML = error + body;
   }
 
@@ -830,7 +851,9 @@ class TvMgmtPanel extends HTMLElement {
     const id = p.entry_id;
 
     return `
-      <section class="card" aria-label="${esc(p.name)}">
+      <section class="card tv-card${p.apple_tv ? " has-atv" : ""}" aria-label="${esc(p.name)}">
+       <div class="tv-layout">
+        <div class="col col-tv">
         <div class="screen-wrap">
           <div class="${screenClass}">
             <div class="glow"></div>
@@ -844,7 +867,10 @@ class TvMgmtPanel extends HTMLElement {
         <div class="card-body">
           <div class="tv-remote" id="tvr-${id}">${this._tvRemote(p)}</div>
           <div>${timeLine}</div>
-          ${p.apple_tv ? this._renderAppleTv(p) : ""}
+        </div>
+        </div>
+        ${p.apple_tv ? `<div class="col col-atv card-body">${this._renderAppleTv(p)}</div>` : ""}
+        <div class="col col-controls card-body">
           <dl class="facts">
             <dt>Extra time today</dt><dd>${p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min` : "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
@@ -880,6 +906,7 @@ class TvMgmtPanel extends HTMLElement {
             <button class="btn" data-act="reset_usage" data-id="${id}" data-confirm="Reset today's screen time, extra time and block for ${esc(p.name)}?">Reset today</button>
           </div>
         </div>
+       </div>
       </section>`;
   }
 

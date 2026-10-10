@@ -13,6 +13,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er, selector
 
+from .announce import screen_targets
 from .backends import TVBackend, create_backend
 from .const import (
     APPLE_TV_DOMAIN,
@@ -52,6 +53,11 @@ from .const import (
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
     SECTION_SYNC,
+    SECTION_ANNOUNCE,
+    CONF_ANNOUNCE_AIRPLAY,
+    CONF_ANNOUNCE_PLAYERS,
+    CONF_ANNOUNCE_SCREEN,
+    CONF_ANNOUNCE_TTS,
 )
 from .apps import ACTION_HOME, ACTIONS, APP_MODE_BLOCK, APP_MODES, format_limits, parse_limits
 from .manager import flatten_options
@@ -172,6 +178,33 @@ def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
                 CONF_ADULT_MODE_DURATION,
                 default=d.get(CONF_ADULT_MODE_DURATION, DEFAULT_ADULT_MODE_DURATION),
             ): _number(5, 720, "min"),
+        }
+    )
+
+
+def _announce_schema(hass: HomeAssistant, d: Mapping[str, Any]) -> vol.Schema:
+    targets = screen_targets(hass)
+    current = d.get(CONF_ANNOUNCE_SCREEN)
+    if current and current not in targets:
+        targets.append(current)
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_ANNOUNCE_TTS, description={"suggested_value": d.get(CONF_ANNOUNCE_TTS)}
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="tts")),
+            vol.Optional(
+                CONF_ANNOUNCE_PLAYERS, description={"suggested_value": d.get(CONF_ANNOUNCE_PLAYERS) or []}
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="media_player", multiple=True)),
+            vol.Optional(
+                CONF_ANNOUNCE_SCREEN, description={"suggested_value": current}
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=targets, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
+                )
+            ),
+            vol.Required(
+                CONF_ANNOUNCE_AIRPLAY, default=bool(d.get(CONF_ANNOUNCE_AIRPLAY, False))
+            ): selector.BooleanSelector(),
         }
     )
 
@@ -305,6 +338,7 @@ def _settings_schema(
             # Required with no default, like the other sections: an optional
             # section with a default is submitted as that default, dropping
             # the preselected value the form shows.
+            vol.Required(SECTION_ANNOUNCE): section(_announce_schema(hass, flat), {"collapsed": True}),
             vol.Required(SECTION_SYNC): section(_sync_schema(hass, backend.entity_id, flat)),
         }
     )
@@ -369,10 +403,21 @@ def _process(
     except ValueError:
         errors["base"] = "bad_app_limits"
 
+    raw = user_input.get(SECTION_ANNOUNCE, {})
+    announce = {
+        CONF_ANNOUNCE_TTS: raw.get(CONF_ANNOUNCE_TTS) or None,
+        CONF_ANNOUNCE_PLAYERS: list(raw.get(CONF_ANNOUNCE_PLAYERS) or []),
+        CONF_ANNOUNCE_SCREEN: (raw.get(CONF_ANNOUNCE_SCREEN) or "").strip() or None,
+        CONF_ANNOUNCE_AIRPLAY: bool(raw.get(CONF_ANNOUNCE_AIRPLAY)),
+    }
+    if announce[CONF_ANNOUNCE_PLAYERS] and not announce[CONF_ANNOUNCE_TTS]:
+        errors["base"] = "announce_needs_voice"
+
     options = {
         SECTION_INPUT_LOCK: lock,
         SECTION_SCREEN_TIME: screen,
         SECTION_APPLE_TV: apple_tv,
+        SECTION_ANNOUNCE: announce,
         SECTION_SYNC: sync,
     }
     return options, errors

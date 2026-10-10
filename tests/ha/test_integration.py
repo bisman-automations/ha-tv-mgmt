@@ -203,7 +203,7 @@ async def test_options_flow(hass: HomeAssistant, calls) -> None:
         {
             "input_lock": {"allowed_sources": ["HDMI 1"], "revert_delay": 2, "enforce_on_power_on": True, "max_attempts": 5},
             "screen_time": {"daily_budget": 90, "warn_minutes": 10, "quiet_windows": "bad", "adult_mode_duration": 60},
-            "apple_tv": {}, "sync": {},
+            "apple_tv": {}, "announcements": {}, "sync": {},
         },
     )
     assert result["errors"] == {"base": "bad_quiet_windows"}
