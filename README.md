@@ -137,6 +137,8 @@ TV Mgmt can tell the room when TV time is running low, at the **Warn before time
 
 You can also send your own message from the dashboard: type it under **Message the TV**, or tap one like "Dinner is ready", and pick where it goes: the Apple TV, the TV screen or the speakers. It's also the `tv_mgmt.send_message` action, for automations. On the Apple TV, TV Mgmt turns the message into a 10-second video with ffmpeg, which Home Assistant includes.
 
+The "turning off" message plays once per block. If the TV doesn't turn off, or can't be reached, TV Mgmt keeps trying, less and less often, without repeating it.
+
 When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
 
 ## Naming inputs

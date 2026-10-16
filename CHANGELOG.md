@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.10.2] - 2026-10-16
+
+### Fixed
+
+- **Bedtime announcements repeated all night** when the TV couldn't be reached or wouldn't turn off ([#1](https://github.com/bisman-automations/ha-tv-mgmt/issues/1)). TV Mgmt said "The TV is turning off" again every minute it still saw the TV on.
+  - The "turning off" announcement now plays once per block. It plays again only after the TV has been seen off and turned back on, or when a new block starts.
+  - TV Mgmt still keeps trying to turn the TV off, but waits longer between tries, up to every 10 minutes, and logs it once.
+
 ## [1.10.1] - 2026-10-10
 
 ### Fixed
@@ -281,7 +289,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...HEAD
+[1.10.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...v1.10.0
 [1.9.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.8.1...v1.9.0

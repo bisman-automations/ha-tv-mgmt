@@ -61,6 +61,8 @@ from .const import (
     TURN_OFF_COOLDOWN,
     TURN_OFF_DELAY,
 )
+
+MAX_TURN_OFF_RETRY = 600  # seconds
 from .guard import InputGuard
 from .media import media_key, show_of
 from .mode_sync import ModeSync
@@ -167,6 +169,11 @@ class TVManager:
         )
         # While the "turning off" message plays, the Apple TV is left on.
         self._hold_box_until: datetime | None = None
+        # One "turning off" announcement per block: repeated only after the TV has
+        # been seen off, or the block ended. A TV that won't turn off (or can't be
+        # reached) mustn't make it repeat all night.
+        self._off_announced = False
+        self._turn_off_attempts = 0
 
         self._logged_app: str | None = None
         self._box_was_on: bool | None = None
@@ -660,21 +667,27 @@ class TVManager:
 
     @callback
     def _enforce_power(self) -> None:
-        if not (
-            self.decision.state == STATE_ENFORCING
-            and self._enforcing_actions()
-            and self.backend.is_on
-        ):
+        blocking = self.decision.state == STATE_ENFORCING and self._enforcing_actions()
+        if not blocking or self.backend.is_on is False:
+            # The block ended, or the TV is off: the next block, or the TV coming
+            # back on, gets announced and turned off afresh.
+            self._off_announced = False
+            self._turn_off_attempts = 0
+        if not (blocking and self.backend.is_on):
             self._cancel_turn_off()
             self._sleep_box_if_blocked()
             return
         if self._unsub_turn_off is None:
             delay = TURN_OFF_DELAY
-            if self.announcer.announce(
+            if self._turn_off_attempts:
+                # The TV is still on after being told to turn off: try again, less often.
+                delay = self._retry_delay()
+            elif not self._off_announced and self.announcer.announce(
                 turning_off_message(self.decision.reason, self.decision.quiet_window),
                 turning_off_slide(self.decision.reason),
                 airplay_ok=self._box_on(),
             ):
+                self._off_announced = True
                 # Give everyone a moment to hear or read it.
                 delay = ANNOUNCE_GRACE
                 self._hold_box_until = dt_util.utcnow() + timedelta(seconds=ANNOUNCE_GRACE)
@@ -693,15 +706,22 @@ class TVManager:
         if not self.backend.is_on:
             return
         now = dt_util.utcnow()
-        if self._last_turn_off and (now - self._last_turn_off).total_seconds() < TURN_OFF_COOLDOWN:
-            # Try again once the cooldown passes.
+        wait = self._retry_delay() if self._turn_off_attempts else TURN_OFF_COOLDOWN
+        if self._last_turn_off and (now - self._last_turn_off).total_seconds() < wait:
+            # Try again once the wait passes.
             self._unsub_turn_off = async_call_later(
-                self.hass, TURN_OFF_COOLDOWN, self._turn_off_callback
+                self.hass, wait - (now - self._last_turn_off).total_seconds(), self._turn_off_callback
             )
             return
         self._last_turn_off = now
-        self._log(act.EV_TURNED_OFF, reason=self.decision.reason)
-        _LOGGER.info("TV Mgmt %s: turning TV off (%s)", self.name, self.decision.reason)
+        self._turn_off_attempts += 1
+        if self._turn_off_attempts == 1:
+            self._log(act.EV_TURNED_OFF, reason=self.decision.reason)
+            _LOGGER.info("TV Mgmt %s: turning TV off (%s)", self.name, self.decision.reason)
+        else:
+            _LOGGER.debug(
+                "TV Mgmt %s: TV still on, turning it off again (try %s)", self.name, self._turn_off_attempts
+            )
         self.hass.async_create_task(
             self.hass.services.async_call(
                 MEDIA_PLAYER_DOMAIN,
@@ -710,6 +730,10 @@ class TVManager:
                 blocking=False,
             )
         )
+
+    def _retry_delay(self) -> float:
+        """15 s, 30 s, 1 min, 2 min ... up to 10 min between tries."""
+        return float(min(TURN_OFF_COOLDOWN * 2 ** max(0, self._turn_off_attempts - 1), MAX_TURN_OFF_RETRY))
 
     @callback
     def _cancel_turn_off(self) -> None:

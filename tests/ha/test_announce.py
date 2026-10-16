@@ -172,3 +172,52 @@ async def test_send_message_service(hass: HomeAssistant, calls) -> None:
             "tv_mgmt", "send_message",
             {"profile_id": entry.entry_id, "message": "Hi", "screen": False}, blocking=True,
         )
+
+
+async def test_tv_that_wont_turn_off_is_announced_once(hass: HomeAssistant, freezer, calls) -> None:
+    """Issue #1: a TV that can't be reached stays "on", and the bedtime
+    announcement used to repeat on the speakers every minute all night."""
+    speak = async_mock_service(hass, "tts", "speak")
+    set_tv(hass)
+    entry = await setup(hass, options={
+        "input_lock": LOCK,
+        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+        "apple_tv": {},
+        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
+        "sync": {},
+    })
+    entry.runtime_data.force_block()
+    await hass.async_block_till_done()
+    for _ in range(120):  # an hour; the TV never reports off
+        await tick(hass, freezer, 30)
+    assert [c.data["message"] for c in speak] == ["A parent turned off TV time. The TV is turning off."]
+    # It keeps trying to turn the TV off, but backs off to every 10 minutes.
+    tries = [c for c in calls["turn_off"] if c.data["entity_id"] == TV]
+    assert 5 <= len(tries) <= 12
+    turned_off_events = [e for e in entry.runtime_data.activity.events if e["type"] == "turned_off"]
+    assert len(turned_off_events) == 1
+
+    # Once the TV is off, turning it back on during the block is announced again.
+    set_tv(hass, state="off", source=None)
+    await hass.async_block_till_done()
+    set_tv(hass)
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 30)
+    assert len(speak) == 2
+
+
+async def test_unreachable_tv_isnt_announced(hass: HomeAssistant, freezer, calls) -> None:
+    speak = async_mock_service(hass, "tts", "speak")
+    set_tv(hass, state="unavailable", source=None)
+    entry = await setup(hass, options={
+        "input_lock": LOCK,
+        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+        "apple_tv": {},
+        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
+        "sync": {},
+    })
+    entry.runtime_data.force_block()
+    for _ in range(20):
+        await tick(hass, freezer, 30)
+    assert speak == []
+    assert [c for c in calls["turn_off"] if c.data["entity_id"] == TV] == []
