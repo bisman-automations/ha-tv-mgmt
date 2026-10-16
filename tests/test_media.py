@@ -43,3 +43,18 @@ def test_key_changes_per_episode():
     c = media_from("playing", {"media_title": "B", "media_series_title": "Bluey", "media_episode": 2})
     assert media_key(a) == media_key(b) != media_key(c)
     assert media_key(None) is None
+
+
+def test_blocked_show():
+    from tv_mgmt_pure.media import blocked_show
+
+    cars = media_from("playing", {"media_title": "Cars"})
+    cars2 = media_from("playing", {"media_title": "Cars 2"})
+    assert blocked_show(cars, ["cars "]) == "cars "
+    assert blocked_show(cars2, ["Cars"]) is None
+    episode = media_from("paused", {
+        "media_title": "Genevieve's Playhouse", "media_artist": "Season 2, Ep. 14 Learn Vehicle Names",
+    })
+    assert blocked_show(episode, ["Genevieve's Playhouse"]) == "Genevieve's Playhouse"
+    assert blocked_show(None, ["Cars"]) is None
+    assert blocked_show(cars, []) is None

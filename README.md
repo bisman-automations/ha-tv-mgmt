@@ -178,6 +178,7 @@ On top of that:
 - **Time per app.** TV Mgmt records which app is open and for how long. The home screen doesn't count. It shows on two new sensors, **Current app** and **App time today**, and in the sidebar app's dashboard, activity and analytics.
 - **Block apps, or allow only a few.** Either block the apps you check (say Roblox), or allow only the apps you check (say Disney+ and PBS KIDS Video) and block everything else.
 - **Daily limits per app.** For example, YouTube 30 minutes. When an app hits its limit, it's stopped for the rest of the day.
+- **Block shows and movies.** Block a show or movie by name, and it's stopped in any app, the same way as a blocked app. Tap **Block** next to it under **Watched today** on the dashboard, or check it under **Limits → Apple TV apps**, which lists everything that's been watched. Names match whole, so blocking "Cars" doesn't block "Cars 2". It depends on the app telling the Apple TV what's playing.
 - **What happens.** A stopped app sends the Apple TV back to its home screen, so other apps still work, or puts it to sleep if you prefer.
 - **Wake with the TV.** Turning the TV on wakes the Apple TV, which brings the TV to its input. This doesn't happen while the TV is blocked, or in monitor-only, paused or adult mode.
 - **Sleep with the TV.** When the TV is blocked (limit reached, quiet window, or Block now), the Apple TV is put to sleep too.
@@ -268,7 +269,7 @@ data:
 | Event | When |
 | --- | --- |
 | `tv_mgmt_input_blocked` | Someone switched to an input that isn't allowed. Includes `blocked_source`, `target_source`, and whether it was `reverted`. |
-| `tv_mgmt_app_blocked` | An Apple TV app was stopped. Includes `app_id`, `app_name`, `reason` (`blocked`, `not_allowed` or `limit`), `action` (`home` or `sleep`), and whether it `acted` (false in monitor-only mode). |
+| `tv_mgmt_app_blocked` | An Apple TV app or show was stopped. Includes `app_id`, `app_name`, `reason` (`blocked`, `not_allowed`, `limit` or `show_blocked`), `show` (the blocked show or movie, if that's why), `action` (`home` or `sleep`), and whether it `acted` (false in monitor-only mode). |
 | `tv_mgmt_warning` | Time is about to run out. Includes `remaining_minutes`. |
 | `tv_mgmt_enforcement_changed` | The enforcement state changed. Includes `state`, `previous_state`, `reason` and `quiet_window`. |
 

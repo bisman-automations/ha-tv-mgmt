@@ -6,6 +6,17 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-16
+
+### Added
+
+- **Block shows and movies** on the Apple TV, in any app. A blocked show or movie is stopped the same way as a blocked app: back to the home screen, or to sleep.
+  - On the dashboard, tap **Block** next to a show under **Watched today**.
+  - Under **Limits → Apple TV apps**, check shows and movies from everything that's been watched, or type a name. Also under **Configure → Apple TV**.
+  - Names match whole, ignoring case, so blocking "Cars" doesn't block "Cars 2". A blocked series covers every episode.
+  - Like app rules, they follow the mode: monitor only reports without stopping, and paused or adult mode lifts them.
+  - The activity log, the `tv_mgmt_app_blocked` event (`show`) and the **Current app** sensor (`blocked_show`) say which show was stopped.
+
 ## [1.10.2] - 2026-10-16
 
 ### Fixed
@@ -289,7 +300,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...HEAD
+[1.11.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...v1.10.1
 [1.10.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.9.0...v1.10.0

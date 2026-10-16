@@ -33,8 +33,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from .apps import ACTION_HOME, ACTION_SLEEP, AppRules, is_home
-from .media import PLAYING, media_from, media_key
+from .apps import ACTION_HOME, ACTION_SLEEP, REASON_SHOW, AppRules, is_home
+from .media import PLAYING, blocked_show, media_from, media_key
 from .const import APP_STOP_DELAY, ATTEMPT_WINDOW, TURN_OFF_COOLDOWN
 
 _LOGGER = logging.getLogger(__name__)
@@ -57,8 +57,9 @@ class StreamingBox:
         rules_active: Callable[[], bool],
         should_act: Callable[[], bool],
         used_seconds: Callable[[str], int],
-        on_stop: Callable[[str, str | None, str, str, bool], None],
+        on_stop: Callable[..., None],
         on_update: Callable[[], None],
+        blocked_shows: list[str] | None = None,
     ) -> None:
         self.hass = hass
         self.entity_id = entity_id
@@ -69,18 +70,20 @@ class StreamingBox:
         self._used_seconds = used_seconds
         self._on_stop = on_stop
         self._on_update = on_update
+        self.blocked_shows = [s for s in blocked_shows or [] if s and s.strip()]
 
         # The app counted as open: set after usage up to now has been counted.
         self.app_id: str | None = None
         self.app_name: str | None = None
         self.stop_reason: str | None = None
+        self.stop_show: str | None = None  # the blocked show, when that's the reason
         # What's playing, counted the same way: the show, episode, movie or song.
         self.media: dict[str, Any] | None = None
         self.media_playing = False
 
         self._unsub: CALLBACK_TYPE | None = None
         self._unsub_stop: CALLBACK_TYPE | None = None
-        self._reported: tuple[str, str] | None = None
+        self._reported: tuple[str | None, str, str | None] | None = None
         self._stops: deque[datetime] = deque()
         self._last_sleep: datetime | None = None
         self._last_wake: datetime | None = None
@@ -165,11 +168,22 @@ class StreamingBox:
     # ---- rules ----------------------------------------------------------------------
 
     @callback
+    def _check(self) -> tuple[str | None, str | None]:
+        """(why what's on should stop, the blocked show if that's why)."""
+        if not self._rules_active():
+            return None, None
+        if self.app_id and (
+            reason := self.rules.check(self.app_id, self.app_name, self._used_seconds(self.app_id))
+        ):
+            return reason, None
+        media, _playing = self.reported_media()
+        if show := blocked_show(media, self.blocked_shows):
+            return REASON_SHOW, show
+        return None, None
+
     def evaluate(self) -> None:
-        reason = None
-        if self.app_id and self._rules_active():
-            reason = self.rules.check(self.app_id, self.app_name, self._used_seconds(self.app_id))
-        self.stop_reason = reason
+        reason, show = self._check()
+        self.stop_reason, self.stop_show = reason, show
         if reason is None:
             self._cancel_stop()
             return
@@ -180,17 +194,15 @@ class StreamingBox:
     def _stop_callback(self, _now: datetime) -> None:
         self._unsub_stop = None
         self.refresh_app()
-        if not self.app_id or not self._rules_active():
-            return
-        reason = self.rules.check(self.app_id, self.app_name, self._used_seconds(self.app_id))
+        reason, show = self._check()
         if reason is None:
             return
         acting = self._should_act()
 
-        # Report each app once per visit, even in monitor-only mode.
-        if self._reported != (self.app_id, reason):
-            self._reported = (self.app_id, reason)
-            self._on_stop(self.app_id, self.app_name, reason, self.action, acting)
+        # Report each app (or show) once per visit, even in monitor-only mode.
+        if self._reported != (self.app_id, reason, show):
+            self._reported = (self.app_id, reason, show)
+            self._on_stop(self.app_id, self.app_name, reason, self.action, acting, show=show)
 
         if not acting:
             return
@@ -201,7 +213,7 @@ class StreamingBox:
             _LOGGER.warning("TV Mgmt: %s keeps reopening %s; waiting", self.entity_id, self.app_name)
             return
         self._stops.append(now)
-        _LOGGER.info("TV Mgmt: stopping %s on %s (%s)", self.app_name, self.entity_id, reason)
+        _LOGGER.info("TV Mgmt: stopping %s on %s (%s)", show or self.app_name, self.entity_id, reason)
         if self.action == ACTION_SLEEP:
             self._sleep()
         else:
@@ -309,6 +321,7 @@ class StreamingBox:
             "app_id": self.app_id,
             "app_name": self.app_name,
             "stop_reason": self.stop_reason,
+            "stop_show": self.stop_show,
             "remote_entity": (remote := self._remote_entity()),
             "has_remote": remote is not None,
         }

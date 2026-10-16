@@ -129,6 +129,10 @@ function describeEvent(e, p) {
       return { icon: "box", text: e.app ? `Opened ${e.name ?? e.app} on the Apple TV` : "Closed the app on the Apple TV" };
     case "app_stopped": {
       const app = e.name ?? e.app;
+      if (e.show) {
+        const did = !e.acted ? " (monitor only)" : e.action === "sleep" ? ", put the Apple TV to sleep" : ", went back to the home screen";
+        return { icon: "shield", tone: e.acted ? "bad" : "warn", text: `Tried ${e.show}${app ? ` in ${app}` : ""}, which is blocked${did}` };
+      }
       const why = { blocked: `Tried ${app}, which is blocked`, not_allowed: `Tried ${app}, which isn't on the allowed list`, limit: `${app} reached its daily limit` }[e.reason] || `Stopped ${app}`;
       const did = !e.acted ? " (monitor only)" : e.action === "sleep" ? ", put the Apple TV to sleep" : ", went back to the home screen";
       return { icon: "shield", tone: e.acted ? "bad" : "warn", text: why + did };
@@ -499,6 +503,10 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
   background: transparent; cursor: pointer; color: var(--primary-text-color); }
 .chip-btn:hover { background: color-mix(in srgb, var(--primary-color) 10%, transparent); }
 .chip-btn:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.show-rules { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 14px; }
+.show-rule { display: inline-flex; align-items: center; gap: 6px; }
+.watched-end { display: inline-flex; align-items: center; gap: 10px; }
+.chip-btn.on { border-color: var(--tm-bad); color: var(--tm-bad); }
 .message-where { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; }
 .message-where label { display: inline-flex; align-items: center; gap: 6px; }
 .custom-time { display: inline-flex; gap: 8px; align-items: center; max-width: none; }
@@ -970,7 +978,7 @@ class TvMgmtPanel extends HTMLElement {
     }
     const stateLabel = { playing: "Playing", paused: "Paused", idle: "Idle", on: "On" }[state];
     const rule = a.stop_reason
-      ? `<span class="chip tone-bad">${{ blocked: "Blocked app", not_allowed: "Not allowed", limit: "Limit reached" }[a.stop_reason] || "Not allowed"}</span>`
+      ? `<span class="chip tone-bad">${{ blocked: "Blocked app", not_allowed: "Not allowed", limit: "Limit reached", show_blocked: "Blocked show" }[a.stop_reason] || "Not allowed"}</span>`
       : "";
     const pic = !unavailable && !asleep && attrs.entity_picture;
     const art = pic
@@ -1208,8 +1216,35 @@ class TvMgmtPanel extends HTMLElement {
     if (!shows.length) return "";
     return `<div class="atv-head"><span class="label">Watched today</span></div>
       <ul class="apps-list watched">${shows
-        .map((m) => `<li><div class="row-line"><span>${esc(m.show)}${m.app ? `<small>${esc(m.app)}</small>` : ""}</span><span class="muted">${duration(m.seconds)}</span></div></li>`)
+        .map((m) => {
+          const isBlocked = (a.rules.blocked_shows || []).some((x) => x.trim().toLowerCase() === m.show.trim().toLowerCase());
+          return `<li><div class="row-line"><span>${esc(m.show)}${m.app ? `<small>${esc(m.app)}</small>` : ""}</span>
+            <span class="watched-end"><span class="muted">${duration(m.seconds)}</span>
+            <button class="chip-btn${isBlocked ? " on" : ""}" data-block-show="${esc(m.show)}" data-id="${this._entryFor(a)}" aria-pressed="${isBlocked}" title="${isBlocked ? "Unblock" : "Block"} ${esc(m.show)}">${isBlocked ? "Blocked" : "Block"}</button></span></div></li>`;
+        })
         .join("")}</ul>`;
+  }
+
+  _entryFor(a) {
+    return this._profiles.find((p) => p.apple_tv === a)?.entry_id ?? "";
+  }
+
+  // Block or unblock a show straight from the dashboard.
+  async _toggleShow(entryId, show) {
+    const p = this._profiles.find((x) => x.entry_id === entryId);
+    const current = p?.apple_tv?.rules?.blocked_shows || [];
+    const fold = (x) => x.trim().toLowerCase();
+    const isBlocked = current.some((x) => fold(x) === fold(show));
+    if (!isBlocked && !window.confirm(`Block ${show} on the Apple TV? It's stopped in any app.`)) return;
+    const next = isBlocked ? current.filter((x) => fold(x) !== fold(show)) : [...current, show];
+    try {
+      await this._ws({ type: "tv_mgmt/apple_tv/set", entry_id: entryId, blocked_shows: next });
+      this._appsDraft = null;
+      this._error = null;
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._showError(err);
+    }
   }
 
   // Access ---------------------------------------------------------------------------
@@ -1556,6 +1591,8 @@ class TvMgmtPanel extends HTMLElement {
         action: a.rules.action,
         sleep: a.rules.sleep_on_block,
         wake: a.rules.wake_with_tv !== false,
+        shows: [...(a.rules.blocked_shows || [])],
+        newShow: "",
       };
     }
     const d = this._appsDraft;
@@ -1596,6 +1633,7 @@ class TvMgmtPanel extends HTMLElement {
             ? `<div class="app-rules-head"><span>${checkLabel}</span><span>App</span><span>Daily limit (min)</span></div><div class="app-rules">${appRows}</div>`
             : `<p class="muted">Open a few apps on the Apple TV and they'll appear here.</p>`}
         </div>
+        ${this._renderShowRules(a, d)}
         <div class="field">
           <label>When an app isn't allowed</label>
           <label class="radio"><input type="radio" name="app_action" value="home" data-app-action ${d.action === "home" ? "checked" : ""}> Go back to the Apple TV home screen</label>
@@ -1612,6 +1650,24 @@ class TvMgmtPanel extends HTMLElement {
         </div>
       </form>
     </div></section>`;
+  }
+
+  _renderShowRules(a, d) {
+    const fold = (x) => String(x).trim().toLowerCase();
+    const blocked = new Set(d.shows.map(fold));
+    const names = [...new Map([...d.shows, ...(a.known_shows || [])].map((n) => [fold(n), n])).values()];
+    const rows = names
+      .map((name, i) => `<label class="show-rule"><input type="checkbox" class="check" data-show-check="${esc(name)}" ${blocked.has(fold(name)) ? "checked" : ""}> ${esc(name)}</label>`)
+      .join("");
+    return `<div class="field">
+        <label for="new-show">Blocked shows and movies</label>
+        <small>Stopped in any app, like a blocked app. Check one that's been watched, or type a name exactly as the Apple TV shows it. "Cars" doesn't block "Cars 2".</small>
+        ${rows ? `<div class="show-rules">${rows}</div>` : `<p class="muted">Shows and movies watched on the Apple TV appear here.</p>`}
+        <div class="message-row">
+          <input id="new-show" type="text" data-new-show placeholder="Add a show or movie" value="${esc(d.newShow)}" autocomplete="off">
+          <button type="button" class="btn" data-add-show>Add</button>
+        </div>
+      </div>`;
   }
 
   async _saveApps() {
@@ -1633,7 +1689,7 @@ class TvMgmtPanel extends HTMLElement {
     try {
       await this._ws({
         type: "tv_mgmt/apple_tv/set", entry_id: this._selected,
-        mode: d.mode, apps: d.apps, limits, action: d.action, sleep_on_block: d.sleep, wake_with_tv: d.wake,
+        mode: d.mode, apps: d.apps, limits, action: d.action, sleep_on_block: d.sleep, wake_with_tv: d.wake, blocked_shows: d.shows,
       });
       this._appsNote = "App rules saved";
       this._appsDraft = null;
@@ -1730,6 +1786,19 @@ class TvMgmtPanel extends HTMLElement {
       this._callService("media_player", el.dataset.media, { entity_id: el.dataset.eid });
       return;
     }
+    if (el.dataset.addShow !== undefined && this._appsDraft) {
+      const d = this._appsDraft;
+      const name = (d.newShow || "").trim();
+      if (name && !d.shows.some((x) => x.trim().toLowerCase() === name.toLowerCase())) d.shows.push(name);
+      d.newShow = "";
+      this._appsNote = "";
+      this._render();
+      return;
+    }
+    if (el.dataset.blockShow) {
+      this._toggleShow(el.dataset.id, el.dataset.blockShow);
+      return;
+    }
     if (el.dataset.preset) {
       const d = this._msg(el.dataset.id);
       d.text = el.dataset.preset;
@@ -1790,6 +1859,13 @@ class TvMgmtPanel extends HTMLElement {
       return;
     }
     const d = this._appsDraft;
+    if (d && input.dataset.showCheck !== undefined) {
+      const name = input.dataset.showCheck;
+      d.shows = d.shows.filter((x) => x.trim().toLowerCase() !== name.trim().toLowerCase());
+      if (input.checked) d.shows.push(name);
+      this._appsNote = "";
+      return;
+    }
     if (d && input.dataset.appCheck !== undefined) {
       const key = input.dataset.appCheck;
       d.apps = d.apps.filter((x) => x.toLowerCase() !== key.toLowerCase());
@@ -1825,6 +1901,7 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   _onInput(ev) {
+    if (ev.target.dataset.newShow !== undefined && this._appsDraft) this._appsDraft.newShow = ev.target.value;
     if (ev.target.name === "message" && ev.target.closest("form[data-message]")) {
       const id = ev.target.closest("form[data-message]").dataset.message;
       this._msg(id).text = ev.target.value;
@@ -1878,6 +1955,11 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.id === "apps" && this.shadowRoot.activeElement?.dataset?.newShow !== undefined) {
+      ev.preventDefault();
+      this.shadowRoot.querySelector("[data-add-show]")?.click();
+      return;
+    }
     if (ev.target.dataset.message) {
       ev.preventDefault();
       await this._sendMessage(ev.target.dataset.message);

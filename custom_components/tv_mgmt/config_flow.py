@@ -21,6 +21,7 @@ from .const import (
     CONF_APP_ACTION,
     CONF_APPLE_TV_INPUT,
     CONF_APP_LIMITS,
+    CONF_BLOCKED_SHOWS,
     CONF_APP_MODE,
     CONF_APPS,
     CONF_ALLOWED_SOURCES,
@@ -246,6 +247,7 @@ def _apple_tv_schema(
     apps: Mapping[str, str],
     backend: TVBackend,
     seen: list[str],
+    shows: list[str] | None = None,
 ) -> vol.Schema:
     # Suggest the Apple TV when there's exactly one, until the user has chosen.
     if CONF_STREAMING_PLAYER in d:
@@ -302,6 +304,14 @@ def _apple_tv_schema(
                 CONF_APP_LIMITS,
                 description={"suggested_value": _limits_text(d.get(CONF_APP_LIMITS))},
             ): selector.TextSelector(selector.TextSelectorConfig(multiline=True)),
+            vol.Optional(
+                CONF_BLOCKED_SHOWS, default=list(d.get(CONF_BLOCKED_SHOWS) or [])
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=list(dict.fromkeys([*(shows or []), *(d.get(CONF_BLOCKED_SHOWS) or [])])),
+                    multiple=True, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
             vol.Required(CONF_APP_ACTION, default=d.get(CONF_APP_ACTION, ACTION_HOME)): selector.SelectSelector(
                 selector.SelectSelectorConfig(
                     options=ACTIONS, translation_key=CONF_APP_ACTION,
@@ -324,6 +334,7 @@ def _settings_schema(
     defaults: Mapping[str, Any],
     seen: list[str] | None = None,
     apps: Mapping[str, str] | None = None,
+    shows: list[str] | None = None,
 ) -> vol.Schema:
     flat = flatten_options(dict(defaults))
     return vol.Schema(
@@ -333,7 +344,7 @@ def _settings_schema(
             ),
             vol.Required(SECTION_SCREEN_TIME): section(_screen_time_schema(flat)),
             vol.Required(SECTION_APPLE_TV): section(
-                _apple_tv_schema(hass, flat, apps or {}, backend, seen or [])
+                _apple_tv_schema(hass, flat, apps or {}, backend, seen or [], shows)
             ),
             # Required with no default, like the other sections: an optional
             # section with a default is submitted as that default, dropping
@@ -394,6 +405,9 @@ def _process(
     apple_tv[CONF_STREAMING_PLAYER] = apple_tv.get(CONF_STREAMING_PLAYER) or None
     apple_tv[CONF_APPLE_TV_INPUT] = (apple_tv.get(CONF_APPLE_TV_INPUT) or "").strip() or None
     apple_tv[CONF_APPS] = [a.strip() for a in apple_tv.get(CONF_APPS) or [] if a.strip()]
+    apple_tv[CONF_BLOCKED_SHOWS] = list(
+        dict.fromkeys(s.strip() for s in apple_tv.get(CONF_BLOCKED_SHOWS) or [] if s.strip())
+    )
     apple_tv.setdefault(CONF_APP_MODE, APP_MODE_BLOCK)
     apple_tv.setdefault(CONF_APP_ACTION, ACTION_HOME)
     apple_tv.setdefault(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK)
@@ -505,6 +519,7 @@ class TVMgmtOptionsFlow(OptionsFlow):
                 user_input or entry.options,
                 manager.known_inputs() if manager else None,
                 manager.known_apps() if manager else None,
+                manager.known_shows() if manager else None,
             ),
             errors=errors,
             description_placeholders=_placeholders(backend),

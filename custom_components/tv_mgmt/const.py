@@ -43,6 +43,7 @@ FOLLOW_DELAY = 3  # seconds after the Apple TV wakes before switching the TV to 
 CONF_APP_MODE = "app_mode"  # block / allow
 CONF_APPS = "apps"  # apps blocked (block mode) or allowed (allow mode)
 CONF_APP_LIMITS = "app_limits"  # {app: minutes}
+CONF_BLOCKED_SHOWS = "blocked_shows"  # [show or movie name]
 CONF_APP_ACTION = "app_action"  # home / sleep
 CONF_SLEEP_ON_BLOCK = "sleep_on_block"
 DEFAULT_SLEEP_ON_BLOCK = True

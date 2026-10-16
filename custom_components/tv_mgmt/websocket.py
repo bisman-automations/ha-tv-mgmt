@@ -25,6 +25,7 @@ from .const import (
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
     CONF_APP_LIMITS,
+    CONF_BLOCKED_SHOWS,
     CONF_APP_MODE,
     CONF_APPS,
     CONF_DAILY_BUDGET,
@@ -201,6 +202,7 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
         "last_stopped_app": manager.app_name_for(state.last_stopped_app),
         "last_stopped_at": state.last_stopped_at,
         "known_apps": manager.known_apps(),
+        "known_shows": manager.known_shows(),
         "rules": {
             "mode": box.rules.mode,
             "apps": list(box.rules.apps),
@@ -208,6 +210,7 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
             "action": box.action,
             "sleep_on_block": manager.sleep_on_block,
             "wake_with_tv": manager.wake_with_tv,
+            "blocked_shows": list(box.blocked_shows),
         },
     }
 
@@ -406,6 +409,7 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("action"): vol.In(APP_ACTIONS),
         vol.Optional("sleep_on_block"): bool,
         vol.Optional("wake_with_tv"): bool,
+        vol.Optional("blocked_shows"): [str],
     }
 )
 @require_access
@@ -433,6 +437,10 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
         changes[CONF_SLEEP_ON_BLOCK] = msg["sleep_on_block"]
     if "wake_with_tv" in msg:
         changes[CONF_WAKE_WITH_TV] = msg["wake_with_tv"]
+    if "blocked_shows" in msg:
+        changes[CONF_BLOCKED_SHOWS] = list(
+            dict.fromkeys(s.strip() for s in msg["blocked_shows"] if s.strip())
+        )
     entry = manager.entry
     options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
     options.setdefault(SECTION_APPLE_TV, {}).update(changes)

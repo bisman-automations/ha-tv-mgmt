@@ -29,6 +29,7 @@ from .const import (
     CONF_APP_ACTION,
     CONF_APPLE_TV_INPUT,
     CONF_APP_LIMITS,
+    CONF_BLOCKED_SHOWS,
     CONF_APP_MODE,
     CONF_APPS,
     CONF_DAILY_BUDGET,
@@ -155,6 +156,7 @@ class TVManager:
                 used_seconds=lambda app: self.state.app_seconds.get(app, 0),
                 on_stop=self._on_app_stopped,
                 on_update=self.notify,
+                blocked_shows=list(self.options.get(CONF_BLOCKED_SHOWS) or []),
             )
         self.announcer = Announcer(
             hass,
@@ -256,6 +258,18 @@ class TVManager:
         if app_id is None:
             return None
         return self.state.known_apps.get(app_id, app_id)
+
+    def known_shows(self) -> list[str]:
+        """Shows and movies watched on the Apple TV, most watched first."""
+        totals: dict[str, int] = {}
+        for record in self.activity.daily.values():
+            for show, secs in record.get("media", {}).items():
+                totals[show] = totals.get(show, 0) + secs
+        for show, secs in self.state.media_seconds.items():
+            totals[show] = max(totals.get(show, 0), secs)
+        for show in self.state.media_apps:
+            totals.setdefault(show, 0)
+        return sorted(totals, key=lambda s: (-totals[s], s.casefold()))
 
     def known_apps(self) -> dict[str, str]:
         """Apps this Apple TV has opened or lists (ID or name -> name)."""
@@ -430,14 +444,23 @@ class TVManager:
 
     @callback
     def _on_app_stopped(
-        self, app_id: str, name: str | None, reason: str, action: str, acted: bool
+        self,
+        app_id: str | None,
+        name: str | None,
+        reason: str,
+        action: str,
+        acted: bool,
+        show: str | None = None,
     ) -> None:
         now = dt_util.utcnow()
         self.state.apps_stopped += 1
         self.state.last_stopped_app = app_id
         self.state.last_stopped_at = now.isoformat()
         self.store.schedule_save()
-        self._log(act.EV_APP_STOPPED, app=app_id, name=name, reason=reason, action=action, acted=acted)
+        extra = {"show": show} if show else {}
+        self._log(
+            act.EV_APP_STOPPED, app=app_id, name=name, reason=reason, action=action, acted=acted, **extra
+        )
         self.hass.bus.async_fire(
             EVENT_APP_BLOCKED,
             {
@@ -447,6 +470,7 @@ class TVManager:
                 "app_id": app_id,
                 "app_name": name,
                 "reason": reason,
+                "show": show,
                 "action": action,
                 "acted": acted,
             },

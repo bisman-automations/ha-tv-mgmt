@@ -99,3 +99,17 @@ def describe(media: dict[str, Any] | None) -> str | None:
     if artist := media.get("artist"):
         return f"{title} by {artist}"
     return title
+
+
+def blocked_show(media: dict[str, Any] | None, blocked: list[str] | tuple[str, ...]) -> str | None:
+    """The blocked show or movie this is, if any: its series or title, ignoring case.
+
+    Whole names only, so blocking "Cars" doesn't block "Cars 2".
+    """
+    if not media or not blocked:
+        return None
+    names = {n.strip().casefold(): n for n in blocked if n and n.strip()}
+    for candidate in (media.get("series"), show_of(media), media.get("title")):
+        if candidate and candidate.strip().casefold() in names:
+            return names[candidate.strip().casefold()]
+    return None

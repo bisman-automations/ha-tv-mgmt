@@ -62,6 +62,7 @@ def _current_app_attrs(m: TVManager) -> dict[str, Any]:
         "app_id": app_id,
         "allowed": None if not app_id else box.stop_reason is None,
         "stop_reason": box.stop_reason if box else None,
+        "blocked_show": box.stop_show if box else None,
         "minutes_today": _minutes(m.state.app_seconds.get(app_id, 0)) if app_id else None,
         "limit_minutes": limit,
         "now_watching": describe(box.media) if box else None,

@@ -318,3 +318,48 @@ async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_clie
     summary = (await client.receive_json())["result"]["profiles"][0]["summary"]
     assert summary["top_media"][0]["show"] == "Genevieve's Playhouse"
     assert summary["top_media"][0]["app"] == "Prime Video"
+
+
+async def test_blocks_shows_and_movies(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+    set_tv(hass)
+    play(hass, media_title="Cars 2")
+    entry = await setup_box(hass, blocked_shows=["Cars", "Genevieve's Playhouse"])
+    manager = entry.runtime_data
+    events = []
+    hass.bus.async_listen("tv_mgmt_app_blocked", events.append)
+
+    # "Cars 2" isn't "Cars".
+    await tick(hass, freezer, 5)
+    assert box_calls["remote"] == []
+
+    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 15 Colors")
+    await hass.async_block_till_done()
+    assert manager.box.stop_reason == "show_blocked"
+    assert manager.box.stop_show == "Genevieve's Playhouse"
+    await tick(hass, freezer, 3)
+    assert box_calls["remote"][-1].data == {"entity_id": REMOTE, "command": ["home"]}
+    assert events[0].data["show"] == "Genevieve's Playhouse"
+    assert events[0].data["reason"] == "show_blocked"
+    stopped = [e for e in manager.activity.events if e["type"] == "app_stopped"]
+    assert stopped[-1]["show"] == "Genevieve's Playhouse"
+
+    # Monitor only reports without stopping it.
+    manager.set_mode("monitor_only")
+    sent = len(box_calls["remote"])
+    play(hass, media_title="Cars")
+    await hass.async_block_till_done()
+    await tick(hass, freezer, 3)
+    assert len(box_calls["remote"]) == sent
+
+    # The sidebar app lists what's been watched and edits the list.
+    client = await hass_ws_client(hass)
+    await client.send_json_auto_id({"type": "tv_mgmt/profiles"})
+    atv = (await client.receive_json())["result"]["profiles"][0]["apple_tv"]
+    assert atv["rules"]["blocked_shows"] == ["Cars", "Genevieve's Playhouse"]
+    assert {"Cars 2", "Genevieve's Playhouse"} <= set(atv["known_shows"])
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "blocked_shows": [" Cars 2 ", "Cars 2", ""]}
+    )
+    assert (await client.receive_json())["success"]
+    await hass.async_block_till_done()
+    assert hass.config_entries.async_get_entry(entry.entry_id).options["apple_tv"]["blocked_shows"] == ["Cars 2"]

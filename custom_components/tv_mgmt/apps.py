@@ -30,6 +30,7 @@ APP_MODES = [APP_MODE_BLOCK, APP_MODE_ALLOW]
 REASON_BLOCKED = "blocked"
 REASON_NOT_ALLOWED = "not_allowed"
 REASON_LIMIT = "limit"
+REASON_SHOW = "show_blocked"  # a blocked show or movie, in any app
 
 # The home screen and system UI: never counted as app time, never blocked.
 HOME_APP_IDS = frozenset(
