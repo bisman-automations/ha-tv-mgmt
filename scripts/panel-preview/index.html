@@ -1,0 +1,171 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  html, body { margin: 0; }
+  body.light {
+    --primary-background-color: #fafafa; --card-background-color: #fff; --primary-text-color: #212121;
+    --secondary-text-color: #727272; --divider-color: rgba(0,0,0,.12); --primary-color: #03a9f4;
+    --app-header-background-color: #03a9f4; --app-header-text-color: #fff; --text-primary-color: #fff;
+    --secondary-background-color: #e5e5e5;
+  }
+  body.dark {
+    --primary-background-color: #111111; --card-background-color: #1c1c1c; --primary-text-color: #e1e1e1;
+    --secondary-text-color: #9b9b9b; --divider-color: rgba(225,225,225,.12); --primary-color: #03a9f4;
+    --app-header-background-color: #101e24; --app-header-text-color: #e1e1e1; --text-primary-color: #fff;
+    --secondary-background-color: #282828;
+  }
+  body { font-family: Roboto, "Helvetica Neue", Arial, sans-serif; }
+</style></head>
+<body class="light">
+<script>
+customElements.define("ha-menu-button", class extends HTMLElement {
+  connectedCallback() { this.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" style="display:block;fill:currentColor;margin:0 4px"><path d="M3,6H21V8H3V6M3,11H21V13H3V11M3,16H21V18H3V16Z"/></svg>'; }
+});
+const params = new URLSearchParams(location.search);
+document.body.className = params.get("theme") || "light";
+const today = "2026-10-08";
+const t = (h, m = 0) => new Date(`${today}T${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:00`).toISOString();
+const nowIso = t(19, 40);
+const OrigDate = Date;
+// Freeze "now" at 7:40 PM so the tape and live segment are stable.
+const FIXED = new OrigDate(nowIso).getTime();
+Date = class extends OrigDate { constructor(...a) { if (!a.length) super(FIXED); else super(...a); } static now() { return FIXED; } };
+
+const profiles = [
+  { entry_id: "fam", name: "Family Room TV", tv_entity_id: "media_player.family_room_tv", adapter: "generic", is_on: true,
+    current_input: "com.tcl.tv", input_allowed: true, allowed_inputs: ["com.tcl.tv"], target_input: "HDMI 2", input_lock: true,
+    lock_paused_reason: null, state: "warning", reason: "budget", quiet_window: null, remaining_seconds: 4*60, mode: "enforced",
+    force_block: false, adult_mode_until: null, adult_mode_duration: 120, used_seconds: 101*60, budget_minutes: 90,
+    extension_minutes: 15, warn_minutes: 5, blocked_switches: 3, last_blocked_input: "com.google.android.youtube.tv", last_blocked_at: t(18, 12),
+    mode_sync_entity: "select.apple_tv_mgmt_family_room_mode", quiet_windows: ["20:30-07:00 Bedtime"],
+    input_names: {"com.tcl.tv": "Apple TV", "HDMI 2": "HDMI 2", "com.google.android.apps.tv.launcherx": "Google TV home", "com.google.android.youtube.tv": "YouTube"},
+    custom_input_names: {"com.tcl.tv": "Apple TV"},
+    message_targets: { apple_tv: true, screen: true, speak: false },
+    message_presets: ["Dinner is ready", "Time to get ready for bed", "Come to the kitchen, please", "Time to turn off the TV", "Five more minutes"],
+    remote_keys: ["power","volume_up","volume_down","mute","up","down","left","right","select","back","home"],
+    entities: ["select:mode","switch:input_lock","switch:adult_mode","sensor:enforcement_state","sensor:time_used_today","sensor:time_remaining_today","sensor:extra_time_today","sensor:current_input","sensor:blocked_switches_today","sensor:current_app","sensor:app_time_today"].map(x => { const [d,k] = x.split(":"); return { entity_id: `${d}.tv_mgmt_family_room_tv_${k}`, key: k }; }),
+    apple_tv: { remote_keys: ["power","volume_up","volume_down","up","down","left","right","select","back","home"], entity_id: "media_player.living_room_apple_tv", remote_entity: "remote.living_room_apple_tv", available: true, is_on: true,
+      app_id: "com.disney.disneyplus", app_name: "Disney+", stop_reason: null, has_remote: true,
+      apps_today: [
+        { app: "com.disney.disneyplus", name: "Disney+", seconds: 52*60, limit_minutes: null },
+        { app: "com.google.ios.youtube", name: "YouTube", seconds: 27*60, limit_minutes: 30 },
+        { app: "com.pbskids.video", name: "PBS KIDS Video", seconds: 14*60, limit_minutes: null },
+      ],
+      media_today: [
+        { show: "Harbor Tales", seconds: 44*60, app: "Disney+" },
+        { show: "Garden Friends", seconds: 21*60, app: "PBS KIDS Video" },
+        { show: "Moon Over the Meadow", seconds: 9*60, app: "Disney+" } ],
+      app_seconds_today: 93*60, apps_stopped: 2, last_stopped_app: "Roblox", last_stopped_at: t(17, 40),
+      known_apps: { "com.disney.disneyplus": "Disney+", "com.google.ios.youtube": "YouTube", "com.pbskids.video": "PBS KIDS Video", "com.roblox.robloxmobile": "Roblox", "Netflix": "Netflix" },
+      rules: { mode: "block", apps: ["com.roblox.robloxmobile"], limits: { "com.google.ios.youtube": 30 }, action: "home", sleep_on_block: true, blocked_shows: ["Moon Over the Meadow"] },
+      known_shows: ["Harbor Tales", "Garden Friends", "Moon Over the Meadow", "Tiny Builders", "Rocket Race 2"] } },
+  { entry_id: "bed", name: "Playroom TV", tv_entity_id: "media_player.playroom_tv", adapter: "android_tv_remote", is_on: false,
+    current_input: null, input_allowed: null, allowed_inputs: ["com.google.android.tv.hdmi2"], target_input: "HDMI 2", input_lock: true,
+    lock_paused_reason: null, state: "enforcing", reason: "budget", quiet_window: null, remaining_seconds: 0, mode: "enforced",
+    force_block: false, adult_mode_until: null, adult_mode_duration: 120, used_seconds: 62*60, budget_minutes: 60,
+    extension_minutes: 0, warn_minutes: 5, blocked_switches: 0, last_blocked_input: null, last_blocked_at: null,
+    mode_sync_entity: null, quiet_windows: [], remote_keys: ["power","volume_up","volume_down","mute","up","down","left","right","select","back","home"], entities: [] },
+];
+const events = [
+  { t: t(19, 36), type: "enforcement", state: "warning", reason: "budget" },
+  { t: t(19, 3), type: "media", series: "Harbor Tales", season: 2, episode: 4, title: "The Lighthouse Keeper", app: "com.disney.disneyplus", name: "Disney+" },
+  { t: t(18, 31), type: "box_wake" },
+  { t: t(19, 2), type: "app", app: "com.disney.disneyplus", name: "Disney+" },
+  { t: t(18, 50), type: "app_stopped", app: "com.google.ios.youtube", name: "YouTube", reason: "limit", action: "home", acted: true },
+  { t: t(17, 40), type: "app_stopped", app: "com.roblox.robloxmobile", name: "Roblox", reason: "blocked", action: "home", acted: true },
+  { t: t(17, 39), type: "app", app: "com.roblox.robloxmobile", name: "Roblox" },
+  { t: t(18, 40), type: "extension", minutes: 15 },
+  { t: t(18, 12, 30), type: "input", source: "com.tcl.tv" },
+  { t: t(18, 12), type: "input_blocked", source: "com.google.android.youtube.tv", target: "HDMI 2", reverted: true },
+  { t: t(18, 11), type: "input", source: "com.google.android.youtube.tv" },
+  { t: t(17, 5), type: "tv_on", source: "com.tcl.tv" },
+  { t: t(16, 30), type: "tv_off" },
+  { t: t(15, 52), type: "input_blocked", source: "Live TV", target: "Apple TV", reverted: true },
+  { t: t(15, 51), type: "input", source: "Live TV" },
+  { t: t(15, 0), type: "tv_on", source: "Apple TV" },
+  { t: t(7, 30), type: "mode", mode: "enforced", synced: true },
+  { t: t(7, 0), type: "enforcement", state: "ok", reason: null },
+];
+const segments = [
+  { start: t(15,0), end: t(15,51), seconds: 51*60, source: "com.tcl.tv", live: false },
+  { start: t(15,51), end: t(15,53), seconds: 120, source: "Live TV", live: false },
+  { start: t(15,53), end: t(16,30), seconds: 37*60, source: "com.tcl.tv", live: false },
+  { start: t(17,5), end: t(18,11), seconds: 66*60, source: "com.tcl.tv", live: false },
+  { start: t(18,11), end: t(18,13), seconds: 120, source: "com.google.android.youtube.tv", live: false },
+  { start: t(18,13), end: t(19,40), seconds: 87*60, source: "com.tcl.tv", live: true },
+];
+function series(n) {
+  const out = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new OrigDate(`${today}T12:00:00`); d.setDate(d.getDate() - i);
+    const recorded = i < 24;
+    const weekend = [0, 6].includes(d.getDay());
+    const used = recorded ? Math.round((weekend ? 120 : 70) + 40 * Math.sin(i * 1.7)) * 60 : 0;
+    out.push({ date: d.toISOString().slice(0,10), used_seconds: used, budget_minutes: recorded ? 90 : 0, extension_minutes: recorded && i % 5 === 0 ? 15 : 0, blocked: recorded ? (i * 7) % 4 : 0, recorded });
+  }
+  return out;
+}
+function summarize(days) {
+  const rec = days.filter(d => d.recorded); const total = rec.reduce((a, d) => a + d.used_seconds, 0);
+  return { total_seconds: total, average_seconds: rec.length ? Math.round(total / rec.length) : 0, active_days: rec.filter(d=>d.used_seconds).length,
+    days_over_limit: rec.filter(d => d.budget_minutes && d.used_seconds >= (d.budget_minutes + d.extension_minutes) * 60).length,
+    blocked: rec.reduce((a, d) => a + d.blocked, 0), recorded_days: rec.length };
+}
+const ART = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a5a"/><stop offset="1" stop-color="#6a3fd1"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><circle cx="70" cy="32" r="14" fill="#ffe08a"/><path d="M0 78 L28 52 L48 68 L66 50 L100 80 L100 100 L0 100Z" fill="#2b1d55"/></svg>');
+const states = {
+  "media_player.family_room_tv": { entity_id: "media_player.family_room_tv", state: "on", attributes: { supported_features: 128|256|1024|8, is_volume_muted: false } },
+  "media_player.playroom_tv": { entity_id: "media_player.playroom_tv", state: "off", attributes: { supported_features: 128|256|1024|8 } },
+  "media_player.living_room_apple_tv": { entity_id: "media_player.living_room_apple_tv", state: "playing", attributes: {
+    friendly_name: "Living Room Apple TV", app_id: "com.disney.disneyplus", app_name: "Disney+", media_title: "The Lighthouse Keeper",
+    media_series_title: "Harbor Tales", media_season: "2", media_episode: "4", media_duration: 1560, media_position: 642,
+    media_position_updated_at: new OrigDate(FIXED - 20000).toISOString(), entity_picture: ART, supported_features: 23997 } },
+};
+window.hass = {
+  states,
+  hassUrl: (p) => p,
+  callService: async (domain, service, data) => { window.lastService = { domain, service, data }; },
+  callWS: async (msg) => {
+    switch (msg.type) {
+      case "tv_mgmt/profiles": return { profiles: params.get("empty") ? [] : params.get("single") ? profiles.slice(0, 1) : profiles, now: nowIso };
+      case "tv_mgmt/activity": return { app_segments: [
+        { start: t(15,5), end: t(15,32), seconds: 27*60, app: "com.google.ios.youtube", name: "YouTube", live: false },
+        { start: t(15,40), end: t(15,54), seconds: 14*60, app: "com.pbskids.video", name: "PBS KIDS Video", live: false },
+        { start: t(17,10), end: t(17,39), seconds: 29*60, app: "com.disney.disneyplus", name: "Disney+", live: false },
+        { start: t(19,2), end: t(19,40), seconds: 38*60, app: "com.disney.disneyplus", name: "Disney+", live: true },
+      ], entry_id: msg.entry_id, date: msg.date || today, today, first_date: "2026-09-15", events, segments, viewing_seconds: segments.reduce((a, s) => a + s.seconds, 0), totals: { used_seconds: 101*60, budget_minutes: 90, extension_minutes: 15, blocked: 3 } };
+      case "tv_mgmt/analytics": { const days = series(msg.days); const sum = summarize(days); sum.apps_stopped = 9; sum.top_media = [{show:"Harbor Tales",app:"Disney+",seconds:4.1*3600},{show:"Garden Friends",app:"PBS KIDS Video",seconds:2.2*3600},{show:"Moon Over the Meadow",app:"Disney+",seconds:1.6*3600},{show:"Tiny Builders",app:"YouTube",seconds:0.7*3600}]; sum.top_apps = [{app:"d",name:"Disney+",seconds:6.5*3600},{app:"y",name:"YouTube",seconds:3.2*3600},{app:"p",name:"PBS KIDS Video",seconds:1.4*3600},{app:"n",name:"Netflix",seconds:0.6*3600}];
+        return { profiles: [{ entry_id: msg.entry_id, name: "Family Room TV", days, summary: sum, has_apple_tv: msg.entry_id === "fam" }], days: msg.days }; }
+      case "tv_mgmt/limits/get": return { daily_budget: 90, warn_minutes: 5, quiet_windows: "20:30-07:00 Bedtime, 08:00-15:00 School", adult_mode_duration: 120 };
+      case "tv_mgmt/limits/set": window.lastSaved = msg; return { saved: msg };
+      case "tv_mgmt/input_names/set": window.lastNames = msg; return { saved: msg.names };
+      case "tv_mgmt/apple_tv/set": window.lastAppleTv = msg; if (msg.blocked_shows) profiles[0].apple_tv.rules.blocked_shows = msg.blocked_shows; return { saved: msg };
+      case "tv_mgmt/access/me": return params.get("denied") ? { allowed: false, is_admin: false, user_id: "8f3c2a9e41d04b6f9a7c5e2d1b0a6f43", name: "Kid" } : { allowed: true, is_admin: true, user_id: "a1", name: "Parent" };
+      case "tv_mgmt/access/get": return { user_ids: window.accessIds || [], people: [
+        { id: "a1", name: "Parent One", is_admin: true, is_owner: true },
+        { id: "a2", name: "Parent Two", is_admin: false, is_owner: false },
+        { id: "k1", name: "Kid One", is_admin: false, is_owner: false },
+        { id: "k2", name: "Kid Two", is_admin: false, is_owner: false } ] };
+      case "tv_mgmt/access/set": window.accessIds = msg.user_ids; window.lastAccess = msg; return { user_ids: msg.user_ids, people: [
+        { id: "a1", name: "Parent One", is_admin: true, is_owner: true },
+        { id: "a2", name: "Parent Two", is_admin: false, is_owner: false },
+        { id: "k1", name: "Kid One", is_admin: false, is_owner: false },
+        { id: "k2", name: "Kid Two", is_admin: false, is_owner: false } ] };
+      case "tv_mgmt/message": window.lastMessage = msg; return { sent: ["apple_tv", "screen"].filter(k => msg[k]) };
+      case "tv_mgmt/remote": window.lastRemote = msg; return { key: msg.key };
+      case "tv_mgmt/action": window.lastAction = msg; return { profile: profiles.find(p => p.entry_id === msg.entry_id) };
+    }
+    throw { code: "unknown_command", message: msg.type };
+  },
+  connection: { subscribeMessage: async () => () => {} },
+};
+</script>
+<script type="module">
+  await import("../../custom_components/tv_mgmt/frontend/tv-mgmt-panel.js?v=" + Date.now());
+  const el = document.createElement("tv-mgmt-panel");
+  el.narrow = true;
+  el.hass = window.hass;
+  el.addEventListener("hass-more-info", (e) => { window.lastMoreInfo = e.detail.entityId; });
+  window.panel = el;
+  document.body.appendChild(el);
+</script>
+</body></html>

@@ -454,7 +454,8 @@ class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._entity_id = user_input[CONF_MEDIA_PLAYER]
-            await self.async_set_unique_id(self._entity_id)
+            # A setup left half done (say the app closed) mustn't block starting over.
+            await self.async_set_unique_id(self._entity_id, raise_on_progress=False)
             self._abort_if_unique_id_configured()
             return await self.async_step_settings()
 

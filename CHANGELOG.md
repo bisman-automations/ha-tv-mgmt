@@ -6,6 +6,19 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-17
+
+### Added
+
+- **Collapsible TVs on the dashboard**, like Media Mgmt. Each TV starts collapsed to just its screen, which makes several TVs easy to see at once.
+  - Collapsed, the Apple TV shows inside the TV's screen: what's playing, in which app, or that it's asleep. Tap it to open the Apple TV.
+  - A line under the screen shows today's time and time left. Tap it to open the TV, with everything as before; **Show less** collapses it again.
+  - Your phone or browser remembers which TVs are open.
+
+### Fixed
+
+- **Adding a TV after the app closed partway through** said "This is already being configured" until Home Assistant restarted. Starting over now replaces the half-done setup.
+
 ## [1.11.1] - 2026-10-17
 
 ### Fixed
@@ -306,7 +319,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...HEAD
+[1.12.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...v1.12.0
 [1.11.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...v1.10.2

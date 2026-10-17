@@ -1,6 +1,8 @@
 // TV Mgmt sidebar panel. Plain web component, no build step.
 // Talks to the integration over Home Assistant's websocket (tv_mgmt/* commands).
 
+const EXPANDED_KEY = "tv-mgmt-expanded";
+
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
   { id: "activity", label: "Activity" },
@@ -175,6 +177,7 @@ const ICONS = {
   "volume-down": "M5,9V15H9L14,20V4L9,9M18.5,12C18.5,10.23 17.5,8.71 16,7.97V16C17.5,15.29 18.5,13.76 18.5,12Z",
   mute: "M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z",
   remote: "M12,0C8.96,0 6.21,1.23 4.22,3.22L5.63,4.63C7.26,3 9.5,2 12,2C14.5,2 16.74,3 18.36,4.64L19.77,3.23C17.79,1.23 15.04,0 12,0M7.05,6.05L8.46,7.46C9.37,6.56 10.62,6 12,6C13.38,6 14.63,6.56 15.54,7.46L16.95,6.05C15.68,4.78 13.93,4 12,4C10.07,4 8.32,4.78 7.05,6.05M12,15A2,2 0 0,1 10,13A2,2 0 0,1 12,11A2,2 0 0,1 14,13A2,2 0 0,1 12,15M15,9H9A1,1 0 0,0 8,10V22A1,1 0 0,0 9,23H15A1,1 0 0,0 16,22V10A1,1 0 0,0 15,9Z",
+  "chevron-down": "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z",
   delete: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
 };
 // TV Mgmt's own entities, in the order the dashboard links to them.
@@ -297,6 +300,30 @@ main.wide { max-width: 1760px; }
 .screen .tv-name { position: absolute; top: 10px; left: 14px; font-size: 13px; opacity: .7; }
 .screen .now { position: relative; font-size: clamp(26px, 7vw, 38px); font-weight: 500; letter-spacing: -.01em; line-height: 1.05; overflow-wrap: anywhere; }
 .screen .sub { position: relative; font-size: 13px; opacity: .75; margin-top: 4px; }
+/* Collapsed, every TV is the same short height, so a row of them lines up. */
+.tv-card.collapsed .screen { aspect-ratio: auto; min-height: 170px; padding-top: 40px; }
+.atv-mini { position: relative; display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 6px 10px 6px 6px;
+  border: 0; border-radius: 8px; background: rgba(255,255,255,.08); color: inherit; font: inherit; text-align: left; cursor: pointer; min-width: 0; }
+.atv-mini:hover { background: rgba(255,255,255,.13); }
+.atv-mini:focus-visible { outline: 2px solid var(--primary-color); outline-offset: 2px; }
+.atv-mini.asleep { opacity: .7; }
+.atv-mini-art { flex: none; width: 40px; height: 40px; border-radius: 6px; overflow: hidden; display: grid; place-items: center; background: rgba(255,255,255,.08); }
+.atv-mini-art img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.atv-mini-text { display: grid; min-width: 0; }
+.atv-mini-top { font-size: 12px; opacity: .75; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.atv-mini-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-flag { margin-left: 6px; color: #ff8a80; }
+.tv-card.collapsed .screen-wrap { padding-bottom: 4px; }
+.tv-card:not(.collapsed) { grid-column: 1 / -1; }
+.grid { align-items: start; }
+.expand { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px;
+  padding: 10px 16px; border: 0; border-top: 1px solid var(--divider-color); background: none; cursor: pointer;
+  color: var(--secondary-text-color); font-size: 14px; text-align: left; }
+.expand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.expand:hover { background: color-mix(in srgb, var(--primary-color) 6%, transparent); }
+.expand:focus-visible { outline: 2px solid var(--primary-color); outline-offset: -2px; }
+.expand .icon { transition: transform .15s; }
+.expand[aria-expanded="true"] .icon { transform: rotate(180deg); }
 .stand { width: 22%; height: 8px; margin: 0 auto; background: var(--divider-color); border-radius: 0 0 6px 6px; }
 
 .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; padding: 4px 10px; border-radius: 999px;
@@ -547,8 +574,27 @@ class TvMgmtPanel extends HTMLElement {
     this._busy = false;
     this._savedNote = "";
     this._remoteOpen = new Set();
+    // TVs opened on the dashboard. Collapsed (just the TV) by default;
+    // remembered on this device.
+    this._expanded = new Set();
+    try {
+      this._expanded = new Set(JSON.parse(localStorage.getItem(EXPANDED_KEY) || "[]"));
+    } catch (err) {
+      /* storage unavailable: everything starts collapsed */
+    }
     this._msgDrafts = {};
     this._msgNote = {};
+  }
+
+  _toggleExpanded(id) {
+    if (this._expanded.has(id)) this._expanded.delete(id);
+    else this._expanded.add(id);
+    try {
+      localStorage.setItem(EXPANDED_KEY, JSON.stringify([...this._expanded]));
+    } catch (err) {
+      /* not remembered, still works */
+    }
+    this._render();
   }
 
   set hass(hass) {
@@ -577,6 +623,8 @@ class TvMgmtPanel extends HTMLElement {
       this._npStates[eid] = st;
       const node = this.shadowRoot.getElementById(`np-${p.entry_id}`);
       if (node) node.innerHTML = this._nowPlayingInner(p);
+      const mini = this.shadowRoot.getElementById(`npm-${p.entry_id}`);
+      if (mini) mini.outerHTML = this._atvMini(p);
     }
   }
 
@@ -890,21 +938,39 @@ class TvMgmtPanel extends HTMLElement {
     const lastBlocked = p.last_blocked_input && p.last_blocked_at ? `${esc(nameOf(p, p.last_blocked_input))} at ${timeOf(p.last_blocked_at)}` : "None";
     const adultOn = p.state === "adult_mode" || !!p.adult_mode_until;
     const id = p.entry_id;
-
-    return `
-      <section class="card tv-card${p.apple_tv ? " has-atv" : ""}" aria-label="${esc(p.name)}">
-       <div class="tv-layout">
-        <div class="col col-tv">
-        <div class="screen-wrap">
-          <div class="${screenClass}">
+    const open = this._expanded.has(id);
+    // Collapsed, the Apple TV sits inside the TV's screen; expanded, it gets its own spot.
+    const screen = (withAtv) => `<div class="screen-wrap">
+          <div class="${screenClass}${withAtv ? " with-atv" : ""}">
             <div class="glow"></div>
             <button class="tv-name link" data-more-info="${esc(p.tv_entity_id)}" title="Open ${esc(p.name)}">${esc(p.name)}</button>
             <span class="chip tone-${state.tone}">${esc(state.text)}</span>
             <div class="now">${now}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ""}
+            ${withAtv ? this._atvMini(p) : ""}
           </div>
           <div class="stand"></div>
-        </div>
+        </div>`;
+    const summary = [
+      limit ? `${duration(p.used_seconds)} of ${duration(limit * 60)}` : `${duration(p.used_seconds)} today`,
+      limit ? (p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left` : "No time left") : "",
+      p.force_block ? "Blocked" : "",
+    ].filter(Boolean).join(" · ");
+    const toggle = `<button class="expand" data-expand="${id}" aria-expanded="${open}" aria-controls="more-${id}">
+        <span>${open ? "Show less" : esc(summary)}</span>${icon("chevron-down")}</button>`;
+    if (!open) {
+      return `
+      <section class="card tv-card collapsed${p.apple_tv ? " has-atv" : ""}" aria-label="${esc(p.name)}">
+        ${screen(!!p.apple_tv)}
+        ${toggle}
+      </section>`;
+    }
+
+    return `
+      <section class="card tv-card${p.apple_tv ? " has-atv" : ""}" aria-label="${esc(p.name)}">
+       <div class="tv-layout" id="more-${id}">
+        <div class="col col-tv">
+        ${screen(false)}
         <div class="card-body">
           <div class="tv-remote" id="tvr-${id}">${this._tvRemote(p)}</div>
           <div>${timeLine}</div>
@@ -949,7 +1015,36 @@ class TvMgmtPanel extends HTMLElement {
           </div>
         </div>
        </div>
+       ${toggle}
       </section>`;
+  }
+
+  // The Apple TV in one line, inside a collapsed TV's screen.
+  _atvMini(p) {
+    const a = p.apple_tv;
+    if (!a) return "";
+    const st = this._hass?.states?.[a.entity_id];
+    const attrs = st?.attributes || {};
+    const state = st?.state;
+    const unavailable = !st || state === "unavailable" || state === "unknown";
+    const asleep = !unavailable && (state === "off" || state === "standby");
+    const appName = attrs.app_name || a.app_name;
+    const title = unavailable ? "Can't reach it" : asleep ? "Asleep"
+      : attrs.media_series_title || attrs.media_title || appName || "Home screen";
+    const stateLabel = { playing: "Playing", paused: "Paused", idle: "Idle", on: "On" }[state];
+    const detail = !unavailable && !asleep
+      ? [stateLabel, (attrs.media_title || attrs.media_series_title) && appName ? `in ${appName}` : ""].filter(Boolean).join(" · ")
+      : "";
+    const pic = !unavailable && !asleep && attrs.entity_picture;
+    const art = pic
+      ? `<img src="${esc(this._hass.hassUrl ? this._hass.hassUrl(pic) : pic)}" alt="" loading="lazy" onerror="this.remove()">`
+      : icon("box");
+    const rule = a.stop_reason ? `<span class="mini-flag">${a.stop_reason === "show_blocked" ? "Blocked show" : a.stop_reason === "limit" ? "Limit reached" : "Blocked app"}</span>` : "";
+    return `<button class="atv-mini${asleep || unavailable ? " asleep" : ""}" id="npm-${p.entry_id}" data-more-info="${esc(a.entity_id)}" title="Open the Apple TV">
+        <span class="atv-mini-art">${art}</span>
+        <span class="atv-mini-text"><span class="atv-mini-top">Apple TV${detail ? ` · ${esc(detail)}` : ""}${rule}</span>
+        <span class="atv-mini-title">${esc(title)}</span></span>
+      </button>`;
   }
 
   _nowPlayingInner(p) {
@@ -1797,6 +1892,10 @@ class TvMgmtPanel extends HTMLElement {
     }
     if (el.dataset.blockShow) {
       this._toggleShow(el.dataset.id, el.dataset.blockShow);
+      return;
+    }
+    if (el.dataset.expand) {
+      this._toggleExpanded(el.dataset.expand);
       return;
     }
     if (el.dataset.preset) {
