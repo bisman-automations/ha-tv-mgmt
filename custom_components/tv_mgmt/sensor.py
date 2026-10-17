@@ -129,9 +129,10 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTime.MINUTES,
         suggested_display_precision=0,
-        # Unknown when there's no daily limit.
+        # The TV's own limit or the whole home's, whichever has less left.
+        # Unknown when neither applies.
         value_fn=lambda m: _minutes(m.decision.remaining_seconds),
-        attrs_fn=lambda m: {"daily_budget": m.daily_budget or None},
+        attrs_fn=lambda m: {"daily_budget": m.daily_budget or None, "limit": m.decision.limit},
     ),
     TVMgmtSensorDescription(
         key="extension_today",

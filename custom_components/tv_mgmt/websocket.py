@@ -20,6 +20,8 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .access import get_access
+from .home import ACTION_TURN_OFF as HOME_ACTION_TURN_OFF, ACTIONS as HOME_ACTIONS, WEEK_STARTS, HomeSettings
+from .home_limits import get_home, notify_targets
 from .activity import summarize
 from .const import (
     CONF_ADULT_MODE_DURATION,
@@ -80,6 +82,9 @@ def async_register(hass: HomeAssistant) -> None:
         ws_access_me,
         ws_access_get,
         ws_access_set,
+        ws_home_get,
+        ws_home_set,
+        ws_home_extension,
     ):
         websocket_api.async_register_command(hass, command)
 
@@ -139,6 +144,8 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "reason": decision.reason,
         "quiet_window": decision.quiet_window,
         "remaining_seconds": decision.remaining_seconds,
+        # Which limit remaining_seconds is: "budget" (the TV's), "home_daily" or "home_weekly".
+        "limit": decision.limit,
         "mode": state.mode,
         "force_block": state.force_block,
         "adult_mode_until": until.isoformat() if until else None,
@@ -235,9 +242,14 @@ def _local_day_bounds(day: date) -> tuple[datetime, datetime]:
 @callback
 def ws_profiles(hass: HomeAssistant, connection, msg) -> None:
     managers = sorted(_managers(hass), key=lambda m: m.name.lower())
+    home = get_home(hass)
     connection.send_result(
         msg["id"],
-        {"profiles": [profile_summary(m) for m in managers], "now": dt_util.utcnow().isoformat()},
+        {
+            "profiles": [profile_summary(m) for m in managers],
+            "home": home.summary() if home else None,
+            "now": dt_util.utcnow().isoformat(),
+        },
     )
 
 
@@ -552,6 +564,64 @@ async def ws_message(hass: HomeAssistant, connection, msg) -> None:
         connection.send_error(msg["id"], "send_failed", f"Couldn't send the message: {err!r}")
         return
     connection.send_result(msg["id"], {"sent": sent})
+
+
+# ---- whole-home limits ------------------------------------------------------------
+
+
+def _home_result(hass: HomeAssistant) -> dict[str, Any]:
+    home = get_home(hass)
+    return {
+        "home": home.summary(),
+        "notify_targets": notify_targets(hass),
+        "tvs": [{"entry_id": m.entry.entry_id, "name": m.name} for m in sorted(_managers(hass), key=lambda m: m.name.lower())],
+    }
+
+
+@websocket_api.websocket_command({vol.Required("type"): f"{DOMAIN}/home/get"})
+@require_access
+@callback
+def ws_home_get(hass: HomeAssistant, connection, msg) -> None:
+    connection.send_result(msg["id"], _home_result(hass))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/home/set",
+        vol.Required("daily_minutes"): vol.All(int, vol.Range(min=0, max=1440)),
+        vol.Required("weekly_minutes"): vol.All(int, vol.Range(min=0, max=7 * 1440)),
+        vol.Optional("week_start", default="monday"): vol.In(list(WEEK_STARTS)),
+        vol.Optional("warn_minutes", default=10): vol.All(int, vol.Range(min=0, max=120)),
+        vol.Optional("action", default=HOME_ACTION_TURN_OFF): vol.In(HOME_ACTIONS),
+        vol.Optional("notify", default=[]): [str],
+        vol.Optional("excluded", default=[]): [str],
+    }
+)
+@require_access
+@callback
+def ws_home_set(hass: HomeAssistant, connection, msg) -> None:
+    """Save the whole home's limits. Every TV applies them straight away."""
+    try:
+        settings = HomeSettings.from_dict({k: v for k, v in msg.items() if k not in ("id", "type")})
+    except ValueError as err:
+        connection.send_error(msg["id"], "invalid_format", str(err))
+        return
+    get_home(hass).set_settings(settings)
+    connection.send_result(msg["id"], _home_result(hass))
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/home/extension",
+        vol.Required("minutes"): vol.All(int, vol.Range(min=-240, max=720)),
+    }
+)
+@require_access
+@callback
+def ws_home_extension(hass: HomeAssistant, connection, msg) -> None:
+    """Give the whole home extra time today (negative takes time away)."""
+    get_home(hass).grant_extension(msg["minutes"], by=connection.user.name if connection.user else None)
+    connection.send_result(msg["id"], {"home": get_home(hass).summary()})
 
 
 # ---- access ---------------------------------------------------------------------

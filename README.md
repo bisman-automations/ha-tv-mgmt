@@ -12,6 +12,7 @@ Smart TVs have no real way to say "only the Apple TV." Kids flip to the built-in
 - **Locks the input.** If the TV switches to anything but the allowed input, it's switched straight back.
 - **Limits screen time.** It counts how long the TV is on each day. When the limit is reached, the TV is turned off, and it stays off if someone turns it back on.
 - **Keeps quiet windows.** The TV stays off during bedtime, school hours, or whatever windows you set.
+- **Limits the whole home.** A daily or weekly limit for all the TVs together, so screen time adds up across the house. See [Whole-home limits](#whole-home-limits).
 - **Manages the Apple TV too.** Link the Apple TV plugged into the TV to see time per app, block apps (or allow only a few), and give apps their own daily limits.
 - **Leaves parents in charge.** You can grant extra time, block now, pause the rules, or use **adult mode** to lift everything for a movie night.
 
@@ -95,7 +96,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
   - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
 - **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
 - **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches.
-- **Limits.** Change the daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
+- **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
 
 Remote buttons appear only when the TV's integration can press them:
 
@@ -108,6 +109,30 @@ Remote buttons appear only when the TV's integration can press them:
 | Other TVs | if the media player supports it | — |
 
 The panel updates live as things change. Activity history starts when you install 1.2.0. TV Mgmt keeps 90 days of activity and about a year of daily totals.
+
+## Whole-home limits
+
+Set limits for all the TVs together, under **Limits → Whole home** in the sidebar app:
+
+| Setting | Example | What it does |
+| --- | --- | --- |
+| Daily TV time for the home | 240 minutes | All the TVs' time together, per day. 0 means no daily limit. |
+| Weekly TV time for the home | 20 hours | All the TVs' time together, per week. Weeks start on Monday or Sunday. 0 means no weekly limit. |
+| Tell me before it runs out | 10 minutes | When to send the "running out" message. |
+| When the home's time runs out | Turn the TVs off | Or only tell you, and leave the TVs on. |
+| Tell | your phone | Who gets the messages: the Home Assistant app on a phone, or any other notify service or entity. |
+| TVs that count | all of them | Leave a TV out, such as a parents' TV, and it isn't counted or turned off by the home's limit. |
+
+How it works:
+
+- **Each TV's time is added up.** Two TVs on for an hour count as two hours of the home's time.
+- **The TVs' own limits still apply.** Whichever has less time left is the one that counts, and each TV shows it as its time left.
+- **When the home's time runs out,** every TV that counts is turned off, the same way as when its own limit runs out, with the same warnings on the TV. They stay off until the next day, or the next week for a weekly limit.
+- **Messages:** you're told once when time is running low and once when it's up, for each day or week.
+- **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time given today also counts toward this week.
+- Paused and adult mode on a TV lift the home's limit for that TV, like its own rules.
+
+The `tv_mgmt_home_limit` event fires with each message, for automations.
 
 ## Who can use TV Mgmt
 
@@ -271,7 +296,8 @@ data:
 | `tv_mgmt_input_blocked` | Someone switched to an input that isn't allowed. Includes `blocked_source`, `target_source`, and whether it was `reverted`. |
 | `tv_mgmt_app_blocked` | An Apple TV app or show was stopped. Includes `app_id`, `app_name`, `reason` (`blocked`, `not_allowed`, `limit` or `show_blocked`), `show` (the blocked show or movie, if that's why), `action` (`home` or `sleep`), and whether it `acted` (false in monitor-only mode). |
 | `tv_mgmt_warning` | Time is about to run out. Includes `remaining_minutes`. |
-| `tv_mgmt_enforcement_changed` | The enforcement state changed. Includes `state`, `previous_state`, `reason` and `quiet_window`. |
+| `tv_mgmt_enforcement_changed` | The enforcement state changed. Includes `state`, `previous_state`, `reason` and `quiet_window`. `reason` is `home_daily` or `home_weekly` when it's the [whole home's limit](#whole-home-limits). |
+| `tv_mgmt_home_limit` | The whole home's time is running low (`state`: `warning`) or up (`reached`). Includes `period` (`daily` or `weekly`), `used_minutes`, `limit_minutes`, `remaining_minutes`, `action` and the `message` sent. |
 
 For example, to announce a heads-up on a speaker before time runs out:
 

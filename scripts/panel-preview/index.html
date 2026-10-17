@@ -120,6 +120,13 @@ const states = {
     media_series_title: "Harbor Tales", media_season: "2", media_episode: "4", media_duration: 1560, media_position: 642,
     media_position_updated_at: new OrigDate(FIXED - 20000).toISOString(), entity_picture: ART, supported_features: 23997 } },
 };
+// Whole-home limits (sample).
+let home = { daily_minutes: 240, weekly_minutes: 1200, week_start: "monday", warn_minutes: 10, action: "turn_off",
+  notify: ["notify.mobile_app_parent_phone"], excluded: [], active: true, today_seconds: 3.4 * 3600, week_seconds: 15.2 * 3600,
+  daily_remaining: 0.6 * 3600, weekly_remaining: 4.8 * 3600, remaining: 0.6 * 3600, reason: "home_daily",
+  extension_minutes: 0, extension_week_minutes: 0, week_start_date: "2026-10-12" };
+const homeResult = () => ({ home, notify_targets: ["notify.mobile_app_parent_phone", "notify.mobile_app_second_phone", "notify.family_room_tv"],
+  tvs: profiles.map((x) => ({ entry_id: x.entry_id, name: x.name })) });
 window.hass = {
   states,
   hassUrl: (p) => p,
@@ -130,7 +137,10 @@ window.hass = {
     const holding = params.get("loading") === "tabs" ? !["tv_mgmt/access/me", "tv_mgmt/profiles"].includes(msg.type) : params.get("loading") && msg.type !== "tv_mgmt/access/me";
     if (holding) return new Promise(() => {});
     switch (msg.type) {
-      case "tv_mgmt/profiles": return { profiles: params.get("empty") ? [] : params.get("single") ? profiles.slice(0, 1) : profiles, now: nowIso };
+      case "tv_mgmt/profiles": return { profiles: params.get("empty") ? [] : params.get("single") ? profiles.slice(0, 1) : profiles, home: params.get("nohome") ? null : home, now: nowIso };
+      case "tv_mgmt/home/get": return homeResult();
+      case "tv_mgmt/home/set": window.lastHome = msg; home = { ...home, ...msg, active: msg.daily_minutes > 0 || msg.weekly_minutes > 0 }; return homeResult();
+      case "tv_mgmt/home/extension": home = { ...home, extension_minutes: home.extension_minutes + msg.minutes, daily_remaining: home.daily_remaining + msg.minutes * 60 }; return { home };
       case "tv_mgmt/activity": return { app_segments: [
         { start: t(15,5), end: t(15,32), seconds: 27*60, app: "com.google.ios.youtube", name: "YouTube", live: false },
         { start: t(15,40), end: t(15,54), seconds: 14*60, app: "com.pbskids.video", name: "PBS KIDS Video", live: false },

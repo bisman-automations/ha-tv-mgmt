@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-17
+
+### Added
+
+- **Whole-home limits** ([#3](https://github.com/bisman-automations/ha-tv-mgmt/issues/3)). Set a daily or weekly limit for all the TVs together, under **Limits → Whole home** in the sidebar app.
+  - Each TV's time is added up, so two TVs on for an hour count as two hours. The TVs' own limits still apply; whichever has less time left counts.
+  - When the home's time runs out, every TV that counts is turned off like with its own limit, or, if you prefer, you're only told.
+  - Get a message on your phone (or any notify service) when time is running low and when it's up, once per day or week. The `tv_mgmt_home_limit` event fires too.
+  - Leave a TV out, such as a parents' TV, so it isn't counted or turned off.
+  - The dashboard shows the home's time today and this week, with buttons to add or take away time for the whole home.
+- **Loading placeholders in the sidebar app** ([#2](https://github.com/bisman-automations/ha-tv-mgmt/issues/2)). While a page loads, it shows a softly shimmering outline of what's coming instead of "Loading…". It stays still if your device is set to reduce motion, and screen readers announce what's loading.
+
 ## [1.12.0] - 2026-10-17
 
 ### Added
@@ -319,7 +331,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...HEAD
+[1.13.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...v1.12.0
 [1.11.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...v1.11.0

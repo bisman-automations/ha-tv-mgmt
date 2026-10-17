@@ -8,6 +8,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from . import TVMgmtConfigEntry
+from .home_limits import get_home
 
 
 async def async_get_config_entry_diagnostics(
@@ -35,6 +36,7 @@ async def async_get_config_entry_diagnostics(
             "paused_reason": manager.guard.paused_reason,
         },
         "quiet_windows": [w.format() for w in manager.quiet_windows],
+        "home": (home.summary() if (home := get_home(hass)) else None),
         "mode_sync": (
             {"entity_id": manager.mode_sync.entity_id, "linked_mode": manager.mode_sync.linked_mode}
             if manager.mode_sync

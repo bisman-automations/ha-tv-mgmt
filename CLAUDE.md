@@ -14,10 +14,11 @@ The sidebar app is the product. Every setting should be manageable there, not on
 | `backends/` | Adapters over the TV's `media_player`: generic `source`/`select_source`, Android TV Remote, Android TV (ADB), Samsung. |
 | `guard.py` | The input lock. |
 | `streaming.py` | `StreamingBox`: the linked Apple TV. App and show rules, stopping, sleep and wake, what's playing. |
-| `quiet.py`, `state.py`, `activity.py`, `names.py`, `apps.py`, `media.py` | **Pure modules: no Home Assistant imports.** Unit-tested standalone through `tests/conftest.py` (as package `tv_mgmt_pure`). Keep them pure. |
+| `quiet.py`, `state.py`, `activity.py`, `names.py`, `apps.py`, `media.py`, `home.py` | **Pure modules: no Home Assistant imports.** Unit-tested standalone through `tests/conftest.py` (as package `tv_mgmt_pure`). Keep them pure. |
 | `slides.py` | Draws full-screen messages for AirPlay (Pillow only). `scripts/make_airplay_videos.py` rebuilds the videos in `frontend/airplay/` and the previews in `docs/images/`. Fonts in `fonts/` are Inter (OFL), subset to Latin. |
 | `announce.py`, `messages.py` | Warnings and dashboard messages: text to speech, notify (TV screen), and AirPlay videos made with ffmpeg. |
 | `remote_keys.py` | Maps remote buttons to each TV integration's service. |
+| `home_limits.py` | `HomeLimits`: the whole home's limits, one for all TVs (stored in `tv_mgmt.home`, not in any config entry). Adds up each counted TV's time, gives each TV the home's time left (`decide(home_remaining=...)`), sends the messages, and makes every TV re-decide when the home's time runs out. |
 | `storage.py` | `ProfileState` (today's counters and controls) and the activity log, each in its own `Store`. |
 | `websocket.py` | The sidebar app's API (`tv_mgmt/*` commands). |
 | `frontend/tv-mgmt-panel.js` | The sidebar app: one plain web component, **no build step**. |

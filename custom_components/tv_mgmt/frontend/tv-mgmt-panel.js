@@ -63,7 +63,7 @@ function shiftDate(isoDate, days) {
 function stateInfo(p) {
   switch (p.state) {
     case "enforcing": {
-      const why = { budget: "Daily limit reached", quiet_window: p.quiet_window || "Quiet window", manual: "Blocked by a parent" }[p.reason];
+      const why = { budget: "Daily limit reached", quiet_window: p.quiet_window || "Quiet window", manual: "Blocked by a parent", home_daily: "Home's time is up today", home_weekly: "Home's time is up this week" }[p.reason];
       return { tone: "bad", text: why || "Blocked" };
     }
     case "warning":
@@ -96,7 +96,7 @@ function describeEvent(e, p) {
     case "enforcement": {
       const text =
         e.state === "enforcing"
-          ? { budget: "Daily limit reached", quiet_window: `Quiet window started${e.quiet_window ? `: ${e.quiet_window}` : ""}`, manual: "Blocked by a parent" }[e.reason] || "Blocked"
+          ? { budget: "Daily limit reached", quiet_window: `Quiet window started${e.quiet_window ? `: ${e.quiet_window}` : ""}`, manual: "Blocked by a parent", home_daily: "The whole home's TV time is up for today", home_weekly: "The whole home's TV time is up for this week" }[e.reason] || "Blocked"
           : { warning: "Time is almost up", ok: "Allowed to watch again", paused: "Rules paused", adult_mode: "Adult mode started" }[e.state] || e.state;
       return { icon: "clock", tone: e.state === "enforcing" ? "bad" : e.state === "warning" ? "warn" : undefined, text };
     }
@@ -112,6 +112,8 @@ function describeEvent(e, p) {
       return { icon: "adult", text: e.on ? `Adult mode on for ${e.minutes} min` : "Adult mode turned off" };
     case "extension":
       return { icon: "plus", text: e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away` };
+    case "home_extension":
+      return { icon: "plus", text: `${e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away`} for the whole home${e.by ? ` by ${e.by}` : ""}` };
     case "block":
       return { icon: "shield", tone: "bad", text: "Blocked now" };
     case "unblock":
@@ -572,6 +574,11 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
   .window input[type="text"] { grid-column: 1 / 3; grid-row: 2; }
   .date-nav h2 { min-width: 0; font-size: 16px; }
 }
+.card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.card-head h2 { margin: 0; font-size: 16px; font-weight: 500; }
+.home-strip { margin-bottom: 20px; }
+.home-rows { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.checks { display: flex; flex-wrap: wrap; gap: 0 18px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 .sk { display: block; border-radius: 6px; background: color-mix(in srgb, var(--primary-text-color) 9%, transparent); position: relative; overflow: hidden; }
 .sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
@@ -766,6 +773,7 @@ class TvMgmtPanel extends HTMLElement {
         return;
       }
       this._profiles = res.profiles;
+      this._home = res.home || null;
       if (!this._selected || !this._profiles.some((p) => p.entry_id === this._selected)) {
         this._selected = this._profiles[0]?.entry_id ?? null;
       }
@@ -939,7 +947,54 @@ class TvMgmtPanel extends HTMLElement {
   // Dashboard ------------------------------------------------------------------------
 
   _renderDashboard() {
-    return `<div class="grid">${this._profiles.map((p) => this._renderTv(p)).join("")}</div>`;
+    return `${this._renderHomeStrip()}<div class="grid">${this._profiles.map((p) => this._renderTv(p)).join("")}</div>`;
+  }
+
+  // The whole home's TV time, above the TVs, when a home limit is set.
+  _renderHomeStrip() {
+    const h = this._home;
+    if (!h?.active) return "";
+    const bar = (label, used, limitMin, left) => {
+      if (!limitMin) return "";
+      const total = limitMin * 60;
+      const pct = Math.min(100, (used / total) * 100);
+      const tone = left <= 0 ? "bad" : left <= (h.warn_minutes || 0) * 60 ? "warn" : "info";
+      return `<div class="home-row">
+        <div class="time-line"><span><strong>${duration(used)}</strong> <span class="muted">of ${duration(total)} ${label}</span></span>
+          <span class="muted">${left > 0 ? `${duration(left)} left` : "No time left"}</span></div>
+        <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limitMin}" aria-valuenow="${minutes(used)}" aria-label="Whole home, ${label}"><div class="tone-${tone}" style="width:${pct}%"></div></div>
+      </div>`;
+    };
+    const extra = h.daily_minutes ? h.daily_minutes + h.extension_minutes : 0;
+    return `<section class="card home-strip" aria-label="Whole home">
+      <div class="card-body">
+        <div class="card-head"><h2>Whole home</h2><button class="link" data-tab="limits">Change</button></div>
+        <div class="home-rows">
+          ${bar("today", h.today_seconds, extra, h.daily_remaining)}
+          ${bar("this week", h.week_seconds, h.weekly_minutes ? h.weekly_minutes + (h.extension_week_minutes || 0) : 0, h.weekly_remaining)}
+        </div>
+        ${h.action === "notify" ? `<small class="muted">When it runs out, the people picked are told. The TVs aren't turned off.</small>` : ""}
+        <div class="row">
+          <span class="label">Extra time for the whole home today${h.extension_minutes ? ` (${h.extension_minutes > 0 ? "+" : ""}${h.extension_minutes} min so far)` : ""}</span>
+          <button class="btn" data-home-extra="-15">−15 min</button>
+          <button class="btn" data-home-extra="15">+15 min</button>
+          <button class="btn" data-home-extra="30">+30 min</button>
+          <button class="btn" data-home-extra="60">+1 h</button>
+        </div>
+      </div>
+    </section>`;
+  }
+
+  async _homeExtra(minutes) {
+    try {
+      const res = await this._ws({ type: "tv_mgmt/home/extension", minutes });
+      this._home = res.home;
+      this._error = null;
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._render();
   }
 
   _renderTv(p) {
@@ -960,7 +1015,10 @@ class TvMgmtPanel extends HTMLElement {
     const limit = p.budget_minutes > 0 ? p.budget_minutes + p.extension_minutes : 0;
     const usedMin = minutes(p.used_seconds);
     const pct = limit ? Math.min(100, (usedMin / limit) * 100) : 0;
-    const timeLine = limit
+    const homeLimited = (p.limit === "home_daily" || p.limit === "home_weekly") && p.remaining_seconds != null;
+    const timeLine = homeLimited
+      ? `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">today on this TV</span></span><span class="muted">${p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left for the home ${p.limit === "home_weekly" ? "this week" : "today"}` : `No home time left ${p.limit === "home_weekly" ? "this week" : "today"}`}</span></div>`
+      : limit
       ? `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">of ${duration(limit * 60)}</span></span><span class="muted">${p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left` : "No time left"}</span></div>
          <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limit}" aria-valuenow="${usedMin}" aria-label="Screen time used"><div class="tone-${state.tone === "bad" ? "bad" : state.tone === "warn" ? "warn" : "info"}" style="width:${pct}%"></div></div>`
       : `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">today</span></span><span class="muted">No daily limit</span></div>`;
@@ -1647,6 +1705,102 @@ class TvMgmtPanel extends HTMLElement {
 
   // Limits ---------------------------------------------------------------------------
 
+  // Whole home: one set of limits for every TV, above the TV's own.
+  _renderHomeLimits() {
+    const e = this._homeEdit;
+    if (!e) {
+      if (!this._loadingHome) {
+        this._loadingHome = true;
+        this._ws({ type: "tv_mgmt/home/get" })
+          .then((res) => (this._homeEdit = res))
+          .catch((err) => (this._error = this._errorText(err)))
+          .finally(() => {
+            this._loadingHome = false;
+            this._render();
+          });
+      }
+      return loading("Loading the whole home's limits…");
+    }
+    const h = e.home;
+    const hours = h.weekly_minutes ? +(h.weekly_minutes / 60).toFixed(2) : 0;
+    const radio = (name, value, label, checked) =>
+      `<label class="radio"><input type="radio" name="${name}" value="${value}" ${checked ? "checked" : ""}> ${label}</label>`;
+    const targets = e.notify_targets.length
+      ? `<div class="checks">${e.notify_targets
+          .map((t) => `<label class="radio"><input type="checkbox" class="check" data-home-notify="${esc(t)}" ${h.notify.includes(t) ? "checked" : ""}> ${esc(t.replace(/^notify\./, "").replace(/_/g, " "))}</label>`)
+          .join("")}</div>`
+      : `<small>Nothing to send to yet. Set up the Home Assistant app on a phone, or another notify integration.</small>`;
+    const tvs = e.tvs
+      .map((t) => `<label class="radio"><input type="checkbox" class="check" data-home-tv="${esc(t.entry_id)}" ${h.excluded.includes(t.entry_id) ? "" : "checked"}> ${esc(t.name)}</label>`)
+      .join("");
+    return `<section class="card home-limits" style="margin-bottom:20px"><div class="card-body">
+      <form id="home" novalidate>
+        <div class="field"><label>Whole home</label>
+          <small>Limits for all the TVs together. Each TV's time is added up, so two TVs on for an hour count as two hours. The TVs' own limits still apply too.</small></div>
+        <div class="field">
+          <label for="home-daily">Daily TV time for the home</label>
+          <span><input id="home-daily" type="number" min="0" max="1440" step="5" value="${h.daily_minutes}"> <span class="muted">minutes</span></span>
+          <small>0 means no daily limit.</small>
+        </div>
+        <div class="field">
+          <label for="home-weekly">Weekly TV time for the home</label>
+          <span><input id="home-weekly" type="number" min="0" max="168" step="0.5" value="${hours}"> <span class="muted">hours</span></span>
+          <small>0 means no weekly limit.</small>
+          <div class="row">${radio("home-week", "monday", "Weeks start on Monday", h.week_start === "monday")}${radio("home-week", "sunday", "Sunday", h.week_start === "sunday")}</div>
+        </div>
+        <div class="field">
+          <label for="home-warn">Tell me before it runs out</label>
+          <span><input id="home-warn" type="number" min="0" max="120" value="${h.warn_minutes}"> <span class="muted">minutes before</span></span>
+        </div>
+        <div class="field"><label>When the home's time runs out</label>
+          ${radio("home-action", "turn_off", "Turn the TVs off, like their own limits", h.action === "turn_off")}
+          ${radio("home-action", "notify", "Only tell me", h.action === "notify")}
+        </div>
+        <div class="field"><label>Tell</label>${targets}</div>
+        <div class="field"><label>TVs that count</label>
+          ${tvs || `<small>No TVs yet.</small>`}
+          <small>A TV that's left out isn't counted or turned off by the home's limit.</small></div>
+        <div class="form-actions">
+          <button type="submit" class="btn primary" ${this._busyHome ? "disabled" : ""}>${this._busyHome ? "Saving…" : "Save whole home"}</button>
+          ${this._homeNote ? `<span class="saved" role="status">${esc(this._homeNote)}</span>` : ""}
+        </div>
+      </form>
+    </div></section>`;
+  }
+
+  async _saveHome() {
+    const root = this.shadowRoot;
+    const num = (id) => Number(root.getElementById(id).value || 0);
+    const daily = num("home-daily");
+    const weeklyHours = num("home-weekly");
+    const warn = num("home-warn");
+    if (!Number.isInteger(daily) || daily < 0 || daily > 1440) return this._showError("Daily TV time for the home needs a whole number of minutes from 0 to 1440.");
+    if (weeklyHours < 0 || weeklyHours > 168) return this._showError("Weekly TV time for the home needs a number of hours from 0 to 168.");
+    if (!Number.isInteger(warn) || warn < 0 || warn > 120) return this._showError("Tell me before it runs out needs a whole number of minutes from 0 to 120.");
+    const msg = {
+      type: "tv_mgmt/home/set",
+      daily_minutes: daily,
+      weekly_minutes: Math.round(weeklyHours * 60),
+      week_start: root.querySelector('input[name="home-week"]:checked')?.value || "monday",
+      warn_minutes: warn,
+      action: root.querySelector('input[name="home-action"]:checked')?.value || "turn_off",
+      notify: [...root.querySelectorAll("[data-home-notify]")].filter((el) => el.checked).map((el) => el.dataset.homeNotify),
+      excluded: [...root.querySelectorAll("[data-home-tv]")].filter((el) => !el.checked).map((el) => el.dataset.homeTv),
+    };
+    this._busyHome = true;
+    this._error = null;
+    this._render();
+    try {
+      this._homeEdit = await this._ws(msg);
+      this._home = this._homeEdit.home;
+      this._homeNote = "Whole home saved";
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyHome = false;
+    this._render();
+  }
+
   _renderLimits() {
     const d = this._limitsDraft;
     if (!d || this._limitsFor !== this._selected) {
@@ -1655,7 +1809,7 @@ class TvMgmtPanel extends HTMLElement {
         this._limitsFor = this._selected;
         this._loadLimits().finally(() => (this._loadingLimits = false));
       }
-      return `<div class="toolbar">${this._renderPicker()}</div>${loading("Loading limits…")}`;
+      return `${this._renderHomeLimits()}<div class="toolbar">${this._renderPicker()}</div>${loading("Loading limits…")}`;
     }
     const windows = d.windows
       .map(
@@ -1667,7 +1821,7 @@ class TvMgmtPanel extends HTMLElement {
         </div>`,
       )
       .join("");
-    return `<div class="toolbar">${this._renderPicker()}</div>
+    return `${this._renderHomeLimits()}<div class="toolbar">${this._renderPicker()}</div>
       <section class="card"><div class="card-body">
         <form id="limits" novalidate>
           <div class="field">
@@ -1864,8 +2018,16 @@ class TvMgmtPanel extends HTMLElement {
     const el = ev.target.closest("button");
     if (!el) return;
 
+    if (el.dataset.homeExtra) {
+      this._homeExtra(Number(el.dataset.homeExtra));
+      return;
+    }
     if (el.dataset.tab) {
       this._tab = el.dataset.tab;
+      if (this._tab === "limits") {
+        this._homeEdit = null;
+        this._homeNote = "";
+      }
       if (this._tab === "access") {
         this._accessDraft = null;
         this._accessNote = "";
@@ -2084,6 +2246,11 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   async _onSubmit(ev) {
+    if (ev.target.id === "home") {
+      ev.preventDefault();
+      await this._saveHome();
+      return;
+    }
     if (ev.target.id === "apps" && this.shadowRoot.activeElement?.dataset?.newShow !== undefined) {
       ev.preventDefault();
       this.shadowRoot.querySelector("[data-add-show]")?.click();

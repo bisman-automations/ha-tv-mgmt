@@ -17,6 +17,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.util import dt as dt_util
 
+from .home import REASON_HOME_DAILY, REASON_HOME_WEEKLY
 from .state import REASON_BUDGET, REASON_MANUAL, REASON_QUIET
 
 _LOGGER = logging.getLogger(__name__)
@@ -60,6 +61,10 @@ def turning_off_message(reason: str | None, quiet_window: str | None = None) -> 
         return "A parent turned off TV time. The TV is turning off."
     if reason == REASON_BUDGET:
         return "TV time is up for today. The TV is turning off."
+    if reason == REASON_HOME_DAILY:
+        return "TV time for the whole home is up for today. The TV is turning off."
+    if reason == REASON_HOME_WEEKLY:
+        return "TV time for the whole home is up for this week. The TV is turning off."
     return "The TV is turning off."
 
 

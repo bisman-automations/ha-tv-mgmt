@@ -65,6 +65,7 @@ from .const import (
 
 MAX_TURN_OFF_RETRY = 600  # seconds
 from .guard import InputGuard
+from .home_limits import get_home
 from .media import media_key, show_of
 from .mode_sync import ModeSync
 from .names import InputNames
@@ -323,6 +324,8 @@ class TVManager:
             )
         )
         self._last_tick = dt_util.utcnow()
+        if home := get_home(self.hass):
+            home.register(self)
         self._recompute(fire_events=False)
         self._log_power()
         self._tv_was_on = self.backend.is_on
@@ -339,6 +342,8 @@ class TVManager:
 
     async def async_stop(self) -> None:
         self._count_usage()
+        if home := get_home(self.hass):
+            home.unregister(self)
         for unsub in self._unsubs:
             unsub()
         self._unsubs.clear()
@@ -594,6 +599,8 @@ class TVManager:
     @callback
     def _recompute(self, *, fire_events: bool = True) -> None:
         previous = self.decision
+        home = get_home(self.hass)
+        home_remaining, home_reason = home.remaining_for(self) if home else (None, None)
         self.decision = decide(
             now=dt_util.now().time(),
             mode=self.state.mode,
@@ -604,9 +611,13 @@ class TVManager:
             used_seconds=self.state.used_seconds,
             warn_minutes=self.warn_minutes,
             quiet_windows=self.quiet_windows,
+            home_remaining=home_remaining,
+            home_reason=home_reason,
         )
         if not fire_events:
             return
+        if home:
+            home.check()
         if (previous.state, previous.reason) != (self.decision.state, self.decision.reason):
             _LOGGER.info(
                 "TV Mgmt %s: %s -> %s (%s)",
@@ -766,6 +777,20 @@ class TVManager:
             self._unsub_turn_off = None
 
     # ---- parent controls ----------------------------------------------------------------
+
+    @callback
+    def refresh(self) -> None:
+        """Re-decide and act now: the whole home's limits or time changed."""
+        self._count_usage()
+        self._recompute()
+        if self.box:
+            self.box.evaluate()
+        self._enforce_power()
+        self.notify()
+
+    @callback
+    def log_home_extension(self, minutes: int, by: str | None = None) -> None:
+        self._log(act.EV_HOME_EXTENSION, minutes=minutes, by=by)
 
     @callback
     def _changed(self) -> None:

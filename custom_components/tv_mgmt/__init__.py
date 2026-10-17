@@ -62,6 +62,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from .panel import async_register_panel
 
     await async_get_access(hass)
+    from .home_limits import async_get_home
+
+    await async_get_home(hass)
     _register_services(hass)
     websocket.async_register(hass)
     await async_register_panel(hass)
