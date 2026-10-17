@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.11.1] - 2026-10-17
+
+### Fixed
+
+- **Ready for Home Assistant 2027.8.** TV Mgmt no longer passes `via_device` for its device on Home Assistant 2026.8 and newer, where it links to the TV's and the Apple TV's devices instead. From 2026.10 this logged a deprecation warning, and it stops working in 2027.8.
+
 ## [1.11.0] - 2026-10-16
 
 ### Added
@@ -300,7 +306,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...HEAD
+[1.11.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...v1.11.1
 [1.11.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.2...v1.11.0
 [1.10.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.1...v1.10.2
 [1.10.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.10.0...v1.10.1

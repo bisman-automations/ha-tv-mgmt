@@ -21,6 +21,12 @@ class TVMgmtEntity(Entity):
         entry = manager.entry
         self._attr_unique_id = f"{entry.entry_id}_{key}"
         self._attr_translation_key = key
+        info: dict = {}
+        # Only older Home Assistant (before 2026.8) shows the profile under the
+        # TV with via_device. Newer versions link the devices instead, and warn
+        # about via_device even when it's None (removed in 2027.8).
+        if (tv := _tv_device(manager)) is not None:
+            info["via_device"] = tv
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry.entry_id)},
             # Same pattern as Apple TV Mgmt ("Apple TV Mgmt — Family Room").
@@ -28,7 +34,7 @@ class TVMgmtEntity(Entity):
             manufacturer="TV Mgmt",
             model="TV profile",
             entry_type=DeviceEntryType.SERVICE,
-            via_device=_tv_device(manager),
+            **info,
         )
 
     async def _ensure_allowed(self) -> None:
