@@ -207,6 +207,24 @@ function describeMedia(m) {
 
 const icon = (name) => `<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICONS[name] ?? ICONS.clock}"/></svg>`;
 
+// Placeholder shaped like what's loading: "cards" (dashboard), "chart" (analytics) or "rows".
+function loading(label, shape = "rows") {
+  const bar = (w, h = 12) => `<span class="sk" style="width:${w};height:${h}px"></span>`;
+  let body;
+  if (shape === "cards") {
+    const card = `<div class="card sk-card"><div class="screen-wrap"><span class="sk sk-screen"></span></div>
+        <div class="card-body sk-lines"><div class="sk-row"><span class="sk sk-dot"></span><span class="sk sk-dot"></span><span class="sk sk-dot"></span></div>${bar("60%", 14)}${bar("100%", 8)}</div></div>`;
+    body = `<div class="grid">${card}${card}</div>`;
+  } else if (shape === "chart") {
+    const stat = `<div class="card stat">${bar("50%", 22)}${bar("70%", 10)}</div>`;
+    body = `<div class="stats">${stat.repeat(4)}</div><section class="card"><div class="card-body">${bar("30%", 14)}<span class="sk" style="width:100%;height:180px"></span></div></section>`;
+  } else {
+    const row = (w) => `<div class="sk-row">${bar("64px", 10)}${bar(w)}</div>`;
+    body = `<section class="card"><div class="card-body sk-lines">${["70%", "55%", "80%", "45%", "65%"].map(row).join("")}</div></section>`;
+  }
+  return `<div class="loading" role="status" aria-live="polite"><span class="sr-only">${esc(label)}</span><div aria-hidden="true">${body}</div></div>`;
+}
+
 const STYLES = `
 :host {
   display: block;
@@ -554,7 +572,19 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
   .window input[type="text"] { grid-column: 1 / 3; grid-row: 2; }
   .date-nav h2 { min-width: 0; font-size: 16px; }
 }
-@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.sk { display: block; border-radius: 6px; background: color-mix(in srgb, var(--primary-text-color) 9%, transparent); position: relative; overflow: hidden; }
+.sk::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--card-background-color, #fff) 55%, transparent), transparent);
+  animation: sk-shimmer 1.4s ease-in-out infinite; }
+@keyframes sk-shimmer { to { transform: translateX(100%); } }
+.sk-lines { display: grid; gap: 10px; }
+.sk-row { display: flex; gap: 12px; align-items: center; }
+.sk-screen { width: 100%; aspect-ratio: 16 / 7; border-radius: 10px; }
+.sk-dot { width: 40px; height: 40px; border-radius: 50%; flex: none; }
+.stat .sk + .sk { margin-top: 8px; }
+.loading .card-body { gap: 14px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } .sk::after { animation: none; display: none; } }
 `;
 
 class TvMgmtPanel extends HTMLElement {
@@ -883,7 +913,7 @@ class TvMgmtPanel extends HTMLElement {
     if (this._tab === "access") {
       body = this._renderAccess();
     } else if (this._profiles === null) {
-      body = this._error ? "" : `<p class="empty">Loading your TVs…</p>`;
+      body = this._error ? "" : loading("Loading your TVs…", "cards");
     } else if (!this._profiles.length) {
       body = `<div class="empty"><h2>No TVs yet</h2><p>Add a TV under Settings, Devices &amp; services, TV Mgmt, and it will show up here.</p></div>`;
     } else {
@@ -1359,7 +1389,7 @@ class TvMgmtPanel extends HTMLElement {
             this._render();
           });
       }
-      return `<p class="empty">Loading people…</p>`;
+      return loading("Loading people…");
     }
     const rows = d.people
       .map((u, i) => {
@@ -1415,7 +1445,7 @@ class TvMgmtPanel extends HTMLElement {
         this._loadingActivity = true;
         this._loadActivity().finally(() => (this._loadingActivity = false));
       }
-      return `${this._activityToolbar(null)}<p class="empty">Loading activity…</p>`;
+      return `${this._activityToolbar(null)}${loading("Loading activity…")}`;
     }
     const profile = this._profiles.find((p) => p.entry_id === this._selected);
     const allowed = new Set(profile?.allowed_inputs || []);
@@ -1517,7 +1547,7 @@ class TvMgmtPanel extends HTMLElement {
         this._loadingAnalytics = true;
         this._loadAnalytics().finally(() => (this._loadingAnalytics = false));
       }
-      return `${this._analyticsToolbar()}<p class="empty">Loading analytics…</p>`;
+      return `${this._analyticsToolbar()}${loading("Loading analytics…", "chart")}`;
     }
     const s = data.summary;
     const stats = `
@@ -1625,7 +1655,7 @@ class TvMgmtPanel extends HTMLElement {
         this._limitsFor = this._selected;
         this._loadLimits().finally(() => (this._loadingLimits = false));
       }
-      return `<div class="toolbar">${this._renderPicker()}</div><p class="empty">Loading limits…</p>`;
+      return `<div class="toolbar">${this._renderPicker()}</div>${loading("Loading limits…")}`;
     }
     const windows = d.windows
       .map(

@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<html><head><meta charset="utf-8"><link rel="icon" href="data:,"><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   html, body { margin: 0; }
   body.light {
@@ -125,6 +125,10 @@ window.hass = {
   hassUrl: (p) => p,
   callService: async (domain, service, data) => { window.lastService = { domain, service, data }; },
   callWS: async (msg) => {
+    // loading=1: everything but the access check stays loading; loading=tabs: the TVs
+    // load, but each tab's own data stays loading. To see the placeholders.
+    const holding = params.get("loading") === "tabs" ? !["tv_mgmt/access/me", "tv_mgmt/profiles"].includes(msg.type) : params.get("loading") && msg.type !== "tv_mgmt/access/me";
+    if (holding) return new Promise(() => {});
     switch (msg.type) {
       case "tv_mgmt/profiles": return { profiles: params.get("empty") ? [] : params.get("single") ? profiles.slice(0, 1) : profiles, now: nowIso };
       case "tv_mgmt/activity": return { app_segments: [

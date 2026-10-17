@@ -7,7 +7,9 @@ fakes Home Assistant with sample TVs, and saves each tab at phone and desktop
 width in light and dark themes. Fails if the page logs any error.
 
 The page takes query parameters: theme=light|dark, single=1 (one TV),
-empty=1 (no TVs), denied=1 (a user without access).
+empty=1 (no TVs), denied=1 (a user without access), loading=1 (every
+request stays loading) and loading=tabs (the TVs load, each tab's data stays
+loading), to see the placeholders; saved as loading-*.png.
 """
 
 from functools import partial
@@ -57,6 +59,18 @@ def main() -> int:
                     if width > w:
                         errors.append(f"{tab} {size}: page scrolls sideways ({width}px)")
                     page.screenshot(path=out / f"{tab}-{size}-{theme}.png", full_page=True)
+                page.close()
+                # The placeholders shown while each tab loads.
+                page = browser.new_page(viewport={"width": w, "height": h})
+                page.on("pageerror", lambda e: errors.append(str(e)))
+                for mode, tabs in (("1", ["dashboard"]), ("tabs", ["activity", "analytics", "limits"])):
+                    page.goto(f"{base}?theme={theme}&loading={mode}")
+                    page.wait_for_timeout(600)
+                    panel = page.locator("tv-mgmt-panel")
+                    for tab in tabs:
+                        panel.locator(f"nav button[data-tab='{tab}']").click()
+                        page.wait_for_timeout(300)
+                        page.screenshot(path=out / f"loading-{tab}-{size}-{theme}.png")
                 page.close()
         browser.close()
     server.shutdown()
