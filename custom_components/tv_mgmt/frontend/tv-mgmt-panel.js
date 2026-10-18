@@ -1072,6 +1072,7 @@ class TvMgmtPanel extends HTMLElement {
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
             <dt>Last tried</dt><dd>${lastBlocked}</dd>
             <dt>Allowed</dt><dd>${esc((p.allowed_inputs || []).map((raw) => nameOf(p, raw)).join(", ") || "Not set")}</dd>
+            ${(p.tv_lights || []).length ? `<dt>TV lights</dt><dd>${esc(p.tv_lights.map((e) => this._hass?.states?.[e]?.attributes?.friendly_name || e).join(", "))}</dd>` : ""}
           </dl>
           <div class="row">
             <span class="label">Extra time</span>
@@ -1851,7 +1852,8 @@ class TvMgmtPanel extends HTMLElement {
         </form>
       </div></section>
       ${this._renderAppRules()}
-      ${this._renderNames()}`;
+      ${this._renderNames()}
+      ${this._renderLights()}`;
   }
 
   _renderAppRules() {
@@ -1980,6 +1982,57 @@ class TvMgmtPanel extends HTMLElement {
     this._render();
   }
 
+  // Lights that go on and off with the TV.
+  _renderLights() {
+    const p = this._profiles.find((x) => x.entry_id === this._selected);
+    if (!p) return "";
+    if (!this._lightsDraft || this._lightsFor !== p.entry_id) {
+      this._lightsFor = p.entry_id;
+      this._lightsDraft = { picked: new Set(p.tv_lights || []), filter: "" };
+    }
+    const d = this._lightsDraft;
+    const states = this._hass?.states || {};
+    const nameOfLight = (eid) => states[eid]?.attributes?.friendly_name || eid;
+    const all = [...new Set([...Object.keys(states).filter((e) => e.startsWith("light.")), ...d.picked])]
+      .sort((a, b) => Number(d.picked.has(b)) - Number(d.picked.has(a)) || nameOfLight(a).localeCompare(nameOfLight(b)));
+    const q = d.filter.trim().toLowerCase();
+    const shown = q ? all.filter((e) => d.picked.has(e) || nameOfLight(e).toLowerCase().includes(q) || e.includes(q)) : all;
+    const rows = shown
+      .map((eid, i) => `<label class="show-rule"><input type="checkbox" class="check" data-light="${esc(eid)}" ${d.picked.has(eid) ? "checked" : ""}> ${esc(nameOfLight(eid))}</label>`)
+      .join("");
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <form id="lights" novalidate>
+        <div class="field">
+          <label>TV lights</label>
+          <small>Lights that turn on when the TV turns on, and off when it turns off, such as a light behind the TV. They don't turn on while the TV is blocked.</small>
+          ${all.length > 10 ? `<input type="text" data-light-filter placeholder="Find a light" value="${esc(d.filter)}" autocomplete="off">` : ""}
+          ${rows ? `<div class="show-rules">${rows}</div>` : `<p class="muted">${all.length ? "No lights match." : "No lights in Home Assistant yet."}</p>`}
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn primary" ${this._busyLights ? "disabled" : ""}>${this._busyLights ? "Saving…" : "Save TV lights"}</button>
+          ${this._lightsNote ? `<span class="saved" role="status">${esc(this._lightsNote)}</span>` : ""}
+        </div>
+      </form>
+    </div></section>`;
+  }
+
+  async _saveLights() {
+    const d = this._lightsDraft;
+    this._busyLights = true;
+    this._error = null;
+    this._render();
+    try {
+      await this._ws({ type: "tv_mgmt/lights/set", entry_id: this._selected, lights: [...d.picked] });
+      this._lightsNote = "TV lights saved";
+      this._lightsDraft = null;
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyLights = false;
+    this._render();
+  }
+
   _renderNames() {
     const p = this._profiles.find((x) => x.entry_id === this._selected);
     if (!p) return "";
@@ -2043,6 +2096,8 @@ class TvMgmtPanel extends HTMLElement {
       this._activityDate = null;
       this._limitsDraft = null;
       this._namesDraft = null;
+      this._lightsDraft = null;
+      this._lightsNote = "";
       this._appsDraft = null;
       this._appsNote = "";
       this._savedNote = "";
@@ -2138,6 +2193,12 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (input.dataset.light !== undefined && this._lightsDraft) {
+      if (input.checked) this._lightsDraft.picked.add(input.dataset.light);
+      else this._lightsDraft.picked.delete(input.dataset.light);
+      this._lightsNote = "";
+      return;
+    }
     if (input.dataset.msgWhere) {
       this._msg(input.dataset.id)[input.dataset.msgWhere] = input.checked;
       return;
@@ -2192,6 +2253,16 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   _onInput(ev) {
+    if (ev.target.dataset.lightFilter !== undefined && this._lightsDraft) {
+      this._lightsDraft.filter = ev.target.value;
+      clearTimeout(this._lightFilterTimer);
+      // Redraw the list after typing pauses, keeping the cursor in the box.
+      this._lightFilterTimer = setTimeout(() => {
+        this._render();
+        const box = this.shadowRoot.querySelector("[data-light-filter]");
+        if (box) { box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+      }, 250);
+    }
     if (ev.target.dataset.newShow !== undefined && this._appsDraft) this._appsDraft.newShow = ev.target.value;
     if (ev.target.name === "message" && ev.target.closest("form[data-message]")) {
       const id = ev.target.closest("form[data-message]").dataset.message;
@@ -2281,6 +2352,11 @@ class TvMgmtPanel extends HTMLElement {
     if (ev.target.id === "apps") {
       ev.preventDefault();
       await this._saveApps();
+      return;
+    }
+    if (ev.target.id === "lights") {
+      ev.preventDefault();
+      await this._saveLights();
       return;
     }
     if (ev.target.id === "names") {

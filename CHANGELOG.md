@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.14.0] - 2026-10-18
+
+### Added
+
+- **TV lights.** Pick lights that go with the TV, such as a light behind it. They turn on when the TV turns on, and off when it turns off, including when TV Mgmt turns it off.
+  - They don't turn on while the TV is blocked, so they don't flash on and off.
+  - Pick them in the sidebar app under **Limits → TV lights**, or under **Configure → TV lights**. The dashboard lists them with the TV.
+
 ## [1.13.0] - 2026-10-17
 
 ### Added
@@ -331,7 +339,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...HEAD
+[1.14.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...v1.12.0
 [1.11.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.0...v1.11.1

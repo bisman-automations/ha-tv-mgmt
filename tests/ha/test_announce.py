@@ -31,7 +31,7 @@ async def test_warns_then_announces_turning_off(hass: HomeAssistant, freezer, ca
         "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
         "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"],
                           "announce_screen": "notify.family_room_tv"},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
 
     for _ in range(10):  # 5 minutes: 5 left
@@ -73,7 +73,7 @@ async def test_airplays_message_to_apple_tv(hass: HomeAssistant, freezer, calls,
         "screen_time": {"daily_budget": 10, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
         "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
         "announcements": {"announce_airplay": True},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
     for _ in range(10):
         await tick(hass, freezer, 30)
@@ -113,7 +113,7 @@ async def test_dashboard_message(hass: HomeAssistant, hass_ws_client, calls, box
         "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
         "apple_tv": {"streaming_player": BOX},
         "announcements": {"announce_screen": "notify.family_room_tv"},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
     client = await hass_ws_client(hass)
 
@@ -161,7 +161,7 @@ async def test_send_message_service(hass: HomeAssistant, calls) -> None:
         "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
         "apple_tv": {},
         "announcements": {"announce_screen": "notify.family_room_tv"},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
     await hass.services.async_call(
         "tv_mgmt", "send_message", {"profile_id": entry.entry_id, "message": "Time for bed"}, blocking=True
@@ -184,7 +184,7 @@ async def test_tv_that_wont_turn_off_is_announced_once(hass: HomeAssistant, free
         "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
         "apple_tv": {},
         "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
     entry.runtime_data.force_block()
     await hass.async_block_till_done()
@@ -214,7 +214,7 @@ async def test_unreachable_tv_isnt_announced(hass: HomeAssistant, freezer, calls
         "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
         "apple_tv": {},
         "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
-        "sync": {},
+        "lights": {}, "sync": {},
     })
     entry.runtime_data.force_block()
     for _ in range(20):

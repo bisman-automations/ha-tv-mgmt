@@ -72,6 +72,16 @@
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
           },
+          "lights": {
+            "name": "TV lights",
+            "description": "Lights that turn on when the TV turns on, and off when it turns off, such as a light behind the TV.",
+            "data": {
+              "tv_lights": "Lights"
+            },
+            "data_description": {
+              "tv_lights": "They don't turn on while the TV is blocked."
+            }
+          },
           "announcements": {
             "name": "Warnings on the TV",
             "description": "Say and show when TV time is running out, and just before TV Mgmt turns the TV off. The warning comes at the \"Warn before time runs out\" time under Screen time.",
@@ -178,6 +188,16 @@
               "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or adult mode.",
               "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
+            }
+          },
+          "lights": {
+            "name": "TV lights",
+            "description": "Lights that turn on when the TV turns on, and off when it turns off, such as a light behind the TV.",
+            "data": {
+              "tv_lights": "Lights"
+            },
+            "data_description": {
+              "tv_lights": "They don't turn on while the TV is blocked."
             }
           },
           "announcements": {

@@ -23,7 +23,7 @@ The sidebar app is the product. Every setting should be manageable there, not on
 | `websocket.py` | The sidebar app's API (`tv_mgmt/*` commands). |
 | `frontend/tv-mgmt-panel.js` | The sidebar app: one plain web component, **no build step**. |
 | `panel.py`, `access.py` | Sidebar registration, and who may use it (admins plus parents an admin picks). |
-| `config_flow.py` | Adds a TV. The options flow has sections: input lock, screen time, Apple TV, warnings, Apple TV Mgmt sync. |
+| `config_flow.py` | Adds a TV. The options flow has sections: input lock, screen time, Apple TV, warnings, TV lights, Apple TV Mgmt sync. |
 | `entity.py`, `sensor.py`, `switch.py`, `select.py` | Entities, all on one service device per TV. |
 | `scripts/panel-preview/` | A page that fakes Home Assistant with sample TVs, and `shoot.py`, which screenshots every tab. |
 

@@ -43,6 +43,7 @@ from .const import (
     CONF_ANNOUNCE_PLAYERS,
     CONF_ANNOUNCE_SCREEN,
     CONF_ANNOUNCE_TTS,
+    CONF_TV_LIGHTS,
     ANNOUNCE_GRACE,
     CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
@@ -370,10 +371,14 @@ class TVManager:
         self._recompute()
         self.guard.handle_backend_update()
         turned_on = self.backend.is_on is True and self._tv_was_on is False
+        turned_off = self.backend.is_on is False and self._tv_was_on is True
         if self.backend.is_on is not None:
             self._tv_was_on = self.backend.is_on
         if turned_on:
             self._wake_apple_tv()
+            self._switch_lights(True)
+        elif turned_off:
+            self._switch_lights(False)
         self._enforce_power()
         self.notify()
 
@@ -394,6 +399,25 @@ class TVManager:
             self.box.evaluate()
         self._enforce_power()
         self.notify()
+
+    # ---- TV lights: on and off with the TV ---------------------------------------------
+
+    @property
+    def tv_lights(self) -> list[str]:
+        return [e for e in self.options.get(CONF_TV_LIGHTS) or [] if e]
+
+    @callback
+    def _switch_lights(self, on: bool) -> None:
+        lights = self.tv_lights
+        if not lights:
+            return
+        if on and self.decision.state == STATE_ENFORCING and self._enforcing_actions():
+            return  # TV Mgmt is about to turn the TV back off; don't flash the lights.
+        self.hass.async_create_task(
+            self.hass.services.async_call(
+                "light", "turn_on" if on else "turn_off", {ATTR_ENTITY_ID: lights}, blocking=False
+            )
+        )
 
     # ---- wake the Apple TV when the TV turns on ------------------------------------------
 

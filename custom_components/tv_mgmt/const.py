@@ -12,6 +12,8 @@ SECTION_SCREEN_TIME = "screen_time"
 SECTION_SYNC = "sync"
 SECTION_APPLE_TV = "apple_tv"
 SECTION_ANNOUNCE = "announcements"
+SECTION_LIGHTS = "lights"
+CONF_TV_LIGHTS = "tv_lights"  # [light entity]: on with the TV, off with it
 
 # Input lock
 CONF_ALLOWED_SOURCES = "allowed_sources"

@@ -39,6 +39,8 @@ from .const import (
     DEFAULT_QUIET_WINDOWS,
     DOMAIN,
     SECTION_APPLE_TV,
+    SECTION_LIGHTS,
+    CONF_TV_LIGHTS,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
     SIGNAL_ANY_UPDATED,
@@ -75,6 +77,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_limits_set,
         ws_input_names_set,
         ws_apple_tv_set,
+        ws_lights_set,
         ws_action,
         ws_remote,
         ws_message,
@@ -166,6 +169,7 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "entities": profile_entities(manager),
         "message_targets": manager.message_targets(),
         "message_presets": MESSAGE_PRESETS,
+        "tv_lights": manager.tv_lights,
         "apple_tv": apple_tv_summary(manager),
     }
 
@@ -409,6 +413,27 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
     options.setdefault(SECTION_INPUT_LOCK, {})[CONF_INPUT_NAMES] = names
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": names})
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/lights/set",
+        vol.Required("entry_id"): str,
+        vol.Required("lights"): [vol.All(str, vol.Match(r"^light\.[a-z0-9_]+$"))],
+    }
+)
+@require_access
+@callback
+def ws_lights_set(hass: HomeAssistant, connection, msg) -> None:
+    """Pick the lights that go on and off with this TV."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    lights = list(dict.fromkeys(msg["lights"]))
+    entry = manager.entry
+    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options[SECTION_LIGHTS] = {CONF_TV_LIGHTS: lights}
+    hass.config_entries.async_update_entry(entry, options=options)
+    connection.send_result(msg["id"], {"lights": lights})
 
 
 @websocket_api.websocket_command(

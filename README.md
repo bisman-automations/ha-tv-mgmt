@@ -134,6 +134,12 @@ How it works:
 
 The `tv_mgmt_home_limit` event fires with each message, for automations.
 
+## TV lights
+
+Pick lights that go with the TV, such as a light behind it. They turn on when the TV turns on, and off when it turns off, including when TV Mgmt turns it off. They don't turn on while the TV is blocked, so they don't flash on and off.
+
+Pick them in the sidebar app under **Limits → TV lights**, or under **Configure → TV lights**.
+
 ## Who can use TV Mgmt
 
 Admins can always use TV Mgmt. To let someone else in, such as a parent who isn't a Home Assistant admin, open the sidebar app's **Access** tab, check them, and save. Everyone else is turned away, kids included.

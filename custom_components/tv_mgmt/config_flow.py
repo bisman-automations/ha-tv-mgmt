@@ -55,6 +55,8 @@ from .const import (
     SECTION_SCREEN_TIME,
     SECTION_SYNC,
     SECTION_ANNOUNCE,
+    SECTION_LIGHTS,
+    CONF_TV_LIGHTS,
     CONF_ANNOUNCE_AIRPLAY,
     CONF_ANNOUNCE_PLAYERS,
     CONF_ANNOUNCE_SCREEN,
@@ -179,6 +181,16 @@ def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
                 CONF_ADULT_MODE_DURATION,
                 default=d.get(CONF_ADULT_MODE_DURATION, DEFAULT_ADULT_MODE_DURATION),
             ): _number(5, 720, "min"),
+        }
+    )
+
+
+def _lights_schema(d: Mapping[str, Any]) -> vol.Schema:
+    return vol.Schema(
+        {
+            vol.Optional(
+                CONF_TV_LIGHTS, description={"suggested_value": list(d.get(CONF_TV_LIGHTS) or [])}
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="light", multiple=True)),
         }
     )
 
@@ -350,6 +362,7 @@ def _settings_schema(
             # section with a default is submitted as that default, dropping
             # the preselected value the form shows.
             vol.Required(SECTION_ANNOUNCE): section(_announce_schema(hass, flat), {"collapsed": True}),
+            vol.Required(SECTION_LIGHTS): section(_lights_schema(flat), {"collapsed": True}),
             vol.Required(SECTION_SYNC): section(_sync_schema(hass, backend.entity_id, flat)),
         }
     )
@@ -432,6 +445,11 @@ def _process(
         SECTION_SCREEN_TIME: screen,
         SECTION_APPLE_TV: apple_tv,
         SECTION_ANNOUNCE: announce,
+        SECTION_LIGHTS: {
+            CONF_TV_LIGHTS: list(
+                dict.fromkeys(user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS) or [])
+            )
+        },
         SECTION_SYNC: sync,
     }
     return options, errors
