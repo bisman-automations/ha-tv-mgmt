@@ -5,7 +5,7 @@ import pytest
 
 from homeassistant.core import HomeAssistant
 
-from tests.ha.test_integration import set_tv, setup
+from tests.ha.test_integration import TV, set_tv, setup
 
 BOX = "media_player.living_room_apple_tv"
 REMOTE = "remote.living_room_apple_tv"
@@ -265,6 +265,37 @@ async def test_diagnostics(hass: HomeAssistant, calls, box_calls) -> None:
     assert diag["apple_tv"]["app_name"] == "YouTube"
     assert diag["apple_tv"]["rules"]["apps"] == ["Roblox"]
     assert diag["apple_tv"]["box_state"]["entity_id"] == BOX
+
+
+async def test_diagnostics_hide_tokens_and_names(hass: HomeAssistant, calls, box_calls) -> None:
+    """Picture URLs carry an access token, and notify and speaker targets name people."""
+    from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics
+
+    set_tv(hass)
+    hass.states.async_set(
+        BOX, "playing",
+        {"friendly_name": "Living Room Apple TV", "app_id": YT[0], "app_name": YT[1],
+         "entity_picture": "/api/media_player_proxy/media_player.living_room?token=secret"},
+    )
+    hass.states.async_set(
+        TV, "on",
+        {"friendly_name": "Family Room TV", "source": "HDMI 2", "source_list": ["HDMI 1", "HDMI 2"],
+         "entity_picture": "/api/media_player_proxy/media_player.family_room_tv?token=secret"},
+    )
+    entry = await setup(hass, options={
+        "input_lock": LOCK, "screen_time": SCREEN,
+        "apple_tv": {"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {},
+                     "app_action": "home", "sleep_on_block": True},
+        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.sams_room"],
+                          "announce_screen": "notify.sams_tv"},
+        "lights": {}, "sync": {},
+    })
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    text = repr(diag)
+    assert "secret" not in text
+    assert "sams" not in text
+    assert diag["options"]["announcements"]["announce_tts"] == "tts.piper"
+    assert diag["apple_tv"]["box_state"]["attributes"]["app_name"] == "YouTube"
 
 
 PRIME = ("com.amazon.aiv.AIVApp", "Prime Video")

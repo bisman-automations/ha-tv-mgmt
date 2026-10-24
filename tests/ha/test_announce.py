@@ -221,3 +221,22 @@ async def test_unreachable_tv_isnt_announced(hass: HomeAssistant, freezer, calls
         await tick(hass, freezer, 30)
     assert speak == []
     assert [c for c in calls["turn_off"] if c.data["entity_id"] == TV] == []
+
+
+async def test_ffmpeg_is_looked_up_off_the_event_loop_once(hass: HomeAssistant, monkeypatch) -> None:
+    """Without Home Assistant's ffmpeg, the PATH is searched in an executor, and only once."""
+    import threading
+
+    from custom_components.tv_mgmt import messages
+
+    seen = []
+
+    def which(name):
+        seen.append(threading.current_thread() is threading.main_thread())
+        return "/usr/bin/ffmpeg"
+
+    monkeypatch.setattr(messages.shutil, "which", which)
+    assert "ffmpeg" not in hass.config.components
+    assert await messages._async_ffmpeg(hass) == "/usr/bin/ffmpeg"
+    assert await messages._async_ffmpeg(hass) == "/usr/bin/ffmpeg"
+    assert seen == [False]

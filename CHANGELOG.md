@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.14.1] - 2026-10-24
+
+### Fixed
+
+- Diagnostics no longer include picture links for the TV and Apple TV (they carry a temporary access key), or the speakers and TV screen picked for warnings (their names often name people).
+- Sending a message to the Apple TV no longer searches for ffmpeg in a way that could briefly hold up Home Assistant. When Home Assistant's own ffmpeg isn't set up, TV Mgmt looks it up once, in the background.
+
 ## [1.14.0] - 2026-10-18
 
 ### Added
@@ -339,7 +346,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...HEAD
+[1.14.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...v1.13.0
 [1.12.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.11.1...v1.12.0

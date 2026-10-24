@@ -57,13 +57,22 @@ async def async_register_messages_path(hass: HomeAssistant) -> None:
     hass.data[_REGISTERED] = True
 
 
-def _ffmpeg(hass: HomeAssistant) -> str | None:
-    try:
+_FFMPEG_PATH = f"{DOMAIN}_ffmpeg_path"
+
+
+async def _async_ffmpeg(hass: HomeAssistant) -> str | None:
+    """The ffmpeg to use: Home Assistant's own, else the one on the PATH (looked up once)."""
+    if "ffmpeg" in hass.config.components:
         from homeassistant.components.ffmpeg import get_ffmpeg_manager
 
-        return get_ffmpeg_manager(hass).binary
-    except (ImportError, ValueError):
-        return shutil.which("ffmpeg")
+        try:
+            return get_ffmpeg_manager(hass).binary
+        except (KeyError, ValueError):
+            pass
+    if _FFMPEG_PATH not in hass.data:
+        # shutil.which reads the file system, so not on the event loop.
+        hass.data[_FFMPEG_PATH] = await hass.async_add_executor_job(shutil.which, "ffmpeg")
+    return hass.data[_FFMPEG_PATH]
 
 
 def _build(out: Path, text: str, sub: str, ffmpeg: str) -> None:
@@ -87,7 +96,7 @@ async def async_message_video_url(hass: HomeAssistant, text: str, sub: str = "")
             "Home Assistant has no local address for the Apple TV to fetch the message from. "
             "Set one under Settings, System, Network."
         ) from err
-    ffmpeg = _ffmpeg(hass)
+    ffmpeg = await _async_ffmpeg(hass)
     if not ffmpeg:
         raise HomeAssistantError("ffmpeg isn't available, so the message can't be made into a video.")
     secret = await instance_id.async_get(hass)
