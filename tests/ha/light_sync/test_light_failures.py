@@ -276,6 +276,7 @@ async def test_hanging_light_times_out(
     fake_lights.behavior[CLOUD] = "hang"
     with patch(f"{COORD}.LIGHT_CALL_TIMEOUT", 0.05):
         hass.states.async_set(MEDIA_PLAYER, "playing", {"media_title": TITLE})
+        await hass.async_block_till_done()
         async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
         # Can't block on background tasks: the hung call is one of them.
         for _ in range(50):

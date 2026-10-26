@@ -96,6 +96,8 @@ def tv_entry(options: dict[str, Any] | None = None) -> MockConfigEntry:
 
 async def settle(hass: HomeAssistant) -> None:
     """Let the evaluate debouncer (and zero-delay idle timers) fire."""
+    # State listeners can run on the next loop pass; let them schedule first.
+    await hass.async_block_till_done()
     async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=2))
     await hass.async_block_till_done(wait_background_tasks=True)
 
