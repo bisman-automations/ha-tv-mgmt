@@ -146,17 +146,24 @@ const LIGHT_DEFAULTS = { name: "Lights", enabled: true, lights: [], use_tv_playe
   palette_strategy: "spread", metadata_artwork: true };
 const lightTvs = {
   fam: { tv_player: "media_player.family_room_tv", apple_tv: "media_player.living_room_apple_tv", zones: [
-    { config: { ...LIGHT_DEFAULTS, zone_id: "a1", name: "Behind the TV", lights: ["light.tv_backlight", "light.reading_lamp"], color_mode: "palette" },
+    { config: { ...LIGHT_DEFAULTS, id: "a1", name: "Behind the TV", lights: ["light.tv_backlight", "light.reading_lamp"], color_mode: "palette" },
       status: { enabled: true, syncing: true, held: null, color: "#6a3fd1", source: "poster", title: "Harbor Tales", player: "media_player.living_room_apple_tv",
         palette: ["#6a3fd1", "#ff9a5a", "#ffe08a"], lights: ["light.tv_backlight", "light.reading_lamp"], failed_lights: {}, last_error: null,
         pending: null, save_title: "Harbor Tales", outcome: "applied", players: ["media_player.family_room_tv", "media_player.living_room_apple_tv"], name: "Behind the TV" }, entities: {} },
   ] },
   bed: { tv_player: "media_player.playroom_tv", apple_tv: null, zones: [
-    { config: { ...LIGHT_DEFAULTS, zone_id: "b1", name: "Ceiling", lights: ["light.ceiling"] },
+    { config: { ...LIGHT_DEFAULTS, id: "b1", name: "Ceiling", lights: ["light.ceiling"] },
       status: { enabled: true, syncing: false, held: "tv_off", color: null, source: "none", title: null, player: null, palette: [], lights: ["light.ceiling"],
         failed_lights: {}, last_error: null, pending: null, save_title: null, outcome: null, players: ["media_player.playroom_tv"], name: "Ceiling" }, entities: {} },
   ] },
 };
+// blocked=1: the Family Room TV off for bedtime, its zones paused (as on a real
+// evening). Zones can still be changed and removed.
+if (params.get("blocked")) {
+  Object.assign(profiles[0], { is_on: false, current_input: null, state: "enforcing", reason: "quiet_window", quiet_window: "Bedtime" });
+  states["media_player.family_room_tv"].state = "off";
+  for (const z of lightTvs.fam.zones) z.status = { ...z.status, syncing: false, held: "blocked", title: null, palette: [], color: null, save_title: null };
+}
 let lightSettings = { metadata_providers: ["tmdb"], tmdb_key_set: true, trakt_key_set: false };
 let lightTitles = [
   { title: "Garden Friends", key: "garden friends", rgb_color: [76, 175, 80], hex: "#4caf50", updated: "2026-10-20T18:00:00" },
@@ -185,6 +192,11 @@ window.hass = {
   hassUrl: (p) => p,
   callService: async (domain, service, data) => { window.lastService = { domain, service, data }; },
   callWS: async (msg) => {
+    // failNext="zone/remove": the next such command fails, to see the error.
+    if (window.failNext && msg.type.endsWith(window.failNext)) {
+      window.failNext = null;
+      throw { code: "failed", message: "Couldn't do that now" };
+    }
     // loading=1: everything but the access check stays loading; loading=tabs: the TVs
     // load, but each tab's own data stays loading. To see the placeholders.
     const holding = params.get("loading") === "tabs" ? !["tv_mgmt/access/me", "tv_mgmt/profiles"].includes(msg.type) : params.get("loading") && msg.type !== "tv_mgmt/access/me";
@@ -220,15 +232,30 @@ window.hass = {
         { id: "k2", name: "Kid Two", is_admin: false, is_owner: false } ] };
       case "tv_mgmt/message": window.lastMessage = msg; return { sent: ["apple_tv", "screen"].filter(k => msg[k]) };
       case "tv_mgmt/light_sync/get": return lightSync();
+      // Zones answer like the real backend: a zone's id is "id", unknown keys
+      // and unknown zones are refused (so the panel can't drift from it).
       case "tv_mgmt/light_sync/zone/save": window.lastZone = msg; {
         const tv = lightTvs[msg.entry_id];
-        const at = tv.zones.findIndex((z) => z.config.zone_id === msg.zone.zone_id);
-        const config = { ...LIGHT_DEFAULTS, ...(at >= 0 ? tv.zones[at].config : {}), ...msg.zone, zone_id: msg.zone.zone_id || "z" + Date.now().toString(36) };
+        const extra = Object.keys(msg.zone).filter((k) => k !== "id" && !(k in LIGHT_DEFAULTS));
+        if (extra.length) throw { code: "invalid_format", message: `extra keys not allowed @ data['zone']['${extra[0]}']` };
+        if (!(msg.zone.lights || []).length) throw { code: "invalid_format", message: "required key not provided @ data['zone']['lights']" };
+        const at = msg.zone.id === undefined ? -1 : tv.zones.findIndex((z) => z.config.id === msg.zone.id);
+        if (msg.zone.id !== undefined && at < 0) throw { code: "not_found", message: "That light zone doesn't exist" };
+        const config = { ...LIGHT_DEFAULTS, ...(at >= 0 ? tv.zones[at].config : {}), ...msg.zone, id: msg.zone.id || "z" + Date.now().toString(36) };
         config.name = config.name || "Lights";
-        if (at >= 0) tv.zones[at] = { ...tv.zones[at], config }; else tv.zones.push({ config, status: null, entities: {} });
+        if (at >= 0) tv.zones[at] = { ...tv.zones[at], config, status: config.enabled ? tv.zones[at].status : { ...tv.zones[at].status, syncing: false } };
+        else tv.zones.push({ config, status: null, entities: {} });
         return { zone: config }; }
-      case "tv_mgmt/light_sync/zone/remove": lightTvs[msg.entry_id].zones = lightTvs[msg.entry_id].zones.filter((z) => z.config.zone_id !== msg.zone_id); return null;
-      case "tv_mgmt/light_sync/zone/action": window.lastZoneAction = msg; return msg.action === "resync" ? { outcome: "applied", error: null } : { title: "harbor tales" };
+      case "tv_mgmt/light_sync/zone/remove": {
+        window.lastZoneRemove = msg;
+        const tv = lightTvs[msg.entry_id];
+        if (!tv.zones.some((z) => z.config.id === msg.zone_id)) throw { code: "not_found", message: "That light zone doesn't exist" };
+        tv.zones = tv.zones.filter((z) => z.config.id !== msg.zone_id);
+        return null; }
+      case "tv_mgmt/light_sync/zone/action":
+        window.lastZoneAction = msg;
+        if (!lightTvs[msg.entry_id].zones.some((z) => z.config.id === msg.zone_id)) throw { code: "not_found", message: "That light zone doesn't exist" };
+        return msg.action === "resync" ? { outcome: "applied", error: null } : { title: "harbor tales" };
       case "tv_mgmt/light_sync/settings/set": window.lastLightSettings = msg; lightSettings = { metadata_providers: msg.metadata_providers, tmdb_key_set: msg.tmdb_api_key === undefined ? lightSettings.tmdb_key_set : !!msg.tmdb_api_key, trakt_key_set: msg.trakt_client_id === undefined ? lightSettings.trakt_key_set : !!msg.trakt_client_id }; return { settings: lightSettings };
       case "tv_mgmt/light_sync/titles/set": lightTitles.push({ title: msg.title, key: msg.title.toLowerCase(), rgb_color: msg.rgb_color, hex: "#" + msg.rgb_color.map((n) => n.toString(16).padStart(2, "0")).join(""), updated: nowIso }); return { key: msg.title.toLowerCase() };
       case "tv_mgmt/light_sync/titles/remove": lightTitles = lightTitles.filter((t) => t.title !== msg.title); return null;
@@ -250,7 +277,12 @@ window.hass = {
     }
     throw { code: "unknown_command", message: msg.type };
   },
-  connection: { subscribeMessage: async () => () => {} },
+  // busy=1: a live update every 50 ms, as with lots of media players.
+  connection: { subscribeMessage: async (cb) => {
+    window.pushUpdate = cb;
+    if (params.get("busy")) setInterval(() => cb({ entry_id: "fam" }), 50);
+    return () => {};
+  } },
 };
 </script>
 <script type="module">

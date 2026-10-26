@@ -223,6 +223,7 @@ const ICONS = {
   mute: "M12,4L9.91,6.09L12,8.18M4.27,3L3,4.27L7.73,9H3V15H7L12,20V13.27L16.25,17.53C15.58,18.04 14.83,18.46 14,18.7V20.77C15.38,20.45 16.63,19.82 17.68,18.96L19.73,21L21,19.73L12,10.73M19,12C19,12.94 18.8,13.82 18.46,14.64L19.97,16.15C20.62,14.91 21,13.5 21,12C21,7.72 18,4.14 14,3.23V5.29C16.89,6.15 19,8.83 19,12M16.5,12C16.5,10.23 15.5,8.71 14,7.97V10.18L16.45,12.63C16.5,12.43 16.5,12.21 16.5,12Z",
   remote: "M12,0C8.96,0 6.21,1.23 4.22,3.22L5.63,4.63C7.26,3 9.5,2 12,2C14.5,2 16.74,3 18.36,4.64L19.77,3.23C17.79,1.23 15.04,0 12,0M7.05,6.05L8.46,7.46C9.37,6.56 10.62,6 12,6C13.38,6 14.63,6.56 15.54,7.46L16.95,6.05C15.68,4.78 13.93,4 12,4C10.07,4 8.32,4.78 7.05,6.05M12,15A2,2 0 0,1 10,13A2,2 0 0,1 12,11A2,2 0 0,1 14,13A2,2 0 0,1 12,15M15,9H9A1,1 0 0,0 8,10V22A1,1 0 0,0 9,23H15A1,1 0 0,0 16,22V10A1,1 0 0,0 15,9Z",
   "chevron-down": "M7.41,8.58L12,13.17L16.59,8.58L18,10L12,16L6,10L7.41,8.58Z",
+  "lightbulb-off": "M12,2C9.76,2 7.78,3.05 6.5,4.68L7.93,6.11C8.84,4.84 10.32,4 12,4A5,5 0 0,1 17,9C17,10.68 16.16,12.16 14.89,13.06L16.31,14.5C17.94,13.21 19,11.24 19,9A7,7 0 0,0 12,2M3.28,4L2,5.27L5.04,8.3C5,8.53 5,8.76 5,9C5,11.38 6.19,13.47 8,14.74V17A1,1 0 0,0 9,18H14.73L18.73,22L20,20.72L3.28,4M7.23,10.5L12.73,16H10V13.58C8.68,13 7.66,11.88 7.23,10.5M9,20V21A1,1 0 0,0 10,22H14A1,1 0 0,0 15,21V20H9Z",
   delete: "M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z",
 };
 // TV Mgmt's own entities, in the order the dashboard links to them.
@@ -642,6 +643,7 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
 .zone-now > span:last-child { min-width: 0; overflow-wrap: anywhere; }
 .swatches { display: inline-flex; gap: 6px; flex: none; }
 .zone-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.zone-confirm { display: grid; gap: 8px; font-size: 14px; }
 .swatch { display: inline-block; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--divider-color); }
 .tone-bad-text { color: var(--tm-bad); }
 .order { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
@@ -1389,8 +1391,26 @@ class TvMgmtPanel extends HTMLElement {
     this._npStates = this._npStates || {};
     const st = this._hass?.states?.[p.tv_entity_id];
     this._npStates[p.tv_entity_id] = st;
-    if (!st || st.state === "unavailable") return "";
+    const lights = this._tvLightsButton(p);
+    if (!st || st.state === "unavailable") return lights ? `<div class="remote"><div class="remote-bar">${lights}</div>${this._tvLightsStatus(p)}</div>` : "";
     return this._remote(p, "tv", p.remote_keys, !["off", "standby"].includes(st.state));
+  }
+
+  // "Turn TV lights off", next to the TV's power button: only with TV lights
+  // picked, and in any TV state (off, blocked, bedtime), since it's for the
+  // lights, not the TV.
+  _tvLightsButton(p) {
+    if (!(p.tv_lights || []).length) return "";
+    const busy = this._tvLightsBusy?.has(p.entry_id);
+    return `<button class="btn" data-tv-lights-off="${esc(p.entry_id)}" ${busy ? "disabled" : ""}>${icon("lightbulb-off")} ${busy ? "Turning off…" : "Turn TV lights off"}</button>`;
+  }
+
+  _tvLightsStatus(p) {
+    const note = this._tvLightsNote?.[p.entry_id];
+    if (!note) return "";
+    return note.bad
+      ? `<small class="tone-bad-text" role="alert">${esc(note.text)}</small>`
+      : `<small class="saved" role="status">${esc(note.text)}</small>`;
   }
 
   // Power, volume and a d-pad for the TV ("tv") or its Apple TV ("apple_tv").
@@ -1401,7 +1421,9 @@ class TvMgmtPanel extends HTMLElement {
     const eid = device === "apple_tv" ? p.apple_tv?.entity_id : p.tv_entity_id;
     const features = Number(this._hass?.states?.[eid]?.attributes?.supported_features || 0);
     if (!(features & (isOn === false ? 128 : 256))) keys = keys.filter((k) => k !== "power");
-    if (!keys.length) return "";
+    const lights = device === "tv" ? this._tvLightsButton(p) : "";
+    const lightsStatus = device === "tv" ? this._tvLightsStatus(p) : "";
+    if (!keys.length) return lights ? `<div class="remote"><div class="remote-bar">${lights}</div>${lightsStatus}</div>` : "";
     const has = (k) => keys.includes(k);
     const id = p.entry_id;
     const what = device === "apple_tv" ? "Apple TV" : "TV";
@@ -1410,14 +1432,15 @@ class TvMgmtPanel extends HTMLElement {
       `<button class="icon-btn ${cls}" data-key="${k}" data-device="${device}" data-id="${id}" aria-label="${label}" title="${label}" ${extra}>${ico}</button>`;
 
     const awake = isOn !== false;
-    const powerLabel = device === "apple_tv" ? (awake ? "Sleep" : "Wake") : awake ? "Turn off" : "Turn on";
+    const powerLabel = device === "apple_tv" ? (awake ? "Sleep" : "Wake") : awake ? "Turn TV off" : "Turn TV on";
+    const powerAria = device === "apple_tv" ? `${powerLabel} the ${what}` : powerLabel;
     // Awake: a round power button beside volume. Off: the only button, so it's labelled.
     const power = !has("power")
       ? ""
       : awake
-        ? key("power", icon("power-off"), `${powerLabel} the ${what}`, "power-off")
-        : `<button class="btn" data-key="power" data-device="${device}" data-id="${id}" aria-label="${powerLabel} the ${what}">${icon("power")} ${powerLabel}</button>`;
-    if (!awake) return `<div class="remote"><div class="remote-bar">${power}</div></div>`;
+        ? key("power", icon("power-off"), powerAria, "power-off")
+        : `<button class="btn" data-key="power" data-device="${device}" data-id="${id}" aria-label="${powerAria}">${icon("power")} ${powerLabel}</button>`;
+    if (!awake) return `<div class="remote"><div class="remote-bar">${power}${lights}</div>${lightsStatus}</div>`;
 
     let muted = false;
     if (device === "tv") muted = !!this._hass?.states?.[p.tv_entity_id]?.attributes?.is_volume_muted;
@@ -1449,7 +1472,8 @@ class TvMgmtPanel extends HTMLElement {
       </div>`;
     }
     return `<div class="remote">
-      <div class="remote-bar">${power}${volume ? `<span class="vol">${volume}</span>` : ""}<span class="np-spacer"></span>${toggle}</div>
+      <div class="remote-bar">${power}${lights}${volume ? `<span class="vol">${volume}</span>` : ""}<span class="np-spacer"></span>${toggle}</div>
+      ${lightsStatus}
       ${pad}
     </div>`;
   }
@@ -2164,25 +2188,51 @@ class TvMgmtPanel extends HTMLElement {
     </div></section>`;
   }
 
+  // Turn a TV's lights off (Lights tab and dashboard): { ok, text } to show.
+  async _tvLightsOff(entryId) {
+    try {
+      const res = await this._ws({ type: "tv_mgmt/lights/off", entry_id: entryId });
+      const failed = Object.keys(res.failed || {});
+      const states = this._hass?.states || {};
+      if (failed.length) return { ok: false, text: `Didn't turn off: ${failed.map((e) => states[e]?.attributes?.friendly_name || e).join(", ")}` };
+      return { ok: true, text: "TV lights off" };
+    } catch (err) {
+      return { ok: false, text: this._errorText(err) };
+    }
+  }
+
   async _turnOffLights() {
     this._busyLightsNow = "off";
     this._lightsNowNote = "";
     this._error = null;
     this._render();
-    try {
-      const res = await this._ws({ type: "tv_mgmt/lights/off", entry_id: this._selected });
-      const failed = Object.keys(res.failed || {});
-      const states = this._hass?.states || {};
-      if (failed.length) {
-        this._error = `Didn't turn off: ${failed.map((e) => states[e]?.attributes?.friendly_name || e).join(", ")}`;
-      } else {
-        this._lightsNowNote = "TV lights off";
-      }
-      await this._loadProfiles({ quiet: true });
-    } catch (err) {
-      this._error = this._errorText(err);
-    }
+    const out = await this._tvLightsOff(this._selected);
+    if (out.ok) this._lightsNowNote = out.text;
+    else this._error = out.text;
+    await this._loadProfiles({ quiet: true });
     this._busyLightsNow = false;
+    this._render();
+  }
+
+  async _dashboardLightsOff(entryId) {
+    this._tvLightsBusy = this._tvLightsBusy || new Set();
+    this._tvLightsNote = this._tvLightsNote || {};
+    this._tvLightsBusy.add(entryId);
+    delete this._tvLightsNote[entryId];
+    this._render();
+    const out = await this._tvLightsOff(entryId);
+    this._tvLightsBusy.delete(entryId);
+    this._tvLightsNote[entryId] = { text: out.text, bad: !out.ok };
+    clearTimeout(this._tvLightsNoteTimer?.[entryId]);
+    if (out.ok) {
+      // The "TV lights off" note goes after a few seconds; a failure stays.
+      this._tvLightsNoteTimer = this._tvLightsNoteTimer || {};
+      this._tvLightsNoteTimer[entryId] = setTimeout(() => {
+        delete this._tvLightsNote[entryId];
+        if (!this._typing()) this._render();
+      }, 6000);
+    }
+    await this._loadProfiles({ quiet: true });
     this._render();
   }
 
@@ -2310,9 +2360,9 @@ class TvMgmtPanel extends HTMLElement {
     const tv = this._lsTv();
     if (!tv) return "";
     const zones = tv.zones || [];
-    const editingNew = this._zoneEdit && this._zoneEdit.entry_id === tv.entry_id && !this._zoneEdit.cfg.zone_id;
+    const editingNew = this._zoneEdit && this._zoneEdit.entry_id === tv.entry_id && !this._zoneEdit.cfg.id;
     const list = zones
-      .map((z) => (this._zoneEdit?.entry_id === tv.entry_id && this._zoneEdit.cfg.zone_id === z.config.zone_id ? this._renderZoneForm(tv) : this._renderZone(tv, z)))
+      .map((z) => (this._zoneEdit?.entry_id === tv.entry_id && this._zoneEdit.cfg.id === z.config.id ? this._renderZoneForm(tv) : this._renderZone(tv, z)))
       .join("");
     const canAdd = zones.length < (this._ls.max_zones || 8);
     return `<section class="card" style="margin-top:20px"><div class="card-body">
@@ -2320,6 +2370,7 @@ class TvMgmtPanel extends HTMLElement {
         <label>Light sync</label>
         <small>Color lights to match what's playing on this TV, from the artwork, a color you saved for the title, or the genre. When playback stops, the lights go back to how they were. Nothing is colored while the TV is off or blocked, and if a blocked app is stopped the lights go back straight away.</small>
       </div>
+      ${this._zoneError ? `<div class="error" role="alert">${esc(this._zoneError)}</div>` : ""}
       ${list || (editingNew ? "" : `<p class="muted">No light zones yet. A zone is a group of lights that change together, like a strip behind the TV.</p>`)}
       ${editingNew ? this._renderZoneForm(tv) : ""}
       ${!this._zoneEdit && canAdd ? `<span><button type="button" class="btn" data-zone-add>${icon("plus")} Add a light zone</button></span>` : ""}
@@ -2353,7 +2404,7 @@ class TvMgmtPanel extends HTMLElement {
       c.use_apple_tv && tv.apple_tv ? "the Apple TV" : null,
       ...(c.extra_players || []).map(nameOf),
     ].filter(Boolean);
-    const id = esc(c.zone_id);
+    const id = esc(c.id);
     return `<div class="zone">
       <div class="zone-head">
         <div class="zone-title"><strong>${esc(c.name)}</strong>${chip}</div>
@@ -2368,15 +2419,22 @@ class TvMgmtPanel extends HTMLElement {
         <button type="button" class="btn" data-zone-edit="${id}">Change</button>
         <button type="button" class="btn danger" data-zone-remove="${id}" aria-label="Remove ${esc(c.name)}">${icon("delete")}</button>
       </div>
+      ${this._zoneConfirm === c.id ? `<div class="zone-confirm" role="group" aria-label="Remove ${esc(c.name)}">
+        <span>Remove ${esc(c.name)}? Its lights go back to how they were.</span>
+        <span class="zone-actions"><button type="button" class="btn danger" data-zone-remove-yes="${id}">Remove</button>
+        <button type="button" class="btn" data-zone-remove-no>Keep it</button></span>
+      </div>` : ""}
     </div>`;
   }
 
   _startZoneEdit(tv, zoneId) {
-    const source = zoneId ? tv.zones.find((z) => z.config.zone_id === zoneId)?.config : { ...this._ls.defaults, name: "" };
+    const source = zoneId ? tv.zones.find((z) => z.config.id === zoneId)?.config : { ...this._ls.defaults, name: "" };
     if (!source) return;
     this._zoneEdit = { entry_id: tv.entry_id, cfg: JSON.parse(JSON.stringify(source)), lightFilter: "", playerFilter: "" };
-    if (!zoneId) delete this._zoneEdit.cfg.zone_id;
+    if (!zoneId) delete this._zoneEdit.cfg.id;
     this._zoneNote = "";
+    this._zoneError = "";
+    this._zoneConfirm = null;
     this._error = null;
     this._render();
   }
@@ -2418,7 +2476,7 @@ class TvMgmtPanel extends HTMLElement {
       .map((m) => `<label class="show-rule"><input type="checkbox" class="check" data-zmedia="${esc(m)}" ${(c.media_types || []).includes(m) ? "checked" : ""}> ${esc(LS_MEDIA[m] || m)}</label>`)
       .join("");
     const defaultHex = rgbHex(c.default_color);
-    const isNew = !c.zone_id;
+    const isNew = !c.id;
     return `<form id="zone-form" class="zone editing" novalidate>
       <div class="field"><label for="zf-name">Name</label>
         <input id="zf-name" type="text" data-zf="name" maxlength="60" placeholder="${esc(this._ls.defaults.name)}" value="${esc(c.name)}"></div>
@@ -2487,10 +2545,15 @@ class TvMgmtPanel extends HTMLElement {
     return key === "color_mode";
   }
 
+  _zoneFail(text) {
+    this._zoneError = text;
+    this._render();
+  }
+
   async _saveZone() {
     const e = this._zoneEdit;
     const c = e.cfg;
-    if (!c.lights?.length) return this._showError("Pick at least one light for this zone.");
+    if (!c.lights?.length) return this._zoneFail("Pick at least one light for this zone.");
     const zone = {};
     for (const key of ["name", "enabled", "use_tv_player", "use_apple_tv", "extra_players", "require_tv_on", "unsupported_lights",
       "expand_groups", "default_color", "color_sources", "fuzzy_title_match", "media_types", "extraction_method", "skip_achromatic",
@@ -2502,36 +2565,41 @@ class TvMgmtPanel extends HTMLElement {
       if (c[key] === undefined) continue;
       const n = Number(c[key]);
       if (c[key] === "" || Number.isNaN(n) || n < min || n > max || (whole && !Number.isInteger(n))) {
-        return this._showError(`${label} needs ${whole ? "a whole number" : "a number"} from ${min} to ${max}.`);
+        return this._zoneFail(`${label} needs ${whole ? "a whole number" : "a number"} from ${min} to ${max}.`);
       }
       zone[key] = n;
     }
-    if (c.zone_id) zone.zone_id = c.zone_id;
+    if (c.id) zone.id = c.id;
     this._busyZone = true;
     this._error = null;
+    this._zoneError = "";
     this._render();
     try {
       await this._ws({ type: "tv_mgmt/light_sync/zone/save", entry_id: e.entry_id, zone });
       this._zoneEdit = null;
-      this._zoneNote = c.zone_id ? "Light zone saved" : "Light zone added";
+      this._zoneNote = c.id ? "Light zone saved" : "Light zone added";
       await this._loadLightSync({ quiet: true });
     } catch (err) {
-      this._error = this._errorText(err);
+      this._zoneError = this._errorText(err);
     }
     this._busyZone = false;
     this._render();
   }
 
+  // A zone command (remove, on/off, look again). What went wrong shows in the
+  // Light sync card itself, next to the zones, not only at the top of the page.
   async _zoneRequest(msg, note) {
     this._error = null;
+    this._zoneError = "";
     this._zoneNote = "";
     try {
       const res = await this._ws({ entry_id: this._selected, ...msg });
       this._zoneNote = typeof note === "function" ? note(res) : note;
-      await this._loadLightSync({ quiet: true });
     } catch (err) {
-      this._error = this._errorText(err);
+      this._zoneError = this._errorText(err);
     }
+    // Reload either way: a toggle that didn't save flips back.
+    await this._loadLightSync({ quiet: true });
     this._render();
   }
 
@@ -2650,13 +2718,27 @@ class TvMgmtPanel extends HTMLElement {
     if (d.zoneCancel !== undefined) {
       this._zoneEdit = null;
       this._error = null;
+      this._zoneError = "";
       this._render();
       return true;
     }
+    // Removing asks first, in the zone itself: window.confirm() doesn't show
+    // in every Home Assistant app.
     if (d.zoneRemove) {
-      const name = tv?.zones.find((z) => z.config.zone_id === d.zoneRemove)?.config.name || "this zone";
-      if (!window.confirm(`Remove ${name}? Its lights go back to how they were.`)) return true;
-      this._zoneRequest({ type: "tv_mgmt/light_sync/zone/remove", zone_id: d.zoneRemove }, "Light zone removed");
+      this._zoneConfirm = this._zoneConfirm === d.zoneRemove ? null : d.zoneRemove;
+      this._zoneError = "";
+      this._zoneNote = "";
+      this._render();
+      return true;
+    }
+    if (d.zoneRemoveNo !== undefined) {
+      this._zoneConfirm = null;
+      this._render();
+      return true;
+    }
+    if (d.zoneRemoveYes) {
+      this._zoneConfirm = null;
+      this._zoneRequest({ type: "tv_mgmt/light_sync/zone/remove", zone_id: d.zoneRemoveYes }, "Light zone removed");
       return true;
     }
     if (d.zoneAct) {
@@ -2720,11 +2802,11 @@ class TvMgmtPanel extends HTMLElement {
       return true;
     }
     if (d.zoneEnable) {
-      const z = this._lsTv()?.zones.find((x) => x.config.zone_id === d.zoneEnable);
+      const z = this._lsTv()?.zones.find((x) => x.config.id === d.zoneEnable);
       if (z) {
         const enabled = input.checked;
         this._zoneRequest(
-          { type: "tv_mgmt/light_sync/zone/save", zone: { zone_id: d.zoneEnable, lights: z.config.lights, enabled } },
+          { type: "tv_mgmt/light_sync/zone/save", zone: { id: d.zoneEnable, lights: z.config.lights, enabled } },
           enabled ? `${z.config.name} on` : `${z.config.name} off`,
         );
       }
@@ -2812,6 +2894,10 @@ class TvMgmtPanel extends HTMLElement {
     if (!el) return;
 
     if (this._tab === "lights" && this._onLightsClick(el)) return;
+    if (el.dataset.tvLightsOff) {
+      this._dashboardLightsOff(el.dataset.tvLightsOff);
+      return;
+    }
     if (el.dataset.homeExtra) {
       this._homeExtra(Number(el.dataset.homeExtra));
       return;
@@ -2829,6 +2915,8 @@ class TvMgmtPanel extends HTMLElement {
       if (this._tab === "lights") {
         this._zoneEdit = null;
         this._zoneNote = "";
+        this._zoneError = "";
+        this._zoneConfirm = null;
         this._lsNote = "";
         this._titleNote = "";
         this._lsDraft = null;
@@ -2853,6 +2941,8 @@ class TvMgmtPanel extends HTMLElement {
       this._lightsNowNote = "";
       this._zoneEdit = null;
       this._zoneNote = "";
+      this._zoneError = "";
+      this._zoneConfirm = null;
       this._appsDraft = null;
       this._appsNote = "";
       this._savedNote = "";

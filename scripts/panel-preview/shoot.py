@@ -7,7 +7,9 @@ fakes Home Assistant with sample TVs, and saves each tab at phone and desktop
 width in light and dark themes. Fails if the page logs any error.
 
 The page takes query parameters: theme=light|dark, single=1 (one TV),
-empty=1 (no TVs), denied=1 (a user without access), nohome=1 (no whole-home limit), loading=1 (every
+empty=1 (no TVs), denied=1 (a user without access), nohome=1 (no whole-home limit),
+blocked=1 (the first TV off for bedtime, its light zones paused), busy=1 (a live
+update every 50 ms, as with lots of media players), loading=1 (every
 request stays loading) and loading=tabs (the TVs load, each tab's data stays
 loading), to see the placeholders; saved as loading-*.png.
 

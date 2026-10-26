@@ -98,7 +98,8 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
   - time used and time left
   - extra time, blocked switches and the last input someone tried
   - controls to add or take away time (15, 30 or 60 minutes, or any number you type), block now, change the mode, and turn the input lock or adult mode on and off
-  - a remote for the TV: power, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
+  - a remote for the TV: **Turn TV on** or off, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
+  - **Turn TV lights off**, next to the power button, when the TV has [TV lights](#tv-lights). It works whatever the TV is doing, even off at bedtime.
   - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
 - **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour and [adult mode](#adult-mode) shaded. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
 - **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches. Adult mode time is its own part of each day's bar, with its own total.
@@ -166,11 +167,11 @@ You can also pick them under **Configure → TV lights**.
 Under the picked lights:
 
 - **Turn on and off with the TV.** Turn it off and TV Mgmt leaves the lights alone. A light sync zone using them then treats them like its other lights, and puts them back how they were. It's also the **TV lights follow the TV** switch.
-- **Turn off now** turns them off straight away. A light sync zone using them leaves them off until the TV next turns on or off. It's also the **Turn off TV lights** button and the `tv_mgmt.turn_off_tv_lights` action. Any light that doesn't respond is named.
+- **Turn off now** turns them off straight away. A light sync zone using them leaves them off until the TV next turns on or off. It's also **Turn TV lights off** on the dashboard, the **Turn off TV lights** button and the `tv_mgmt.turn_off_tv_lights` action. Any light that doesn't respond is named.
 
 ### Light sync
 
-A light zone is a group of lights that change color together with what's playing, like a strip behind the TV or the lamps in the room. A TV can have up to 8 zones. Add one with **Add a light zone**, pick its lights, and save. It starts working straight away.
+A light zone is a group of lights that change color together with what's playing, like a strip behind the TV or the lamps in the room. A TV can have up to 8 zones. Add one with **Add a light zone**, pick its lights, and save. It starts working straight away. **Change** and **✕** (remove, which asks first) work at any time, even while the TV is off or blocked: only the coloring waits.
 
 1. When something starts playing, the zone remembers how its lights are, then colors them.
 2. The color comes from, in the order you choose: a color you saved for that title, the artwork, the genre, and finally your default color.
