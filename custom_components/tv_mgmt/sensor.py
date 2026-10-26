@@ -64,7 +64,9 @@ def _current_app_attrs(m: TVManager) -> dict[str, Any]:
         "allowed": None if not app_id else box.stop_reason is None,
         "stop_reason": box.stop_reason if box else None,
         "blocked_show": box.stop_show if box else None,
-        "minutes_today": _minutes(m.state.app_seconds.get(app_id, 0)) if app_id else None,
+        "minutes_today": _minutes(m.state.app_seconds.get(app_id, 0))
+        if app_id
+        else None,
         "limit_minutes": limit,
         "now_watching": describe(box.media) if box else None,
         "show": show_of(box.media) if box else None,
@@ -77,7 +79,9 @@ def _app_time_attrs(m: TVManager) -> dict[str, Any]:
         "apps": {m.app_name_for(app): _minutes(secs) for app, secs in ranked},
         "shows": {
             show: _minutes(secs)
-            for show, secs in sorted(m.state.media_seconds.items(), key=lambda item: item[1], reverse=True)
+            for show, secs in sorted(
+                m.state.media_seconds.items(), key=lambda item: item[1], reverse=True
+            )
         },
         "apps_stopped": m.state.apps_stopped,
         "last_stopped_app": m.app_name_for(m.state.last_stopped_app),
@@ -143,7 +147,10 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         # The TV's own limit or the whole home's, whichever has less left.
         # Unknown when neither applies.
         value_fn=lambda m: _minutes(m.decision.remaining_seconds),
-        attrs_fn=lambda m: {"daily_budget": m.daily_budget or None, "limit": m.decision.limit},
+        attrs_fn=lambda m: {
+            "daily_budget": m.daily_budget or None,
+            "limit": m.decision.limit,
+        },
     ),
     TVMgmtSensorDescription(
         key="extension_today",
@@ -158,7 +165,9 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         attrs_fn=lambda m: {
             # The value the TV reports, before renaming.
             "source": m.backend.current_source if m.backend.is_on else None,
-            "allowed": m.guard.is_allowed(m.backend.current_source) if m.backend.is_on else None,
+            "allowed": m.guard.is_allowed(m.backend.current_source)
+            if m.backend.is_on
+            else None,
         },
     ),
     TVMgmtSensorDescription(
@@ -180,7 +189,9 @@ async def async_setup_entry(
 ) -> None:
     manager = entry.runtime_data
     descriptions = SENSORS + (APPLE_TV_SENSORS if manager.box else ())
-    async_add_entities(TVMgmtSensor(manager, description) for description in descriptions)
+    async_add_entities(
+        TVMgmtSensor(manager, description) for description in descriptions
+    )
     if (light_sync := entry.runtime_data.light_sync) is not None:
         light_sync.register_platform(FACTORIES["sensor"], async_add_entities)
 
@@ -188,7 +199,9 @@ async def async_setup_entry(
 class TVMgmtSensor(TVMgmtEntity, SensorEntity):
     entity_description: TVMgmtSensorDescription
 
-    def __init__(self, manager: TVManager, description: TVMgmtSensorDescription) -> None:
+    def __init__(
+        self, manager: TVManager, description: TVMgmtSensorDescription
+    ) -> None:
         super().__init__(manager, description.key)
         self.entity_description = description
 

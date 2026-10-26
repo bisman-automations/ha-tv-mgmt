@@ -38,7 +38,9 @@ class HomeSettings:
     warn_minutes: int = DEFAULT_WARN_MINUTES
     action: str = ACTION_TURN_OFF
     notify: list[str] = field(default_factory=list)  # notify services or entities
-    excluded: list[str] = field(default_factory=list)  # TV profiles (entry IDs) that don't count
+    excluded: list[str] = field(
+        default_factory=list
+    )  # TV profiles (entry IDs) that don't count
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any] | None) -> HomeSettings:
@@ -65,10 +67,18 @@ class HomeSettings:
             daily_minutes=minutes("daily_minutes", MAX_MINUTES_DAY),
             weekly_minutes=minutes("weekly_minutes", MAX_MINUTES_WEEK),
             week_start=week_start,
-            warn_minutes=minutes("warn_minutes", 120) if raw.get("warn_minutes") is not None else DEFAULT_WARN_MINUTES,
+            warn_minutes=minutes("warn_minutes", 120)
+            if raw.get("warn_minutes") is not None
+            else DEFAULT_WARN_MINUTES,
             action=action,
-            notify=list(dict.fromkeys(str(t).strip() for t in raw.get("notify") or [] if str(t).strip())),
-            excluded=list(dict.fromkeys(str(e) for e in raw.get("excluded") or [] if e)),
+            notify=list(
+                dict.fromkeys(
+                    str(t).strip() for t in raw.get("notify") or [] if str(t).strip()
+                )
+            ),
+            excluded=list(
+                dict.fromkeys(str(e) for e in raw.get("excluded") or [] if e)
+            ),
         )
 
     def as_dict(self) -> dict[str, Any]:
@@ -113,14 +123,17 @@ class HomeStatus:
     @property
     def remaining(self) -> int | None:
         """Seconds left under whichever limit has less left."""
-        left = [r for r in (self.daily_remaining, self.weekly_remaining) if r is not None]
+        left = [
+            r for r in (self.daily_remaining, self.weekly_remaining) if r is not None
+        ]
         return min(left) if left else None
 
     @property
     def reason(self) -> str | None:
         """Which limit `remaining` comes from. On a tie, the weekly one (it lasts longer)."""
         if self.weekly_remaining is not None and (
-            self.daily_remaining is None or self.weekly_remaining <= self.daily_remaining
+            self.daily_remaining is None
+            or self.weekly_remaining <= self.daily_remaining
         ):
             return REASON_HOME_WEEKLY
         if self.daily_remaining is not None:
@@ -147,4 +160,6 @@ def home_status(
         daily = (settings.daily_minutes + extension_today) * 60 - today_seconds
     if settings.weekly_minutes > 0:
         weekly = (settings.weekly_minutes + extension_week) * 60 - week_seconds
-    return HomeStatus(int(today_seconds), int(week_seconds), daily, weekly, extension_today)
+    return HomeStatus(
+        int(today_seconds), int(week_seconds), daily, weekly, extension_today
+    )

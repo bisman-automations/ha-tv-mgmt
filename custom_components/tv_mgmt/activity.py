@@ -49,15 +49,35 @@ EV_BOX_SLEEP = "box_sleep"  # reason: TV Mgmt put the Apple TV to sleep
 EV_FOLLOW = "follow"  # source, target: Apple TV woke, TV switched to its input
 EV_BOX_WAKE = "box_wake"  # TV turned on, TV Mgmt woke the Apple TV
 EV_MESSAGE = "message"  # text, sent (where), by: a parent sent a message to the TV
-EV_MEDIA = "media"  # series, season, episode, title, artist, app, name: started watching
+EV_MEDIA = (
+    "media"  # series, season, episode, title, artist, app, name: started watching
+)
 EV_HOME_EXTENSION = "home_extension"  # minutes, by: extra time for the whole home
 EV_TV_LIGHTS_OFF = "tv_lights_off"  # failed (count, when some didn't): turned off from the panel or button
 
 EVENT_TYPES = [
-    EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
-    EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
-    EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW, EV_BOX_WAKE, EV_MEDIA, EV_MESSAGE,
-    EV_HOME_EXTENSION, EV_TV_LIGHTS_OFF,
+    EV_TV_ON,
+    EV_TV_OFF,
+    EV_INPUT,
+    EV_INPUT_BLOCKED,
+    EV_ENFORCEMENT,
+    EV_TURNED_OFF,
+    EV_MODE,
+    EV_INPUT_LOCK,
+    EV_ADULT_MODE,
+    EV_EXTENSION,
+    EV_BLOCK,
+    EV_UNBLOCK,
+    EV_RESET,
+    EV_APP,
+    EV_APP_STOPPED,
+    EV_BOX_SLEEP,
+    EV_FOLLOW,
+    EV_BOX_WAKE,
+    EV_MEDIA,
+    EV_MESSAGE,
+    EV_HOME_EXTENSION,
+    EV_TV_LIGHTS_OFF,
 ]
 
 # Events that say which app or title was on. Hidden inside adult mode periods.
@@ -145,7 +165,8 @@ class ActivityLog:
         if first_kept:
             carry = next(
                 (
-                    e for e in reversed(self.events[:first_kept])
+                    e
+                    for e in reversed(self.events[:first_kept])
                     if e["type"] in (EV_TV_ON, EV_TV_OFF, EV_INPUT)
                 ),
                 None,
@@ -325,7 +346,11 @@ class ActivityLog:
         if since is not None:
             ends = min(until, stop) if until is not None else stop
             close(ends)
-            if ends == stop == now and periods and periods[-1]["end"] == stop.isoformat():
+            if (
+                ends == stop == now
+                and periods
+                and periods[-1]["end"] == stop.isoformat()
+            ):
                 periods[-1]["live"] = True
         return periods
 
@@ -346,7 +371,9 @@ class ActivityLog:
                     "apps_stopped": record.get("apps_stopped", 0) if record else 0,
                     "media": dict(record.get("media", {})) if record else {},
                     "adult_seconds": record.get("adult_seconds", 0) if record else 0,
-                    "adult_counted_seconds": record.get("adult_counted_seconds", 0) if record else 0,
+                    "adult_counted_seconds": record.get("adult_counted_seconds", 0)
+                    if record
+                    else 0,
                     # False for days recorded before adult mode was tracked (1.16.0).
                     "adult_tracked": bool(record) and "adult_seconds" in record,
                     "recorded": record is not None,
@@ -360,7 +387,8 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
     total = sum(d["used_seconds"] for d in recorded)
     active = [d for d in recorded if d["used_seconds"] > 0]
     over = [
-        d for d in recorded
+        d
+        for d in recorded
         if d["budget_minutes"] > 0
         and d["used_seconds"] >= (d["budget_minutes"] + d["extension_minutes"]) * 60
     ]
@@ -378,8 +406,12 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
         # (with counting off it isn't in them at all). days_over_limit uses
         # used_seconds, so adult time that didn't count can't reach the limit.
         "adult_seconds": sum(d.get("adult_seconds", 0) for d in recorded),
-        "adult_counted_seconds": sum(d.get("adult_counted_seconds", 0) for d in recorded),
-        "adult_untracked_days": sum(1 for d in recorded if not d.get("adult_tracked", True)),
+        "adult_counted_seconds": sum(
+            d.get("adult_counted_seconds", 0) for d in recorded
+        ),
+        "adult_untracked_days": sum(
+            1 for d in recorded if not d.get("adult_tracked", True)
+        ),
     }
 
 
@@ -393,19 +425,27 @@ def _top(days: list[dict[str, Any]], field: str, limit: int) -> list[tuple[str, 
 
 def top_apps(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
     """Apps with the most time over these days."""
-    return [{"app": app, "seconds": seconds} for app, seconds in _top(days, "apps", limit)]
+    return [
+        {"app": app, "seconds": seconds} for app, seconds in _top(days, "apps", limit)
+    ]
 
 
 def top_media(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
     """Shows, movies and songs with the most time played over these days."""
-    return [{"show": show, "seconds": seconds} for show, seconds in _top(days, "media", limit)]
+    return [
+        {"show": show, "seconds": seconds}
+        for show, seconds in _top(days, "media", limit)
+    ]
 
 
 # ---- adult mode privacy -----------------------------------------------------------
 
 
 def _spans(periods: list[dict[str, Any]]) -> list[tuple[datetime, datetime]]:
-    return [(datetime.fromisoformat(p["start"]), datetime.fromisoformat(p["end"])) for p in periods]
+    return [
+        (datetime.fromisoformat(p["start"]), datetime.fromisoformat(p["end"]))
+        for p in periods
+    ]
 
 
 def hide_adult_detail(
@@ -414,7 +454,8 @@ def hide_adult_detail(
     """The events without the apps and titles opened during adult mode."""
     spans = _spans(periods)
     return [
-        e for e in events
+        e
+        for e in events
         if e["type"] not in DETAIL_EVENTS or not any(a <= _ts(e) < b for a, b in spans)
     ]
 
@@ -426,7 +467,9 @@ def subtract_periods(
     spans = _spans(periods)
     result: list[dict[str, Any]] = []
     for seg in segments:
-        pieces = [(datetime.fromisoformat(seg["start"]), datetime.fromisoformat(seg["end"]))]
+        pieces = [
+            (datetime.fromisoformat(seg["start"]), datetime.fromisoformat(seg["end"]))
+        ]
         for a, b in spans:
             pieces = [
                 part
@@ -442,13 +485,17 @@ def subtract_periods(
                     "start": s.isoformat(),
                     "end": e.isoformat(),
                     "seconds": int((e - s).total_seconds()),
-                    "live": bool(seg.get("live")) and last and e.isoformat() == seg["end"],
+                    "live": bool(seg.get("live"))
+                    and last
+                    and e.isoformat() == seg["end"],
                 }
             )
     return result
 
 
-def overlap_seconds(segments: list[dict[str, Any]], periods: list[dict[str, Any]]) -> int:
+def overlap_seconds(
+    segments: list[dict[str, Any]], periods: list[dict[str, Any]]
+) -> int:
     """Seconds of the segments that fall inside the periods."""
     spans = _spans(periods)
     total = 0.0

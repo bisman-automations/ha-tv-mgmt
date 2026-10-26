@@ -17,15 +17,37 @@ PLAYROOM = "media_player.playroom_tv"
 
 
 def set_tv(hass, entity_id, name, state="on"):
-    hass.states.async_set(entity_id, state, {"friendly_name": name, "source": "HDMI 2", "source_list": ["HDMI 1", "HDMI 2"]})
+    hass.states.async_set(
+        entity_id,
+        state,
+        {
+            "friendly_name": name,
+            "source": "HDMI 2",
+            "source_list": ["HDMI 1", "HDMI 2"],
+        },
+    )
 
 
 async def add_tv(hass, entity_id, name, budget=0):
     entry = MockConfigEntry(
-        domain=DOMAIN, title=name, version=2, unique_id=entity_id, data={"media_player": entity_id},
+        domain=DOMAIN,
+        title=name,
+        version=2,
+        unique_id=entity_id,
+        data={"media_player": entity_id},
         options={
-            "input_lock": {"allowed_sources": ["HDMI 2"], "revert_delay": 1, "enforce_on_power_on": True, "max_attempts": 5},
-            "screen_time": {"daily_budget": budget, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+            "input_lock": {
+                "allowed_sources": ["HDMI 2"],
+                "revert_delay": 1,
+                "enforce_on_power_on": True,
+                "max_attempts": 5,
+            },
+            "screen_time": {
+                "daily_budget": budget,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
         },
     )
     entry.add_to_hass(hass)
@@ -53,7 +75,9 @@ def home(hass):
     return hass.data["tv_mgmt_home"]
 
 
-async def test_home_daily_limit_turns_every_tv_off(hass: HomeAssistant, hass_ws_client, freezer, calls) -> None:
+async def test_home_daily_limit_turns_every_tv_off(
+    hass: HomeAssistant, hass_ws_client, freezer, calls
+) -> None:
     family, playroom = await two_tvs(hass)
     phone = async_mock_service(hass, "notify", "parent_phone")
     events = []
@@ -63,11 +87,19 @@ async def test_home_daily_limit_turns_every_tv_off(hass: HomeAssistant, hass_ws_
     await client.send_json_auto_id({"type": "tv_mgmt/home/get"})
     res = await client.receive_json()
     assert "notify.parent_phone" in res["result"]["notify_targets"]
-    assert [t["name"] for t in res["result"]["tvs"]] == ["Family Room TV", "Playroom TV"]
-    await client.send_json_auto_id({
-        "type": "tv_mgmt/home/set", "daily_minutes": 60, "weekly_minutes": 0, "warn_minutes": 10,
-        "notify": ["notify.parent_phone"],
-    })
+    assert [t["name"] for t in res["result"]["tvs"]] == [
+        "Family Room TV",
+        "Playroom TV",
+    ]
+    await client.send_json_auto_id(
+        {
+            "type": "tv_mgmt/home/set",
+            "daily_minutes": 60,
+            "weekly_minutes": 0,
+            "warn_minutes": 10,
+            "notify": ["notify.parent_phone"],
+        }
+    )
     res = await client.receive_json()
     assert res["success"], res
     assert res["result"]["home"]["daily_minutes"] == 60
@@ -82,7 +114,13 @@ async def test_home_daily_limit_turns_every_tv_off(hass: HomeAssistant, hass_ws_
     assert family.runtime_data.decision.limit == "home_daily"
     # Each TV shows the home's time left.
     # (within one 30-second count of the other TV)
-    assert 9.5 <= float(hass.states.get("sensor.tv_mgmt_family_room_tv_time_remaining_today").state) <= 10.5
+    assert (
+        9.5
+        <= float(
+            hass.states.get("sensor.tv_mgmt_family_room_tv_time_remaining_today").state
+        )
+        <= 10.5
+    )
 
     # 5 more minutes each: the home's hour is used. Both TVs turn off.
     await watch(hass, freezer, 6)
@@ -108,7 +146,9 @@ async def test_notify_only_leaves_tvs_on(hass: HomeAssistant, freezer, calls) ->
 
     family, _ = await two_tvs(hass)
     phone = async_mock_service(hass, "notify", "parent_phone")
-    home(hass).set_settings(HomeSettings(daily_minutes=20, action="notify", notify=["notify.parent_phone"]))
+    home(hass).set_settings(
+        HomeSettings(daily_minutes=20, action="notify", notify=["notify.parent_phone"])
+    )
     await watch(hass, freezer, 11)
     assert calls["turn_off"] == []
     assert family.runtime_data.decision.state == "ok"
@@ -117,11 +157,15 @@ async def test_notify_only_leaves_tvs_on(hass: HomeAssistant, freezer, calls) ->
     assert "turning off" not in phone[-1].data["message"]
 
 
-async def test_left_out_tv_isnt_counted_or_stopped(hass: HomeAssistant, freezer, calls) -> None:
+async def test_left_out_tv_isnt_counted_or_stopped(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     from custom_components.tv_mgmt.home import HomeSettings
 
     family, playroom = await two_tvs(hass)
-    home(hass).set_settings(HomeSettings(daily_minutes=30, excluded=[playroom.entry_id]))
+    home(hass).set_settings(
+        HomeSettings(daily_minutes=30, excluded=[playroom.entry_id])
+    )
     await watch(hass, freezer, 20)
     assert home(hass).status().today_seconds == 20 * 60  # the Family Room only
     await watch(hass, freezer, 11)
@@ -129,14 +173,18 @@ async def test_left_out_tv_isnt_counted_or_stopped(hass: HomeAssistant, freezer,
     assert playroom.runtime_data.decision.state == "ok"
 
 
-async def test_weekly_limit_counts_earlier_days(hass: HomeAssistant, freezer, calls) -> None:
+async def test_weekly_limit_counts_earlier_days(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     from custom_components.tv_mgmt.home import HomeSettings
 
     freezer.move_to("2026-10-16 12:00:00-07:00")  # a Friday
     family, playroom = await two_tvs(hass)
     # Monday to Thursday: 9 h 50 min between the two TVs.
     family.runtime_data.activity.daily["2026-10-12"] = {"used_seconds": 4 * 3600}
-    playroom.runtime_data.activity.daily["2026-10-14"] = {"used_seconds": 5 * 3600 + 50 * 60}
+    playroom.runtime_data.activity.daily["2026-10-14"] = {
+        "used_seconds": 5 * 3600 + 50 * 60
+    }
     # Last week doesn't count.
     family.runtime_data.activity.daily["2026-10-09"] = {"used_seconds": 9 * 3600}
     home(hass).set_settings(HomeSettings(weekly_minutes=600, week_start="monday"))
@@ -153,7 +201,9 @@ async def test_weekly_limit_counts_earlier_days(hass: HomeAssistant, freezer, ca
     assert home(hass).summary()["weekly_minutes"] == 600
 
 
-async def test_home_needs_access(hass: HomeAssistant, hass_ws_client, hass_admin_user, calls) -> None:
+async def test_home_needs_access(
+    hass: HomeAssistant, hass_ws_client, hass_admin_user, calls
+) -> None:
     await two_tvs(hass)
     hass_admin_user.groups = []
     client = await hass_ws_client(hass)
@@ -167,11 +217,15 @@ async def test_home_needs_access(hass: HomeAssistant, hass_ws_client, hass_admin
         assert res["error"]["code"] == "unauthorized", msg
 
 
-async def test_home_settings_survive_a_restart(hass: HomeAssistant, calls, hass_storage) -> None:
+async def test_home_settings_survive_a_restart(
+    hass: HomeAssistant, calls, hass_storage
+) -> None:
     from custom_components.tv_mgmt.home import HomeSettings
 
     await two_tvs(hass)
-    home(hass).set_settings(HomeSettings(daily_minutes=90, notify=["notify.parent_phone"]))
+    home(hass).set_settings(
+        HomeSettings(daily_minutes=90, notify=["notify.parent_phone"])
+    )
     await home(hass)._store.async_save(home(hass)._data())
     stored = hass_storage["tv_mgmt.home"]["data"]["settings"]
     assert stored["daily_minutes"] == 90 and stored["notify"] == ["notify.parent_phone"]

@@ -8,40 +8,58 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components.media_player import DOMAIN as MP_DOMAIN
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import section
 from homeassistant.helpers import entity_registry as er, selector
 
 from .announce import screen_targets
+from .apps import (
+    ACTION_HOME,
+    ACTIONS,
+    APP_MODE_BLOCK,
+    APP_MODES,
+    format_limits,
+    parse_limits,
+)
 from .backends import TVBackend, create_backend
 from .const import (
     APPLE_TV_DOMAIN,
+    APPLETV_MGMT_DOMAIN,
     CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
-    CONF_APP_ACTION,
-    CONF_APPLE_TV_INPUT,
-    CONF_APP_LIMITS,
-    CONF_BLOCKED_SHOWS,
-    CONF_APP_MODE,
-    CONF_APPS,
     CONF_ALLOWED_SOURCES,
+    CONF_ANNOUNCE_AIRPLAY,
+    CONF_ANNOUNCE_PLAYERS,
+    CONF_ANNOUNCE_SCREEN,
+    CONF_ANNOUNCE_TTS,
+    CONF_APP_ACTION,
+    CONF_APP_LIMITS,
+    CONF_APP_MODE,
+    CONF_APPLE_TV_INPUT,
+    CONF_APPS,
+    CONF_BLOCKED_SHOWS,
     CONF_DAILY_BUDGET,
-    CONF_INPUT_NAMES,
     CONF_ENFORCE_ON_POWER_ON,
+    CONF_INPUT_NAMES,
     CONF_MAX_ATTEMPTS,
-    APPLETV_MGMT_DOMAIN,
     CONF_MEDIA_PLAYER,
     CONF_MODE_SYNC_ENTITY,
     CONF_QUIET_WINDOWS,
     CONF_REVERT_DELAY,
     CONF_SLEEP_ON_BLOCK,
-    CONF_WAKE_WITH_TV,
     CONF_STREAMING_PLAYER,
     CONF_TARGET_SOURCE,
+    CONF_TV_LIGHTS,
+    CONF_TV_LIGHTS_FOLLOW,
+    CONF_WAKE_WITH_TV,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_COUNTS,
-    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_ENFORCE_ON_POWER_ON,
@@ -49,24 +67,18 @@ from .const import (
     DEFAULT_QUIET_WINDOWS,
     DEFAULT_REVERT_DELAY,
     DEFAULT_SLEEP_ON_BLOCK,
+    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_WAKE_WITH_TV,
     DEFAULT_WARN_MINUTES,
     DOMAIN,
     HDMI_INPUTS,
+    SECTION_ANNOUNCE,
     SECTION_APPLE_TV,
     SECTION_INPUT_LOCK,
+    SECTION_LIGHTS,
     SECTION_SCREEN_TIME,
     SECTION_SYNC,
-    SECTION_ANNOUNCE,
-    SECTION_LIGHTS,
-    CONF_TV_LIGHTS,
-    CONF_TV_LIGHTS_FOLLOW,
-    CONF_ANNOUNCE_AIRPLAY,
-    CONF_ANNOUNCE_PLAYERS,
-    CONF_ANNOUNCE_SCREEN,
-    CONF_ANNOUNCE_TTS,
 )
-from .apps import ACTION_HOME, ACTIONS, APP_MODE_BLOCK, APP_MODES, format_limits, parse_limits
 from .manager import flatten_options
 from .mode_sync import suggest_mode_select
 from .names import InputNames, format_names, parse_names
@@ -97,7 +109,9 @@ def _select(
     """
     choices: list[Any] = options
     if names is not None:
-        choices = [selector.SelectOptionDict(value=o, label=names.label(o)) for o in options]
+        choices = [
+            selector.SelectOptionDict(value=o, label=names.label(o)) for o in options
+        ]
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=choices,
@@ -142,12 +156,15 @@ def _input_lock_schema(
         )
         fields[
             vol.Optional(
-                CONF_TARGET_SOURCE, description={"suggested_value": d.get(CONF_TARGET_SOURCE)}
+                CONF_TARGET_SOURCE,
+                description={"suggested_value": d.get(CONF_TARGET_SOURCE)},
             )
         ] = _select(targets, names=names)
     else:
         fields[
-            vol.Required(CONF_TARGET_SOURCE, default=d.get(CONF_TARGET_SOURCE, HDMI_INPUTS[0]))
+            vol.Required(
+                CONF_TARGET_SOURCE, default=d.get(CONF_TARGET_SOURCE, HDMI_INPUTS[0])
+            )
         ] = _select(backend.target_list, names=names)
 
     fields[
@@ -157,14 +174,22 @@ def _input_lock_schema(
         )
     ] = selector.TextSelector(selector.TextSelectorConfig(multiline=True))
 
-    fields[vol.Required(CONF_REVERT_DELAY, default=d.get(CONF_REVERT_DELAY, DEFAULT_REVERT_DELAY))] = _number(0, 60, "s")
+    fields[
+        vol.Required(
+            CONF_REVERT_DELAY, default=d.get(CONF_REVERT_DELAY, DEFAULT_REVERT_DELAY)
+        )
+    ] = _number(0, 60, "s")
     fields[
         vol.Required(
             CONF_ENFORCE_ON_POWER_ON,
             default=d.get(CONF_ENFORCE_ON_POWER_ON, DEFAULT_ENFORCE_ON_POWER_ON),
         )
     ] = selector.BooleanSelector()
-    fields[vol.Required(CONF_MAX_ATTEMPTS, default=d.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS))] = _number(1, 20)
+    fields[
+        vol.Required(
+            CONF_MAX_ATTEMPTS, default=d.get(CONF_MAX_ATTEMPTS, DEFAULT_MAX_ATTEMPTS)
+        )
+    ] = _number(1, 20)
     return vol.Schema(fields)
 
 
@@ -172,14 +197,18 @@ def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Required(
-                CONF_DAILY_BUDGET, default=d.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET)
+                CONF_DAILY_BUDGET,
+                default=d.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET),
             ): _number(0, 1440, "min"),
             vol.Required(
-                CONF_WARN_MINUTES, default=d.get(CONF_WARN_MINUTES, DEFAULT_WARN_MINUTES)
+                CONF_WARN_MINUTES,
+                default=d.get(CONF_WARN_MINUTES, DEFAULT_WARN_MINUTES),
             ): _number(0, 60, "min"),
             vol.Optional(
                 CONF_QUIET_WINDOWS,
-                description={"suggested_value": d.get(CONF_QUIET_WINDOWS, DEFAULT_QUIET_WINDOWS)},
+                description={
+                    "suggested_value": d.get(CONF_QUIET_WINDOWS, DEFAULT_QUIET_WINDOWS)
+                },
             ): selector.TextSelector(),
             vol.Required(
                 CONF_ADULT_MODE_DURATION,
@@ -197,8 +226,11 @@ def _lights_schema(d: Mapping[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Optional(
-                CONF_TV_LIGHTS, description={"suggested_value": list(d.get(CONF_TV_LIGHTS) or [])}
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="light", multiple=True)),
+                CONF_TV_LIGHTS,
+                description={"suggested_value": list(d.get(CONF_TV_LIGHTS) or [])},
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="light", multiple=True)
+            ),
             vol.Required(
                 CONF_TV_LIGHTS_FOLLOW,
                 default=bool(d.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)),
@@ -215,16 +247,22 @@ def _announce_schema(hass: HomeAssistant, d: Mapping[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
             vol.Optional(
-                CONF_ANNOUNCE_TTS, description={"suggested_value": d.get(CONF_ANNOUNCE_TTS)}
+                CONF_ANNOUNCE_TTS,
+                description={"suggested_value": d.get(CONF_ANNOUNCE_TTS)},
             ): selector.EntitySelector(selector.EntitySelectorConfig(domain="tts")),
             vol.Optional(
-                CONF_ANNOUNCE_PLAYERS, description={"suggested_value": d.get(CONF_ANNOUNCE_PLAYERS) or []}
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain="media_player", multiple=True)),
+                CONF_ANNOUNCE_PLAYERS,
+                description={"suggested_value": d.get(CONF_ANNOUNCE_PLAYERS) or []},
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="media_player", multiple=True)
+            ),
             vol.Optional(
                 CONF_ANNOUNCE_SCREEN, description={"suggested_value": current}
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=targets, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN
+                    options=targets,
+                    custom_value=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
             vol.Required(
@@ -234,7 +272,9 @@ def _announce_schema(hass: HomeAssistant, d: Mapping[str, Any]) -> vol.Schema:
     )
 
 
-def _sync_schema(hass: HomeAssistant, tv_entity_id: str, d: Mapping[str, Any]) -> vol.Schema:
+def _sync_schema(
+    hass: HomeAssistant, tv_entity_id: str, d: Mapping[str, Any]
+) -> vol.Schema:
     # Suggest the matching Apple TV Mgmt profile until the user has chosen
     # (a cleared choice is stored as None and stays cleared).
     if CONF_MODE_SYNC_ENTITY in d:
@@ -246,7 +286,9 @@ def _sync_schema(hass: HomeAssistant, tv_entity_id: str, d: Mapping[str, Any]) -
             vol.Optional(
                 CONF_MODE_SYNC_ENTITY, description={"suggested_value": suggested}
             ): selector.EntitySelector(
-                selector.EntitySelectorConfig(integration=APPLETV_MGMT_DOMAIN, domain="select")
+                selector.EntitySelectorConfig(
+                    integration=APPLETV_MGMT_DOMAIN, domain="select"
+                )
             ),
         }
     )
@@ -281,7 +323,9 @@ def _apple_tv_schema(
         suggested = boxes[0] if len(boxes) == 1 else None
     chosen = list(d.get(CONF_APPS) or [])
     app_options = [
-        selector.SelectOptionDict(value=key, label=name if name == key else f"{name} ({key})")
+        selector.SelectOptionDict(
+            value=key, label=name if name == key else f"{name} ({key})"
+        )
         for key, name in {**apps, **{a: apps.get(a, a) for a in chosen}}.items()
     ]
     # The TV input the Apple TV is on. Suggest the only allowed input, until chosen.
@@ -294,11 +338,19 @@ def _apple_tv_schema(
         names = InputNames(parse_names(_names_text(d.get(CONF_INPUT_NAMES))))
     except ValueError:
         names = InputNames()
-    current = [backend.current_source] if backend.is_on and backend.current_source else []
+    current = (
+        [backend.current_source] if backend.is_on and backend.current_source else []
+    )
     inputs = [
-        i for i in dict.fromkeys(
-            [*current, *list(d.get(CONF_ALLOWED_SOURCES) or []), *seen, *backend.source_list,
-             *([input_suggested] if input_suggested else [])]
+        i
+        for i in dict.fromkeys(
+            [
+                *current,
+                *list(d.get(CONF_ALLOWED_SOURCES) or []),
+                *seen,
+                *backend.source_list,
+                *([input_suggested] if input_suggested else []),
+            ]
         )
         if i
     ]
@@ -307,20 +359,27 @@ def _apple_tv_schema(
             vol.Optional(
                 CONF_STREAMING_PLAYER, description={"suggested_value": suggested}
             ): selector.EntitySelector(
-                selector.EntitySelectorConfig(integration=APPLE_TV_DOMAIN, domain=MP_DOMAIN)
+                selector.EntitySelectorConfig(
+                    integration=APPLE_TV_DOMAIN, domain=MP_DOMAIN
+                )
             ),
             vol.Optional(
                 CONF_APPLE_TV_INPUT, description={"suggested_value": input_suggested}
             ): _select(inputs, names=names),
-            vol.Required(CONF_APP_MODE, default=d.get(CONF_APP_MODE, APP_MODE_BLOCK)): selector.SelectSelector(
+            vol.Required(
+                CONF_APP_MODE, default=d.get(CONF_APP_MODE, APP_MODE_BLOCK)
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=APP_MODES, translation_key=CONF_APP_MODE,
+                    options=APP_MODES,
+                    translation_key=CONF_APP_MODE,
                     mode=selector.SelectSelectorMode.LIST,
                 )
             ),
             vol.Optional(CONF_APPS, default=chosen): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=app_options, multiple=True, custom_value=True,
+                    options=app_options,
+                    multiple=True,
+                    custom_value=True,
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
@@ -332,21 +391,32 @@ def _apple_tv_schema(
                 CONF_BLOCKED_SHOWS, default=list(d.get(CONF_BLOCKED_SHOWS) or [])
             ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=list(dict.fromkeys([*(shows or []), *(d.get(CONF_BLOCKED_SHOWS) or [])])),
-                    multiple=True, custom_value=True, mode=selector.SelectSelectorMode.DROPDOWN,
+                    options=list(
+                        dict.fromkeys(
+                            [*(shows or []), *(d.get(CONF_BLOCKED_SHOWS) or [])]
+                        )
+                    ),
+                    multiple=True,
+                    custom_value=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Required(CONF_APP_ACTION, default=d.get(CONF_APP_ACTION, ACTION_HOME)): selector.SelectSelector(
+            vol.Required(
+                CONF_APP_ACTION, default=d.get(CONF_APP_ACTION, ACTION_HOME)
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=ACTIONS, translation_key=CONF_APP_ACTION,
+                    options=ACTIONS,
+                    translation_key=CONF_APP_ACTION,
                     mode=selector.SelectSelectorMode.LIST,
                 )
             ),
             vol.Required(
-                CONF_WAKE_WITH_TV, default=d.get(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV)
+                CONF_WAKE_WITH_TV,
+                default=d.get(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV),
             ): selector.BooleanSelector(),
             vol.Required(
-                CONF_SLEEP_ON_BLOCK, default=d.get(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK)
+                CONF_SLEEP_ON_BLOCK,
+                default=d.get(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK),
             ): selector.BooleanSelector(),
         }
     )
@@ -373,9 +443,15 @@ def _settings_schema(
             # Required with no default, like the other sections: an optional
             # section with a default is submitted as that default, dropping
             # the preselected value the form shows.
-            vol.Required(SECTION_ANNOUNCE): section(_announce_schema(hass, flat), {"collapsed": True}),
-            vol.Required(SECTION_LIGHTS): section(_lights_schema(flat), {"collapsed": True}),
-            vol.Required(SECTION_SYNC): section(_sync_schema(hass, backend.entity_id, flat)),
+            vol.Required(SECTION_ANNOUNCE): section(
+                _announce_schema(hass, flat), {"collapsed": True}
+            ),
+            vol.Required(SECTION_LIGHTS): section(
+                _lights_schema(flat), {"collapsed": True}
+            ),
+            vol.Required(SECTION_SYNC): section(
+                _sync_schema(hass, backend.entity_id, flat)
+            ),
         }
     )
 
@@ -389,10 +465,17 @@ def _process(
     errors: dict[str, str] = {}
     atv = user_input.get(SECTION_APPLE_TV, {})
     # The Apple TV's input counts as allowed (only when an Apple TV is linked).
-    atv_input = (atv.get(CONF_APPLE_TV_INPUT) or None) if atv.get(CONF_STREAMING_PLAYER) else None
+    atv_input = (
+        (atv.get(CONF_APPLE_TV_INPUT) or None)
+        if atv.get(CONF_STREAMING_PLAYER)
+        else None
+    )
 
     if backend.reports_source:
-        allowed = [*(lock.get(CONF_ALLOWED_SOURCES) or []), *([atv_input] if atv_input else [])]
+        allowed = [
+            *(lock.get(CONF_ALLOWED_SOURCES) or []),
+            *([atv_input] if atv_input else []),
+        ]
         target = lock.get(CONF_TARGET_SOURCE)
         key_target = backend.targets_are_keys and target in HDMI_INPUTS
         if not allowed:
@@ -424,21 +507,34 @@ def _process(
         if key in screen:
             screen[key] = int(screen[key])
 
-    sync = {CONF_MODE_SYNC_ENTITY: user_input.get(SECTION_SYNC, {}).get(CONF_MODE_SYNC_ENTITY) or None}
+    sync = {
+        CONF_MODE_SYNC_ENTITY: user_input.get(SECTION_SYNC, {}).get(
+            CONF_MODE_SYNC_ENTITY
+        )
+        or None
+    }
 
     apple_tv = dict(user_input.get(SECTION_APPLE_TV, {}))
     apple_tv[CONF_STREAMING_PLAYER] = apple_tv.get(CONF_STREAMING_PLAYER) or None
-    apple_tv[CONF_APPLE_TV_INPUT] = (apple_tv.get(CONF_APPLE_TV_INPUT) or "").strip() or None
-    apple_tv[CONF_APPS] = [a.strip() for a in apple_tv.get(CONF_APPS) or [] if a.strip()]
+    apple_tv[CONF_APPLE_TV_INPUT] = (
+        apple_tv.get(CONF_APPLE_TV_INPUT) or ""
+    ).strip() or None
+    apple_tv[CONF_APPS] = [
+        a.strip() for a in apple_tv.get(CONF_APPS) or [] if a.strip()
+    ]
     apple_tv[CONF_BLOCKED_SHOWS] = list(
-        dict.fromkeys(s.strip() for s in apple_tv.get(CONF_BLOCKED_SHOWS) or [] if s.strip())
+        dict.fromkeys(
+            s.strip() for s in apple_tv.get(CONF_BLOCKED_SHOWS) or [] if s.strip()
+        )
     )
     apple_tv.setdefault(CONF_APP_MODE, APP_MODE_BLOCK)
     apple_tv.setdefault(CONF_APP_ACTION, ACTION_HOME)
     apple_tv.setdefault(CONF_SLEEP_ON_BLOCK, DEFAULT_SLEEP_ON_BLOCK)
     apple_tv.setdefault(CONF_WAKE_WITH_TV, DEFAULT_WAKE_WITH_TV)
     try:
-        apple_tv[CONF_APP_LIMITS] = parse_limits(_limits_text(apple_tv.get(CONF_APP_LIMITS)))
+        apple_tv[CONF_APP_LIMITS] = parse_limits(
+            _limits_text(apple_tv.get(CONF_APP_LIMITS))
+        )
     except ValueError:
         errors["base"] = "bad_app_limits"
 
@@ -459,10 +555,14 @@ def _process(
         SECTION_ANNOUNCE: announce,
         SECTION_LIGHTS: {
             CONF_TV_LIGHTS: list(
-                dict.fromkeys(user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS) or [])
+                dict.fromkeys(
+                    user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS) or []
+                )
             ),
             CONF_TV_LIGHTS_FOLLOW: bool(
-                user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)
+                user_input.get(SECTION_LIGHTS, {}).get(
+                    CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW
+                )
             ),
         },
         SECTION_SYNC: sync,
@@ -484,7 +584,9 @@ class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
     def __init__(self) -> None:
         self._entity_id: str | None = None
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         if user_input is not None:
             self._entity_id = user_input[CONF_MEDIA_PLAYER]
             # A setup left half done (say the app closed) mustn't block starting over.
@@ -534,10 +636,16 @@ class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class TVMgmtOptionsFlow(OptionsFlow):
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
         entry = self.config_entry
         manager = getattr(entry, "runtime_data", None)
-        backend = manager.backend if manager else create_backend(self.hass, entry.data[CONF_MEDIA_PLAYER])
+        backend = (
+            manager.backend
+            if manager
+            else create_backend(self.hass, entry.data[CONF_MEDIA_PLAYER])
+        )
         errors: dict[str, str] = {}
 
         if user_input is not None:

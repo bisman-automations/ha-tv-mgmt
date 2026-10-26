@@ -6,7 +6,13 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -53,7 +59,9 @@ type TVMgmtConfigEntry = ConfigEntry[TVManager]
 PROFILE_SCHEMA = vol.Schema({vol.Required(ATTR_PROFILE_ID): cv.string})
 MESSAGE_SCHEMA = PROFILE_SCHEMA.extend(
     {
-        vol.Required("message"): vol.All(cv.string, vol.Strip, vol.Length(min=1, max=120)),
+        vol.Required("message"): vol.All(
+            cv.string, vol.Strip, vol.Length(min=1, max=120)
+        ),
         vol.Optional("apple_tv", default=True): cv.boolean,
         vol.Optional("screen", default=True): cv.boolean,
         vol.Optional("speak", default=False): cv.boolean,
@@ -97,8 +105,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 1:
         # 0.1.x kept the input-lock settings flat; 1.0 groups them in sections.
         lock_keys = {
-            CONF_ALLOWED_SOURCES, CONF_TARGET_SOURCE, CONF_REVERT_DELAY,
-            CONF_ENFORCE_ON_POWER_ON, CONF_MAX_ATTEMPTS,
+            CONF_ALLOWED_SOURCES,
+            CONF_TARGET_SOURCE,
+            CONF_REVERT_DELAY,
+            CONF_ENFORCE_ON_POWER_ON,
+            CONF_MAX_ATTEMPTS,
         }
         old = dict(entry.options)
         options = {
@@ -156,7 +167,10 @@ def _profile_devices(
     entities = er.async_get(hass)
     registry = dr.async_get(hass)
     devices: list[dr.DeviceEntry] = []
-    for entity_id in (entry.data[CONF_MEDIA_PLAYER], manager.box.entity_id if manager.box else None):
+    for entity_id in (
+        entry.data[CONF_MEDIA_PLAYER],
+        manager.box.entity_id if manager.box else None,
+    ):
         entity = entities.async_get(entity_id) if entity_id else None
         if entity is None or entity.device_id is None:
             continue
@@ -237,7 +251,9 @@ def _link_by_config_entry(
             continue
         # Only devices another integration owns; never remove a device outright.
         if len(device.config_entries) > 1:
-            registry.async_update_device(device.id, remove_config_entry_id=entry.entry_id)
+            registry.async_update_device(
+                device.id, remove_config_entry_id=entry.entry_id
+            )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bool:
@@ -275,9 +291,10 @@ async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) 
     change in place, such as which Apple TV is linked.
     """
     manager = entry.runtime_data
-    if getattr(manager, "loaded_as", None) == (entry.title, dict(entry.data)) and manager.apply_options(
-        dict(entry.options)
-    ):
+    if getattr(manager, "loaded_as", None) == (
+        entry.title,
+        dict(entry.data),
+    ) and manager.apply_options(dict(entry.options)):
         return
     await hass.config_entries.async_reload(entry.entry_id)
 
@@ -320,21 +337,34 @@ def _register_services(hass: HomeAssistant) -> None:
         await async_ensure_allowed(hass, call.context)
         _manager(hass, call).reset_usage()
 
-    hass.services.async_register(DOMAIN, SERVICE_GRANT_EXTENSION, grant_extension, EXTENSION_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_FORCE_BLOCK, force_block, PROFILE_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_GRANT_EXTENSION, grant_extension, EXTENSION_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_FORCE_BLOCK, force_block, PROFILE_SCHEMA
+    )
     hass.services.async_register(DOMAIN, SERVICE_UNBLOCK, unblock, PROFILE_SCHEMA)
-    hass.services.async_register(DOMAIN, SERVICE_RESET_USAGE, reset_usage, PROFILE_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_RESET_USAGE, reset_usage, PROFILE_SCHEMA
+    )
 
     async def send_message(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)
         manager = _manager(hass, call)
         targets = manager.message_targets()
-        wanted = {key: call.data[key] and targets[key] for key in ("apple_tv", "screen", "speak")}
+        wanted = {
+            key: call.data[key] and targets[key]
+            for key in ("apple_tv", "screen", "speak")
+        }
         if not any(wanted.values()):
-            raise ServiceValidationError(translation_domain=DOMAIN, translation_key="nowhere_to_send")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="nowhere_to_send"
+            )
         await manager.async_send_message(call.data["message"], **wanted)
 
-    hass.services.async_register(DOMAIN, SERVICE_SEND_MESSAGE, send_message, MESSAGE_SCHEMA)
+    hass.services.async_register(
+        DOMAIN, SERVICE_SEND_MESSAGE, send_message, MESSAGE_SCHEMA
+    )
 
     async def turn_off_tv_lights(call: ServiceCall) -> ServiceResponse:
         await async_ensure_allowed(hass, call.context)
@@ -342,6 +372,9 @@ def _register_services(hass: HomeAssistant) -> None:
         return result if call.return_response else None
 
     hass.services.async_register(
-        DOMAIN, SERVICE_TURN_OFF_TV_LIGHTS, turn_off_tv_lights, PROFILE_SCHEMA,
+        DOMAIN,
+        SERVICE_TURN_OFF_TV_LIGHTS,
+        turn_off_tv_lights,
+        PROFILE_SCHEMA,
         supports_response=SupportsResponse.OPTIONAL,
     )

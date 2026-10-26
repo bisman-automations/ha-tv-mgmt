@@ -16,19 +16,32 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from homeassistant.core import HomeAssistant
 
-from .conftest import LIGHT_COLOR, LIGHT_WHITE, MEDIA_PLAYER, light_zone, set_tv, settle, tv_options_with
+from .conftest import (
+    LIGHT_COLOR,
+    LIGHT_WHITE,
+    MEDIA_PLAYER,
+    light_zone,
+    set_tv,
+    settle,
+    tv_options_with,
+)
 from .test_rules import RED, TITLE, TV_LIGHTS, _play, _to
 
 BUTTON = "button.tv_mgmt_living_room_tv_turn_off_tv_lights"
 OTHER = "Arrival"
-NOT_FOLLOWING = tv_options_with(lights={"tv_lights": [LIGHT_COLOR], "tv_lights_follow": False})
+NOT_FOLLOWING = tv_options_with(
+    lights={"tv_lights": [LIGHT_COLOR], "tv_lights_follow": False}
+)
 
 
 @pytest.fixture
 async def mapped(hass: HomeAssistant, loaded_entry: MockConfigEntry) -> MockConfigEntry:
     for title in (TITLE, OTHER):
         await hass.services.async_call(
-            "tv_mgmt", "set_title_color", {"title": title, "rgb_color": RED}, blocking=True
+            "tv_mgmt",
+            "set_title_color",
+            {"title": title, "rgb_color": RED},
+            blocking=True,
         )
     return loaded_entry
 
@@ -43,13 +56,17 @@ async def test_turned_off_stay_off(
     assert set(zone.snapshot) == {LIGHT_COLOR, LIGHT_WHITE}
 
     on.clear()
-    await hass.services.async_call("button", "press", {"entity_id": BUTTON}, blocking=True)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": BUTTON}, blocking=True
+    )
     await settle(hass)
     assert _to(off, LIGHT_COLOR)
     assert set(zone.snapshot) == {LIGHT_WHITE}  # its restore is dropped
 
     # Something else playing colours the other light, not the TV light.
-    hass.states.async_set(MEDIA_PLAYER, "playing", {"media_title": OTHER, "media_content_type": "movie"})
+    hass.states.async_set(
+        MEDIA_PLAYER, "playing", {"media_title": OTHER, "media_content_type": "movie"}
+    )
     await settle(hass)
     assert _to(on, LIGHT_WHITE)
     assert not _to(on, LIGHT_COLOR)
@@ -100,7 +117,9 @@ async def test_follow_switch_applies_live(
     zone = light_zone(mapped)
     follow = "switch.tv_mgmt_living_room_tv_tv_lights_follow_the_tv"
     with patch.object(hass.config_entries, "async_reload") as reload:
-        await hass.services.async_call("switch", "turn_off", {"entity_id": follow}, blocking=True)
+        await hass.services.async_call(
+            "switch", "turn_off", {"entity_id": follow}, blocking=True
+        )
         await settle(hass)
     reload.assert_not_called()
     assert light_zone(mapped) is zone

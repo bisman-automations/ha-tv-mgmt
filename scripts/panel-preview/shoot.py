@@ -21,8 +21,8 @@ Playwright's own.
 
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import os
+from pathlib import Path
 import sys
 import threading
 
@@ -35,14 +35,19 @@ class _QuietHandler(SimpleHTTPRequestHandler):
     def log_message(self, *args) -> None:
         pass
 
+
 TABS = ["dashboard", "activity", "analytics", "limits", "lights", "access"]
 SIZES = {"phone": (390, 900), "desktop": (1440, 1000)}
 DOCS = ROOT / "docs" / "images"
 # README screenshots, docs/images/panel-<tab>.png: the first row light, the
 # second dark, so both themes show.
 DOC_SHOTS = {
-    "dashboard": "light", "activity": "light", "analytics": "light",
-    "limits": "dark", "lights": "dark", "access": "dark",
+    "dashboard": "light",
+    "activity": "light",
+    "analytics": "light",
+    "limits": "dark",
+    "lights": "dark",
+    "access": "dark",
 }
 # Where a tab's screenshot ends, when it isn't the top of the page: Limits shows
 # the TV's own limits (below the whole home's), down to adult mode.
@@ -52,12 +57,18 @@ DOC_SCROLL = {"limits": "form#limits"}
 def _docs(browser, base: str, errors: list[str]) -> None:
     """Save each tab as it appears in the README: a 390x900 phone at 4/3 scale (520x1200)."""
     for tab, theme in DOC_SHOTS.items():
-        page = browser.new_page(viewport={"width": 390, "height": 900}, device_scale_factor=4 / 3)
+        page = browser.new_page(
+            viewport={"width": 390, "height": 900}, device_scale_factor=4 / 3
+        )
         page.on("pageerror", lambda e: errors.append(str(e)))
-        page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+        page.on(
+            "console", lambda m: errors.append(m.text) if m.type == "error" else None
+        )
         page.goto(f"{base}?theme={theme}")
         # The first TV open, as on the dashboard after tapping it.
-        page.evaluate("localStorage.setItem('tv-mgmt-expanded', JSON.stringify(['fam']))")
+        page.evaluate(
+            "localStorage.setItem('tv-mgmt-expanded', JSON.stringify(['fam']))"
+        )
         page.reload()
         page.wait_for_timeout(1200)
         panel = page.locator("tv-mgmt-panel")
@@ -75,7 +86,9 @@ def _docs(browser, base: str, errors: list[str]) -> None:
             " return n.scrollWidth - n.clientWidth; })()"
         )
         if width > 390 or nav > 0:
-            errors.append(f"docs {tab}: page or tabs scroll sideways ({width}px, tabs +{nav}px)")
+            errors.append(
+                f"docs {tab}: page or tabs scroll sideways ({width}px, tabs +{nav}px)"
+            )
         page.screenshot(path=DOCS / f"panel-{tab}.png")
         page.close()
 
@@ -85,7 +98,9 @@ def main() -> int:
     args = [a for a in sys.argv[1:] if a != "--docs"]
     out = DOCS if docs else Path(args[0] if args else "panel-shots")
     out.mkdir(parents=True, exist_ok=True)
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_QuietHandler, directory=str(ROOT)))
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(_QuietHandler, directory=str(ROOT))
+    )
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/scripts/panel-preview/index.html"
     errors: list[str] = []
@@ -97,11 +112,16 @@ def main() -> int:
             for theme in ("light", "dark"):
                 page = browser.new_page(viewport={"width": w, "height": h})
                 page.on("pageerror", lambda e: errors.append(str(e)))
-                page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+                page.on(
+                    "console",
+                    lambda m: errors.append(m.text) if m.type == "error" else None,
+                )
                 page.on("dialog", lambda d: d.accept())
                 page.goto(f"{base}?theme={theme}")
                 # TV cards start collapsed; open the first so the dashboard shot shows everything.
-                page.evaluate("localStorage.setItem('tv-mgmt-expanded', JSON.stringify(['fam']))")
+                page.evaluate(
+                    "localStorage.setItem('tv-mgmt-expanded', JSON.stringify(['fam']))"
+                )
                 page.reload()
                 page.wait_for_timeout(1200)
                 panel = page.locator("tv-mgmt-panel")
@@ -110,13 +130,20 @@ def main() -> int:
                     page.wait_for_timeout(500)
                     width = page.evaluate("document.documentElement.scrollWidth")
                     if width > w:
-                        errors.append(f"{tab} {size}: page scrolls sideways ({width}px)")
-                    page.screenshot(path=out / f"{tab}-{size}-{theme}.png", full_page=True)
+                        errors.append(
+                            f"{tab} {size}: page scrolls sideways ({width}px)"
+                        )
+                    page.screenshot(
+                        path=out / f"{tab}-{size}-{theme}.png", full_page=True
+                    )
                 page.close()
                 # The placeholders shown while each tab loads.
                 page = browser.new_page(viewport={"width": w, "height": h})
                 page.on("pageerror", lambda e: errors.append(str(e)))
-                for mode, tabs in (("1", ["dashboard"]), ("tabs", ["activity", "analytics", "limits", "lights"])):
+                for mode, tabs in (
+                    ("1", ["dashboard"]),
+                    ("tabs", ["activity", "analytics", "limits", "lights"]),
+                ):
                     page.goto(f"{base}?theme={theme}&loading={mode}")
                     page.wait_for_timeout(600)
                     panel = page.locator("tv-mgmt-panel")

@@ -58,11 +58,16 @@ class AndroidTVRemoteBackend(MediaPlayerBackend):
         return [*HDMI_INPUTS, *self.source_list]
 
     async def async_select_source(self, source: str) -> None:
-        if (number := hdmi_number(source)) and (remote := self.sibling_entity(REMOTE_DOMAIN)):
+        if (number := hdmi_number(source)) and (
+            remote := self.sibling_entity(REMOTE_DOMAIN)
+        ):
             await self.hass.services.async_call(
                 REMOTE_DOMAIN,
                 SERVICE_SEND_COMMAND,
-                {ATTR_ENTITY_ID: remote, ATTR_COMMAND: [f"KEYCODE_TV_INPUT_HDMI_{number}"]},
+                {
+                    ATTR_ENTITY_ID: remote,
+                    ATTR_COMMAND: [f"KEYCODE_TV_INPUT_HDMI_{number}"],
+                },
                 blocking=False,
             )
             return

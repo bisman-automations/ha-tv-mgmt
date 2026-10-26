@@ -17,9 +17,9 @@ TV Mgmt's rules come first:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 import secrets
 import time
-from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant, callback
@@ -196,7 +196,9 @@ class LightSync(ZoneLink):
         return zone
 
     @callback
-    def register_platform(self, factory: EntityFactory, add_entities: AddEntities) -> None:
+    def register_platform(
+        self, factory: EntityFactory, add_entities: AddEntities
+    ) -> None:
         """An entity platform: add its entities for every zone, now and later."""
         self._platforms.append((factory, add_entities))
         for zone in self.zones.values():

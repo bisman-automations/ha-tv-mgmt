@@ -411,15 +411,15 @@ async def test_diagnostics_redact_keys(
     hass: HomeAssistant, tmdb_entry: MockConfigEntry
 ) -> None:
     """API keys never appear in diagnostics."""
-    from custom_components.tv_mgmt.diagnostics import (  # noqa: PLC0415
-        async_get_config_entry_diagnostics,
-    )
+    from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics  # noqa: PLC0415
 
     diag = await async_get_config_entry_diagnostics(hass, tmdb_entry)
     assert diag["light_sync"]["settings"][CONF_TMDB_API_KEY] == "**REDACTED**"
     # Empty (unset) credentials are left as-is by async_redact_data.
-    assert diag["light_sync"]["settings"].get("trakt_client_id") in (None, "", "**REDACTED**")
+    assert diag["light_sync"]["settings"].get("trakt_client_id") in (
+        None,
+        "",
+        "**REDACTED**",
+    )
     assert V3_KEY not in repr(diag)
     assert diag["light_sync"]["metadata"]["providers"] == ["tmdb"]
-
-

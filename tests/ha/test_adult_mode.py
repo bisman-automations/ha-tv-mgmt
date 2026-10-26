@@ -16,7 +16,6 @@ import pytest
 
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
-
 from tests.ha.test_apple_tv import BOX, LOCK, YT, set_box, tick
 from tests.ha.test_integration import TV, set_tv, setup
 
@@ -28,23 +27,48 @@ PRIME = ("com.amazon.aiv.AIVApp", "Prime Video")
 
 
 def screen(**changes: Any) -> dict[str, Any]:
-    return {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120, **changes}
+    return {
+        "daily_budget": 0,
+        "warn_minutes": 5,
+        "quiet_windows": "",
+        "adult_mode_duration": 120,
+        **changes,
+    }
 
 
-async def setup_tv(hass, *, box=False, apps: dict[str, Any] | None = None, **screen_time):
+async def setup_tv(
+    hass, *, box=False, apps: dict[str, Any] | None = None, **screen_time
+):
     options: dict[str, Any] = {"input_lock": LOCK, "screen_time": screen(**screen_time)}
     if box:
         options |= {
-            "apple_tv": {"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {},
-                         "app_action": "home", "sleep_on_block": True, **(apps or {})},
-            "announcements": {}, "lights": {}, "sync": {},
+            "apple_tv": {
+                "streaming_player": BOX,
+                "app_mode": "block",
+                "apps": [],
+                "app_limits": {},
+                "app_action": "home",
+                "sleep_on_block": True,
+                **(apps or {}),
+            },
+            "announcements": {},
+            "lights": {},
+            "sync": {},
         }
     return await setup(hass, options=options)
 
 
 def play(hass, title: str, app=PRIME, state="playing"):
-    hass.states.async_set(BOX, state, {"friendly_name": "Living Room Apple TV", "app_id": app[0],
-                                       "app_name": app[1], "media_title": title})
+    hass.states.async_set(
+        BOX,
+        state,
+        {
+            "friendly_name": "Living Room Apple TV",
+            "app_id": app[0],
+            "app_name": app[1],
+            "media_title": title,
+        },
+    )
 
 
 async def watch(hass, freezer, minutes: float) -> None:
@@ -91,7 +115,9 @@ async def test_not_counted_by_default(hass: HomeAssistant, freezer, calls) -> No
     assert manager.state.adult_seconds == 40 * 60
 
 
-async def test_switching_counts_up_to_that_moment(hass: HomeAssistant, freezer, calls) -> None:
+async def test_switching_counts_up_to_that_moment(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     """The time before a switch books to the mode it was watched in, not the next count."""
     set_tv(hass)
     entry = await setup_tv(hass)
@@ -106,7 +132,9 @@ async def test_switching_counts_up_to_that_moment(hass: HomeAssistant, freezer, 
     assert [e["on"] for e in events] == [True, False]
 
 
-async def test_no_app_or_title_recorded(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+async def test_no_app_or_title_recorded(
+    hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls
+) -> None:
     set_tv(hass)
     play(hass, "Moana")
     entry = await setup_tv(hass, box=True)
@@ -126,8 +154,11 @@ async def test_no_app_or_title_recorded(hass: HomeAssistant, freezer, hass_ws_cl
     assert manager.state.media_seconds == {"Moana": 60}
     titles = [e.get("title") for e in manager.activity.events if e["type"] == "media"]
     assert titles == ["Moana"]
-    assert not [e for e in manager.activity.events
-                if e["type"] in ("app", "media") and datetime.fromisoformat(e["t"]) > on_at]
+    assert not [
+        e
+        for e in manager.activity.events
+        if e["type"] in ("app", "media") and datetime.fromisoformat(e["t"]) > on_at
+    ]
     attrs = hass.states.get("sensor.tv_mgmt_family_room_tv_app_time_today").attributes
     assert list(attrs["apps"]) == ["Prime Video"] and list(attrs["shows"]) == ["Moana"]
     assert manager.state.adult_seconds == 15 * 60
@@ -141,23 +172,35 @@ async def test_no_app_or_title_recorded(hass: HomeAssistant, freezer, hass_ws_cl
     await watch(hass, freezer, 2)
     assert manager.state.app_seconds[YT[0]] == 120
 
-    day = await ws(hass_ws_client, hass, type=f"{DOMAIN}/activity", entry_id=entry.entry_id)
-    assert [(p["seconds"], p["live"]) for p in day["adult_periods"]] == [(15 * 60, False)]
+    day = await ws(
+        hass_ws_client, hass, type=f"{DOMAIN}/activity", entry_id=entry.entry_id
+    )
+    assert [(p["seconds"], p["live"]) for p in day["adult_periods"]] == [
+        (15 * 60, False)
+    ]
     assert day["adult_viewing_seconds"] == 15 * 60
     starts = [datetime.fromisoformat(s["start"]) for s in day["app_segments"]]
     assert [s["name"] for s in day["app_segments"]] == ["Prime Video", "YouTube"]
     assert starts[1] == on_at + timedelta(minutes=15)
 
-    summary = (await ws(hass_ws_client, hass, type=f"{DOMAIN}/analytics", entry_id=entry.entry_id))[
-        "profiles"][0]["summary"]
+    summary = (
+        await ws(
+            hass_ws_client, hass, type=f"{DOMAIN}/analytics", entry_id=entry.entry_id
+        )
+    )["profiles"][0]["summary"]
     assert summary["adult_seconds"] == 15 * 60 and summary["adult_counted_seconds"] == 0
     assert [a["app"] for a in summary["top_apps"]] == [YT[0], PRIME[0]]
     # Still playing after adult mode ended, so those two minutes count as usual.
-    assert [(m["show"], m["seconds"]) for m in summary["top_media"]] == [("Another Late Film", 120), ("Moana", 60)]
+    assert [(m["show"], m["seconds"]) for m in summary["top_media"]] == [
+        ("Another Late Film", 120),
+        ("Moana", 60),
+    ]
     assert "Late Night Film" not in str(summary)
 
 
-async def test_per_app_limit_not_used(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_per_app_limit_not_used(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     entry = await setup_tv(hass, box=True, apps={"app_limits": {"YouTube": 2}})
@@ -176,12 +219,20 @@ async def test_per_app_limit_not_used(hass: HomeAssistant, freezer, calls, box_c
 
 async def test_home_limits_not_used(hass: HomeAssistant, freezer, calls) -> None:
     from custom_components.tv_mgmt.home import HomeSettings
-
-    from tests.ha.test_home import FAMILY, PLAYROOM, add_tv, home
-    from tests.ha.test_home import set_tv as set_named_tv
+    from tests.ha.test_home import (
+        FAMILY,
+        PLAYROOM,
+        add_tv,
+        home,
+        set_tv as set_named_tv,
+    )
 
     # A Tuesday evening, so yesterday and today are in the same week.
-    freezer.move_to(dt_util.as_utc(datetime(2026, 10, 20, 23, 30, tzinfo=dt_util.get_default_time_zone())))
+    freezer.move_to(
+        dt_util.as_utc(
+            datetime(2026, 10, 20, 23, 30, tzinfo=dt_util.get_default_time_zone())
+        )
+    )
     set_named_tv(hass, FAMILY, "Family Room TV")
     set_named_tv(hass, PLAYROOM, "Playroom TV")
     family = await add_tv(hass, FAMILY, "Family Room TV")
@@ -195,7 +246,9 @@ async def test_home_limits_not_used(hass: HomeAssistant, freezer, calls) -> None
     await watch(hass, freezer, 20)  # to ten past midnight
     status = home(hass).status()
     assert status.today_seconds == 10 * 60
-    assert status.week_seconds == 40 * 60  # yesterday's 30 and today's 10, the playroom's
+    assert (
+        status.week_seconds == 40 * 60
+    )  # yesterday's 30 and today's 10, the playroom's
     assert family.runtime_data.state.used_seconds == 0
     assert family.runtime_data.state.adult_seconds == 10 * 60
     assert playroom.runtime_data.state.used_seconds == 10 * 60
@@ -206,7 +259,9 @@ async def test_home_limits_not_used(hass: HomeAssistant, freezer, calls) -> None
 # ---- option on ---------------------------------------------------------------------
 
 
-async def test_counted_when_turned_on(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+async def test_counted_when_turned_on(
+    hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls
+) -> None:
     set_tv(hass)
     play(hass, "Moana")
     entry = await setup_tv(hass, box=True, daily_budget=10, adult_mode_counts=True)
@@ -227,16 +282,23 @@ async def test_counted_when_turned_on(hass: HomeAssistant, freezer, hass_ws_clie
     assert hass.states.get(STATE).state == "enforcing"
 
     # Activity still doesn't show what was watched in it.
-    day = await ws(hass_ws_client, hass, type=f"{DOMAIN}/activity", entry_id=entry.entry_id)
+    day = await ws(
+        hass_ws_client, hass, type=f"{DOMAIN}/activity", entry_id=entry.entry_id
+    )
     titles = [e.get("title") for e in day["events"] if e["type"] == "media"]
     assert "Late Night Film" not in titles
     assert all(datetime.fromisoformat(s["end"]) <= on_at for s in day["app_segments"])
-    summary = (await ws(hass_ws_client, hass, type=f"{DOMAIN}/analytics", entry_id=entry.entry_id))[
-        "profiles"][0]["summary"]
+    summary = (
+        await ws(
+            hass_ws_client, hass, type=f"{DOMAIN}/analytics", entry_id=entry.entry_id
+        )
+    )["profiles"][0]["summary"]
     assert summary["adult_seconds"] == summary["adult_counted_seconds"] == 15 * 60
 
 
-async def test_option_applies_live(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+async def test_option_applies_live(
+    hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls
+) -> None:
     set_tv(hass)
     play(hass, "Moana")
     entry = await setup_tv(hass, box=True)
@@ -244,8 +306,13 @@ async def test_option_applies_live(hass: HomeAssistant, freezer, hass_ws_client,
     manager.set_adult_mode(True)
     await watch(hass, freezer, 5)
     with patch.object(hass.config_entries, "async_reload") as reload:
-        await ws(hass_ws_client, hass, type=f"{DOMAIN}/limits/set", entry_id=entry.entry_id,
-                 adult_mode_counts=True)
+        await ws(
+            hass_ws_client,
+            hass,
+            type=f"{DOMAIN}/limits/set",
+            entry_id=entry.entry_id,
+            adult_mode_counts=True,
+        )
     reload.assert_not_called()
     assert entry.runtime_data is manager and manager.adult_mode_counts is True
     assert entry.options["screen_time"]["adult_mode_counts"] is True
@@ -256,12 +323,19 @@ async def test_option_applies_live(hass: HomeAssistant, freezer, hass_ws_client,
     assert manager.state.adult_counted_seconds == manager.state.used_seconds == 5 * 60
     assert manager.state.app_seconds[PRIME[0]] == 5 * 60
     assert hass.states.get(ADULT).attributes["counts_toward_limits"] is True
-    limits = await ws(hass_ws_client, hass, type=f"{DOMAIN}/limits/get", entry_id=entry.entry_id)
+    limits = await ws(
+        hass_ws_client, hass, type=f"{DOMAIN}/limits/get", entry_id=entry.entry_id
+    )
     assert limits["adult_mode_counts"] is True
 
     # And back off.
-    await ws(hass_ws_client, hass, type=f"{DOMAIN}/limits/set", entry_id=entry.entry_id,
-             adult_mode_counts=False)
+    await ws(
+        hass_ws_client,
+        hass,
+        type=f"{DOMAIN}/limits/set",
+        entry_id=entry.entry_id,
+        adult_mode_counts=False,
+    )
     await watch(hass, freezer, 5)
     assert manager.state.used_seconds == 5 * 60
     assert manager.state.adult_seconds == 15 * 60
@@ -283,13 +357,21 @@ async def test_running_out(hass: HomeAssistant, freezer, calls) -> None:
     assert manager.state.adult_seconds == 10 * 60
     assert manager.state.used_seconds == 15 * 60 - 10 * 60 + 10
     off = [e for e in manager.activity.events if e["type"] == "adult_mode"][-1]
-    assert off["type"] == "adult_mode" and off["on"] is False and off["reason"] == "expired"
+    assert (
+        off["type"] == "adult_mode"
+        and off["on"] is False
+        and off["reason"] == "expired"
+    )
     assert datetime.fromisoformat(off["t"]) == until
     assert sum(1 for k in kinds(manager) if k == "adult_mode") == 2
 
 
 async def test_split_at_midnight(hass: HomeAssistant, freezer, calls) -> None:
-    freezer.move_to(dt_util.as_utc(datetime(2026, 10, 20, 23, 50, tzinfo=dt_util.get_default_time_zone())))
+    freezer.move_to(
+        dt_util.as_utc(
+            datetime(2026, 10, 20, 23, 50, tzinfo=dt_util.get_default_time_zone())
+        )
+    )
     set_tv(hass)
     entry = await setup_tv(hass)
     manager = entry.runtime_data
@@ -340,35 +422,69 @@ async def test_reports(hass: HomeAssistant, freezer, hass_ws_client, calls) -> N
     manager = entry.runtime_data
     # A day recorded before 1.16.0 has no adult mode total.
     yesterday = (dt_util.now().date() - timedelta(days=1)).isoformat()
-    manager.activity.daily[yesterday] = {"used_seconds": 600, "budget_minutes": 0,
-                                         "extension_minutes": 0, "blocked": 0}
+    manager.activity.daily[yesterday] = {
+        "used_seconds": 600,
+        "budget_minutes": 0,
+        "extension_minutes": 0,
+        "blocked": 0,
+    }
     manager.set_adult_mode(True)
     await watch(hass, freezer, 4)
 
     diag = await async_get_config_entry_diagnostics(hass, entry)
-    assert diag["adult_mode"] == {"active": True, "counts_toward_limits": False,
-                                  "seconds_today": 240, "counted_seconds_today": 0}
+    assert diag["adult_mode"] == {
+        "active": True,
+        "counts_toward_limits": False,
+        "seconds_today": 240,
+        "counted_seconds_today": 0,
+    }
     profile = (await ws(hass_ws_client, hass, type=f"{DOMAIN}/profiles"))["profiles"][0]
     assert profile["adult_seconds"] == 240 and profile["adult_mode_counts"] is False
-    result = (await ws(hass_ws_client, hass, type=f"{DOMAIN}/analytics", entry_id=entry.entry_id, days=2))
+    result = await ws(
+        hass_ws_client,
+        hass,
+        type=f"{DOMAIN}/analytics",
+        entry_id=entry.entry_id,
+        days=2,
+    )
     days = result["profiles"][0]["days"]
-    assert [(d["adult_tracked"], d["adult_seconds"]) for d in days] == [(False, 0), (True, 240)]
+    assert [(d["adult_tracked"], d["adult_seconds"]) for d in days] == [
+        (False, 0),
+        (True, 240),
+    ]
     summary = result["profiles"][0]["summary"]
     assert summary["adult_untracked_days"] == 1 and summary["adult_seconds"] == 240
-    assert summary["total_seconds"] == 600  # adult time that didn't count isn't screen time
+    assert (
+        summary["total_seconds"] == 600
+    )  # adult time that didn't count isn't screen time
 
 
 async def test_setup_form_has_the_option(hass: HomeAssistant) -> None:
     from homeassistant import config_entries
 
     set_tv(hass)
-    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {"media_player": TV})
-    assert "adult_mode_counts" in str(result["data_schema"].schema["screen_time"].schema.schema)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"media_player": TV}
+    )
+    assert "adult_mode_counts" in str(
+        result["data_schema"].schema["screen_time"].schema.schema
+    )
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {"input_lock": LOCK, "screen_time": screen(), "apple_tv": {}, "announcements": {}, "lights": {}, "sync": {}},
+        {
+            "input_lock": LOCK,
+            "screen_time": screen(),
+            "apple_tv": {},
+            "announcements": {},
+            "lights": {},
+            "sync": {},
+        },
     )
-    assert result["options"]["screen_time"]["adult_mode_counts"] is False  # off unless chosen
+    assert (
+        result["options"]["screen_time"]["adult_mode_counts"] is False
+    )  # off unless chosen
     assert result["options"]["lights"]["tv_lights_follow"] is True  # also new in 1.16.0
     await hass.async_block_till_done()

@@ -11,4 +11,6 @@ def fields(schema):
     except ImportError:
         import voluptuous_serialize
 
-        return voluptuous_serialize.convert(schema, custom_serializer=cv.custom_serializer)
+        return voluptuous_serialize.convert(
+            schema, custom_serializer=cv.custom_serializer
+        )

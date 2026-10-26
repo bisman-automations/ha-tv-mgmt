@@ -590,7 +590,7 @@ class MetadataCache:
                 result = (
                     MetadataResult.from_dict(raw["result"]) if raw["result"] else None
                 )
-            except (KeyError, TypeError, ValueError):
+            except KeyError, TypeError, ValueError:
                 continue
             if expires > now:
                 self._lru.put(key, _CacheEntry(result, expires))

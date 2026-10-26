@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, patch
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from homeassistant.core import HomeAssistant
-
 from tests.ha.test_integration import set_tv, setup
 
 DOMAIN = "tv_mgmt"
@@ -31,7 +30,9 @@ async def test_profiles(hass: HomeAssistant, hass_ws_client, calls) -> None:
     assert profile["state"] == "ok"
 
 
-async def test_actions_and_activity(hass: HomeAssistant, hass_ws_client, freezer, calls) -> None:
+async def test_actions_and_activity(
+    hass: HomeAssistant, hass_ws_client, freezer, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass, budget=60)
     client = await hass_ws_client(hass)
@@ -40,9 +41,19 @@ async def test_actions_and_activity(hass: HomeAssistant, hass_ws_client, freezer
         await client.send_json_auto_id(msg)
         return await client.receive_json()
 
-    res = await call(type="tv_mgmt/action", entry_id=entry.entry_id, action="grant_extension", minutes=15)
+    res = await call(
+        type="tv_mgmt/action",
+        entry_id=entry.entry_id,
+        action="grant_extension",
+        minutes=15,
+    )
     assert res["success"] and res["result"]["profile"]["extension_minutes"] == 15
-    res = await call(type="tv_mgmt/action", entry_id=entry.entry_id, action="set_mode", mode="monitor_only")
+    res = await call(
+        type="tv_mgmt/action",
+        entry_id=entry.entry_id,
+        action="set_mode",
+        mode="monitor_only",
+    )
     assert res["result"]["profile"]["mode"] == "monitor_only"
     res = await call(type="tv_mgmt/action", entry_id=entry.entry_id, action="set_mode")
     assert not res["success"]
@@ -87,18 +98,28 @@ async def test_limits_get_and_set(hass: HomeAssistant, hass_ws_client, calls) ->
     set_tv(hass)
     entry = await setup(hass, budget=60)
     client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": "tv_mgmt/limits/get", "entry_id": entry.entry_id})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/limits/get", "entry_id": entry.entry_id}
+    )
     res = await client.receive_json()
     assert res["result"]["daily_budget"] == 60
 
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/limits/set", "entry_id": entry.entry_id, "quiet_windows": "bad"}
+        {
+            "type": "tv_mgmt/limits/set",
+            "entry_id": entry.entry_id,
+            "quiet_windows": "bad",
+        }
     )
     assert not (await client.receive_json())["success"]
 
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/limits/set", "entry_id": entry.entry_id, "daily_budget": 90,
-         "quiet_windows": "20:30-07:00 Bedtime"}
+        {
+            "type": "tv_mgmt/limits/set",
+            "entry_id": entry.entry_id,
+            "daily_budget": 90,
+            "quiet_windows": "20:30-07:00 Bedtime",
+        }
     )
     res = await client.receive_json()
     assert res["success"]
@@ -109,7 +130,9 @@ async def test_limits_get_and_set(hass: HomeAssistant, hass_ws_client, calls) ->
     assert entry.runtime_data.daily_budget == 90
 
 
-async def test_writes_need_admin(hass: HomeAssistant, hass_ws_client, hass_read_only_access_token, calls) -> None:
+async def test_writes_need_admin(
+    hass: HomeAssistant, hass_ws_client, hass_read_only_access_token, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass)
     client = await hass_ws_client(hass, hass_read_only_access_token)
@@ -120,7 +143,9 @@ async def test_writes_need_admin(hass: HomeAssistant, hass_ws_client, hass_read_
     assert not res["success"] and res["error"]["code"] == "unauthorized"
 
 
-async def test_subscribe_pushes_updates(hass: HomeAssistant, hass_ws_client, calls) -> None:
+async def test_subscribe_pushes_updates(
+    hass: HomeAssistant, hass_ws_client, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass)
     client = await hass_ws_client(hass)

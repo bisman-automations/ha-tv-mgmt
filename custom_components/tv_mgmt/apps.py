@@ -69,7 +69,10 @@ def format_limits(limits: dict[str, int] | None) -> str:
 
 def _matches(rule: str, app_id: str | None, app_name: str | None) -> bool:
     rule = rule.strip().casefold()
-    return bool(rule) and rule in {(app_id or "").casefold(), (app_name or "").casefold()}
+    return bool(rule) and rule in {
+        (app_id or "").casefold(),
+        (app_name or "").casefold(),
+    }
 
 
 @dataclass
@@ -91,7 +94,9 @@ class AppRules:
     def listed(self, app_id: str | None, app_name: str | None) -> bool:
         return any(_matches(rule, app_id, app_name) for rule in self.apps)
 
-    def check(self, app_id: str | None, app_name: str | None, used_seconds: int) -> str | None:
+    def check(
+        self, app_id: str | None, app_name: str | None, used_seconds: int
+    ) -> str | None:
         """Why this app must be stopped now, or None if it's fine."""
         if is_home(app_id):
             return None

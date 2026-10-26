@@ -80,12 +80,16 @@ def decide(
         return Decision(STATE_ADULT_MODE, remaining_seconds=remaining, limit=limit)
 
     if force_block:
-        return Decision(STATE_ENFORCING, REASON_MANUAL, remaining_seconds=remaining, limit=limit)
+        return Decision(
+            STATE_ENFORCING, REASON_MANUAL, remaining_seconds=remaining, limit=limit
+        )
     if window := active_window(quiet_windows, now):
         return Decision(STATE_ENFORCING, REASON_QUIET, window.name, remaining, limit)
     if remaining is not None:
         if remaining <= 0:
             return Decision(STATE_ENFORCING, limit, remaining_seconds=0, limit=limit)
         if remaining <= warn_minutes * 60:
-            return Decision(STATE_WARNING, limit, remaining_seconds=remaining, limit=limit)
+            return Decision(
+                STATE_WARNING, limit, remaining_seconds=remaining, limit=limit
+            )
     return Decision(STATE_OK, remaining_seconds=remaining, limit=limit)

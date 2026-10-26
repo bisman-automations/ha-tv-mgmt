@@ -359,7 +359,8 @@ async def test_service_auth_failure_disables_and_raises_issue(
     assert issue.translation_key == "metadata_auth_failed"
     service.async_clear_issues()
     assert (
-        ir.async_get(hass).async_get_issue(DOMAIN, "light_sync_metadata_auth_tmdb") is None
+        ir.async_get(hass).async_get_issue(DOMAIN, "light_sync_metadata_auth_tmdb")
+        is None
     )
 
 

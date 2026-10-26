@@ -1,12 +1,14 @@
 """Remote buttons on the sidebar app's dashboard."""
 
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 import pytest
-
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr, entity_registry as er
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from custom_components.tv_mgmt.remote_keys import available_keys, presses
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from tests.ha.test_apple_tv import BOX, REMOTE, set_box, setup_box
 from tests.ha.test_integration import TV, set_tv, setup
 
@@ -14,7 +16,9 @@ from tests.ha.test_integration import TV, set_tv, setup
 TV_FEATURES = 128 | 256 | 1024 | 8
 
 
-def add_tv(hass, platform, *, remote=True, features=TV_FEATURES, state="on", muted=False):
+def add_tv(
+    hass, platform, *, remote=True, features=TV_FEATURES, state="on", muted=False
+):
     """A TV media player from `platform`, with a remote entity on the same device."""
     entry = MockConfigEntry(domain=platform)
     entry.add_to_hass(hass)
@@ -23,15 +27,27 @@ def add_tv(hass, platform, *, remote=True, features=TV_FEATURES, state="on", mut
     )
     registry = er.async_get(hass)
     player = registry.async_get_or_create(
-        "media_player", platform, "tv1", config_entry=entry, device_id=device.id, suggested_object_id="tv"
+        "media_player",
+        platform,
+        "tv1",
+        config_entry=entry,
+        device_id=device.id,
+        suggested_object_id="tv",
     )
     remote_id = None
     if remote:
         remote_id = registry.async_get_or_create(
-            "remote", platform, "tv1", config_entry=entry, device_id=device.id, suggested_object_id="tv"
+            "remote",
+            platform,
+            "tv1",
+            config_entry=entry,
+            device_id=device.id,
+            suggested_object_id="tv",
         ).entity_id
     hass.states.async_set(
-        player.entity_id, state, {"supported_features": features, "is_volume_muted": muted}
+        player.entity_id,
+        state,
+        {"supported_features": features, "is_volume_muted": muted},
     )
     return player.entity_id, remote_id
 
@@ -45,7 +61,9 @@ def add_tv(hass, platform, *, remote=True, features=TV_FEATURES, state="on", mut
         ("braviatv", "Up", "Confirm", "Return"),
     ],
 )
-async def test_remote_entity_platforms(hass: HomeAssistant, platform, up, select, back) -> None:
+async def test_remote_entity_platforms(
+    hass: HomeAssistant, platform, up, select, back
+) -> None:
     player, remote = add_tv(hass, platform)
     keys = presses(hass, player)
     assert keys["up"].domain == "remote" and keys["up"].service == "send_command"
@@ -108,7 +126,9 @@ async def test_ws_remote(hass: HomeAssistant, hass_ws_client, calls, box_calls) 
     client = await hass_ws_client(hass)
 
     async def call(**msg):
-        await client.send_json_auto_id({"type": "tv_mgmt/remote", "entry_id": entry.entry_id, **msg})
+        await client.send_json_auto_id(
+            {"type": "tv_mgmt/remote", "entry_id": entry.entry_id, **msg}
+        )
         return await client.receive_json()
 
     await client.send_json_auto_id({"type": "tv_mgmt/profiles"})
@@ -141,10 +161,19 @@ async def test_ws_remote(hass: HomeAssistant, hass_ws_client, calls, box_calls) 
     assert not res["success"]
 
 
-async def test_ws_remote_needs_admin(hass: HomeAssistant, hass_ws_client, hass_read_only_access_token, calls) -> None:
+async def test_ws_remote_needs_admin(
+    hass: HomeAssistant, hass_ws_client, hass_read_only_access_token, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass)
     client = await hass_ws_client(hass, hass_read_only_access_token)
-    await client.send_json_auto_id({"type": "tv_mgmt/remote", "entry_id": entry.entry_id, "device": "tv", "key": "power"})
+    await client.send_json_auto_id(
+        {
+            "type": "tv_mgmt/remote",
+            "entry_id": entry.entry_id,
+            "device": "tv",
+            "key": "power",
+        }
+    )
     res = await client.receive_json()
     assert not res["success"] and res["error"]["code"] == "unauthorized"

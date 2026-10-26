@@ -89,7 +89,9 @@ def _zones(
     if zone_ref is not None:
         wanted = zone_ref.strip().casefold()
         zones = [
-            z for z in zones if z.zone_id == zone_ref or z.zone_name.casefold() == wanted
+            z
+            for z in zones
+            if z.zone_id == zone_ref or z.zone_name.casefold() == wanted
         ]
         if not zones:
             raise ServiceValidationError(
@@ -157,7 +159,9 @@ def async_setup_services(hass: HomeAssistant) -> None:
         response: dict[str, Any] = {"cleared": dropped}
         if call.data["include_metadata"] and data.metadata is not None:
             response["metadata_cleared"] = await data.metadata.async_clear()
-            LOGGER.info("Metadata cache cleared (%d entries)", response["metadata_cleared"])
+            LOGGER.info(
+                "Metadata cache cleared (%d entries)", response["metadata_cleared"]
+            )
         if call.data["resync"]:
             for zone in _zones(hass, None, None):
                 await zone.async_resync()
@@ -167,7 +171,10 @@ def async_setup_services(hass: HomeAssistant) -> None:
         DOMAIN, SERVICE_SET_TITLE_COLOR, _set_title_color, SET_TITLE_COLOR_SCHEMA
     )
     hass.services.async_register(
-        DOMAIN, SERVICE_REMOVE_TITLE_COLOR, _remove_title_color, REMOVE_TITLE_COLOR_SCHEMA
+        DOMAIN,
+        SERVICE_REMOVE_TITLE_COLOR,
+        _remove_title_color,
+        REMOVE_TITLE_COLOR_SCHEMA,
     )
     hass.services.async_register(
         DOMAIN,

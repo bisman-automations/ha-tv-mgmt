@@ -3,53 +3,56 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
-from typing import Any
-
+from functools import wraps
 import logging
+from typing import Any
 
 import voluptuous as vol
 
-from functools import wraps
-
 from homeassistant.components import websocket_api
-from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError, Unauthorized
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.util import dt as dt_util
 
 from .access import get_access
-from .home import ACTION_TURN_OFF as HOME_ACTION_TURN_OFF, ACTIONS as HOME_ACTIONS, WEEK_STARTS, HomeSettings
-from .home_limits import get_home, notify_targets
 from .activity import hide_adult_detail, overlap_seconds, subtract_periods, summarize
+from .apps import ACTIONS as APP_ACTIONS, APP_MODES
 from .const import (
     CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
     CONF_APP_LIMITS,
-    CONF_BLOCKED_SHOWS,
     CONF_APP_MODE,
     CONF_APPS,
+    CONF_BLOCKED_SHOWS,
     CONF_DAILY_BUDGET,
     CONF_INPUT_NAMES,
     CONF_QUIET_WINDOWS,
     CONF_SLEEP_ON_BLOCK,
+    CONF_TV_LIGHTS,
+    CONF_TV_LIGHTS_FOLLOW,
     CONF_WAKE_WITH_TV,
     CONF_WARN_MINUTES,
     DEFAULT_QUIET_WINDOWS,
     DEFAULT_TV_LIGHTS_FOLLOW,
     DOMAIN,
     SECTION_APPLE_TV,
-    SECTION_LIGHTS,
-    CONF_TV_LIGHTS,
-    CONF_TV_LIGHTS_FOLLOW,
     SECTION_INPUT_LOCK,
+    SECTION_LIGHTS,
     SECTION_SCREEN_TIME,
     SIGNAL_ANY_UPDATED,
 )
+from .home import (
+    ACTION_TURN_OFF as HOME_ACTION_TURN_OFF,
+    ACTIONS as HOME_ACTIONS,
+    WEEK_STARTS,
+    HomeSettings,
+)
+from .home_limits import get_home, notify_targets
 from .manager import TVManager
-from .apps import ACTIONS as APP_ACTIONS, APP_MODES
 from .media import describe
 from .messages import MAX_LENGTH as MAX_MESSAGE_LENGTH, PRESETS as MESSAGE_PRESETS
 from .names import clean_names
@@ -125,8 +128,14 @@ def _managers(hass: HomeAssistant) -> list[TVManager]:
 
 def _manager(hass: HomeAssistant, connection, msg) -> TVManager | None:
     entry = hass.config_entries.async_get_entry(msg["entry_id"])
-    if entry is None or entry.domain != DOMAIN or entry.state is not ConfigEntryState.LOADED:
-        connection.send_error(msg["id"], "not_found", "TV Mgmt profile not found or not loaded")
+    if (
+        entry is None
+        or entry.domain != DOMAIN
+        or entry.state is not ConfigEntryState.LOADED
+    ):
+        connection.send_error(
+            msg["id"], "not_found", "TV Mgmt profile not found or not loaded"
+        )
         return None
     return entry.runtime_data
 
@@ -220,7 +229,9 @@ def apple_tv_summary(manager: TVManager) -> dict[str, Any] | None:
         # Shows, movies and songs played today, most first.
         "media_today": [
             {"show": show, "seconds": secs, "app": state.media_apps.get(show)}
-            for show, secs in sorted(state.media_seconds.items(), key=lambda item: item[1], reverse=True)
+            for show, secs in sorted(
+                state.media_seconds.items(), key=lambda item: item[1], reverse=True
+            )
         ],
         "now_watching": describe(box.media),
         "apps_stopped": state.apps_stopped,
@@ -303,7 +314,9 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
             "date": day.isoformat(),
             "today": dt_util.now().date().isoformat(),
             "first_date": log.first_day,
-            "events": list(reversed(hide_adult_detail(log.events_between(start, end), adult))),
+            "events": list(
+                reversed(hide_adult_detail(log.events_between(start, end), adult))
+            ),
             "segments": segments,
             "viewing_seconds": sum(s["seconds"] for s in segments),
             "app_segments": app_segments,
@@ -368,7 +381,9 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
         {
             CONF_DAILY_BUDGET: manager.daily_budget,
             CONF_WARN_MINUTES: manager.warn_minutes,
-            CONF_QUIET_WINDOWS: manager.options.get(CONF_QUIET_WINDOWS, DEFAULT_QUIET_WINDOWS),
+            CONF_QUIET_WINDOWS: manager.options.get(
+                CONF_QUIET_WINDOWS, DEFAULT_QUIET_WINDOWS
+            ),
             CONF_ADULT_MODE_DURATION: manager.adult_mode_duration,
             CONF_ADULT_MODE_COUNTS: manager.adult_mode_counts,
         },
@@ -396,7 +411,12 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
         return
     changes: dict[str, Any] = {
         key: msg[key]
-        for key in (CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_ADULT_MODE_DURATION, CONF_ADULT_MODE_COUNTS)
+        for key in (
+            CONF_DAILY_BUDGET,
+            CONF_WARN_MINUTES,
+            CONF_ADULT_MODE_DURATION,
+            CONF_ADULT_MODE_COUNTS,
+        )
         if key in msg
     }
     if CONF_QUIET_WINDOWS in msg:
@@ -408,7 +428,10 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
         changes[CONF_QUIET_WINDOWS] = ", ".join(w.format() for w in windows)
 
     entry = manager.entry
-    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options = {
+        key: (dict(value) if isinstance(value, dict) else value)
+        for key, value in entry.options.items()
+    }
     options.setdefault(SECTION_SCREEN_TIME, {}).update(changes)
     # The update listener applies the new limits to the running TV (no reload).
     hass.config_entries.async_update_entry(entry, options=options)
@@ -430,7 +453,10 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
         return
     names = clean_names(msg["names"])
     entry = manager.entry
-    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options = {
+        key: (dict(value) if isinstance(value, dict) else value)
+        for key, value in entry.options.items()
+    }
     options.setdefault(SECTION_INPUT_LOCK, {})[CONF_INPUT_NAMES] = names
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": names})
@@ -456,15 +482,22 @@ def ws_lights_set(hass: HomeAssistant, connection, msg) -> None:
     if "follow" in msg:
         changes[CONF_TV_LIGHTS_FOLLOW] = msg["follow"]
     entry = manager.entry
-    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options = {
+        key: (dict(value) if isinstance(value, dict) else value)
+        for key, value in entry.options.items()
+    }
     section = options.setdefault(SECTION_LIGHTS, {})
     section.update(changes)
-    hass.config_entries.async_update_entry(entry, options=options)  # applied live, no reload
+    hass.config_entries.async_update_entry(
+        entry, options=options
+    )  # applied live, no reload
     connection.send_result(
         msg["id"],
         {
             "lights": list(section.get(CONF_TV_LIGHTS) or []),
-            "follow": bool(section.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)),
+            "follow": bool(
+                section.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)
+            ),
         },
     )
 
@@ -505,17 +538,23 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
     if (manager := _manager(hass, connection, msg)) is None:
         return
     if manager.box is None:
-        connection.send_error(msg["id"], "not_supported", "This TV has no Apple TV linked")
+        connection.send_error(
+            msg["id"], "not_supported", "This TV has no Apple TV linked"
+        )
         return
     changes: dict[str, Any] = {}
     if "mode" in msg:
         changes[CONF_APP_MODE] = msg["mode"]
     if "apps" in msg:
-        changes[CONF_APPS] = list(dict.fromkeys(a.strip() for a in msg["apps"] if a.strip()))
+        changes[CONF_APPS] = list(
+            dict.fromkeys(a.strip() for a in msg["apps"] if a.strip())
+        )
     if "limits" in msg:
         # 0 or blank means no limit for that app.
         changes[CONF_APP_LIMITS] = {
-            app.strip(): minutes for app, minutes in msg["limits"].items() if app.strip() and minutes
+            app.strip(): minutes
+            for app, minutes in msg["limits"].items()
+            if app.strip() and minutes
         }
     if "action" in msg:
         changes[CONF_APP_ACTION] = msg["action"]
@@ -528,7 +567,10 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
             dict.fromkeys(s.strip() for s in msg["blocked_shows"] if s.strip())
         )
     entry = manager.entry
-    options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
+    options = {
+        key: (dict(value) if isinstance(value, dict) else value)
+        for key, value in entry.options.items()
+    }
     options.setdefault(SECTION_APPLE_TV, {}).update(changes)
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": changes})
@@ -566,7 +608,9 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
         elif action == "set_input_lock":
             manager.set_input_lock(msg["enabled"])
     except KeyError as err:
-        connection.send_error(msg["id"], "invalid_format", f"{action} needs {err.args[0]}")
+        connection.send_error(
+            msg["id"], "invalid_format", f"{action} needs {err.args[0]}"
+        )
         return
     connection.send_result(msg["id"], {"profile": profile_summary(manager)})
 
@@ -597,19 +641,27 @@ async def ws_remote(hass: HomeAssistant, connection, msg) -> None:
         return
     try:
         await hass.services.async_call(
-            press.domain, press.service, press.data, blocking=True, context=connection.context(msg)
+            press.domain,
+            press.service,
+            press.data,
+            blocking=True,
+            context=connection.context(msg),
         )
     except Exception as err:  # noqa: BLE001 - report any failure to the panel
         connection.send_error(msg["id"], "press_failed", str(err))
         return
-    connection.send_result(msg["id"], {"key": msg["key"], "service": f"{press.domain}.{press.service}"})
+    connection.send_result(
+        msg["id"], {"key": msg["key"], "service": f"{press.domain}.{press.service}"}
+    )
 
 
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/message",
         vol.Required("entry_id"): str,
-        vol.Required("text"): vol.All(str, vol.Strip, vol.Length(min=1, max=MAX_MESSAGE_LENGTH)),
+        vol.Required("text"): vol.All(
+            str, vol.Strip, vol.Length(min=1, max=MAX_MESSAGE_LENGTH)
+        ),
         vol.Optional("apple_tv", default=False): bool,
         vol.Optional("screen", default=False): bool,
         vol.Optional("speak", default=False): bool,
@@ -624,7 +676,9 @@ async def ws_message(hass: HomeAssistant, connection, msg) -> None:
     targets = manager.message_targets()
     wanted = {key: msg[key] and targets[key] for key in ("apple_tv", "screen", "speak")}
     if not any(wanted.values()):
-        connection.send_error(msg["id"], "not_supported", "Pick where to send the message")
+        connection.send_error(
+            msg["id"], "not_supported", "Pick where to send the message"
+        )
         return
     try:
         sent = await manager.async_send_message(
@@ -635,7 +689,9 @@ async def ws_message(hass: HomeAssistant, connection, msg) -> None:
         return
     except Exception as err:  # noqa: BLE001 - tell the parent what went wrong
         _LOGGER.exception("TV Mgmt couldn't send a message")
-        connection.send_error(msg["id"], "send_failed", f"Couldn't send the message: {err!r}")
+        connection.send_error(
+            msg["id"], "send_failed", f"Couldn't send the message: {err!r}"
+        )
         return
     connection.send_result(msg["id"], {"sent": sent})
 
@@ -648,7 +704,10 @@ def _home_result(hass: HomeAssistant) -> dict[str, Any]:
     return {
         "home": home.summary(),
         "notify_targets": notify_targets(hass),
-        "tvs": [{"entry_id": m.entry.entry_id, "name": m.name} for m in sorted(_managers(hass), key=lambda m: m.name.lower())],
+        "tvs": [
+            {"entry_id": m.entry.entry_id, "name": m.name}
+            for m in sorted(_managers(hass), key=lambda m: m.name.lower())
+        ],
     }
 
 
@@ -665,7 +724,9 @@ def ws_home_get(hass: HomeAssistant, connection, msg) -> None:
         vol.Required("daily_minutes"): vol.All(int, vol.Range(min=0, max=1440)),
         vol.Required("weekly_minutes"): vol.All(int, vol.Range(min=0, max=7 * 1440)),
         vol.Optional("week_start", default="monday"): vol.In(list(WEEK_STARTS)),
-        vol.Optional("warn_minutes", default=10): vol.All(int, vol.Range(min=0, max=120)),
+        vol.Optional("warn_minutes", default=10): vol.All(
+            int, vol.Range(min=0, max=120)
+        ),
         vol.Optional("action", default=HOME_ACTION_TURN_OFF): vol.In(HOME_ACTIONS),
         vol.Optional("notify", default=[]): [str],
         vol.Optional("excluded", default=[]): [str],
@@ -676,7 +737,9 @@ def ws_home_get(hass: HomeAssistant, connection, msg) -> None:
 def ws_home_set(hass: HomeAssistant, connection, msg) -> None:
     """Save the whole home's limits. Every TV applies them straight away."""
     try:
-        settings = HomeSettings.from_dict({k: v for k, v in msg.items() if k not in ("id", "type")})
+        settings = HomeSettings.from_dict(
+            {k: v for k, v in msg.items() if k not in ("id", "type")}
+        )
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_format", str(err))
         return
@@ -694,7 +757,9 @@ def ws_home_set(hass: HomeAssistant, connection, msg) -> None:
 @callback
 def ws_home_extension(hass: HomeAssistant, connection, msg) -> None:
     """Give the whole home extra time today (negative takes time away)."""
-    get_home(hass).grant_extension(msg["minutes"], by=connection.user.name if connection.user else None)
+    get_home(hass).grant_extension(
+        msg["minutes"], by=connection.user.name if connection.user else None
+    )
     connection.send_result(msg["id"], {"home": get_home(hass).summary()})
 
 
@@ -718,9 +783,18 @@ def ws_access_me(hass: HomeAssistant, connection, msg) -> None:
 
 
 async def _people(hass: HomeAssistant) -> list[dict[str, Any]]:
-    users = [u for u in await hass.auth.async_get_users() if not u.system_generated and u.is_active]
+    users = [
+        u
+        for u in await hass.auth.async_get_users()
+        if not u.system_generated and u.is_active
+    ]
     return [
-        {"id": u.id, "name": u.name or u.id, "is_admin": u.is_admin, "is_owner": u.is_owner}
+        {
+            "id": u.id,
+            "name": u.name or u.id,
+            "is_admin": u.is_admin,
+            "is_owner": u.is_owner,
+        }
         for u in sorted(users, key=lambda u: (u.name or "").casefold())
     ]
 
@@ -730,7 +804,8 @@ async def _people(hass: HomeAssistant) -> list[dict[str, Any]]:
 @websocket_api.async_response
 async def ws_access_get(hass: HomeAssistant, connection, msg) -> None:
     connection.send_result(
-        msg["id"], {"user_ids": list(get_access(hass).user_ids), "people": await _people(hass)}
+        msg["id"],
+        {"user_ids": list(get_access(hass).user_ids), "people": await _people(hass)},
     )
 
 
@@ -761,7 +836,9 @@ def ws_subscribe(hass: HomeAssistant, connection, msg) -> None:
 
     @callback
     def forward(entry_id: str) -> None:
-        connection.send_message(websocket_api.event_message(msg["id"], {"entry_id": entry_id}))
+        connection.send_message(
+            websocket_api.event_message(msg["id"], {"entry_id": entry_id})
+        )
 
     connection.subscriptions[msg["id"]] = async_dispatcher_connect(
         hass, SIGNAL_ANY_UPDATED, forward

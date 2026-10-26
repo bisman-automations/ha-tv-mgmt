@@ -33,35 +33,91 @@ DEVICE_APPLE_TV = "apple_tv"
 #   "webostv" -> webostv.button on the media player
 #   "adb"     -> androidtv.adb_command on the media player
 NAV_BY_PLATFORM: dict[str, tuple[str, dict[str, str]]] = {
-    "androidtv_remote": ("remote", {
-        "up": "DPAD_UP", "down": "DPAD_DOWN", "left": "DPAD_LEFT", "right": "DPAD_RIGHT",
-        "select": "DPAD_CENTER", "back": "BACK", "home": "HOME",
-    }),
-    "androidtv": ("adb", {
-        "up": "UP", "down": "DOWN", "left": "LEFT", "right": "RIGHT",
-        "select": "CENTER", "back": "BACK", "home": "HOME",
-    }),
-    "roku": ("remote", {
-        "up": "up", "down": "down", "left": "left", "right": "right",
-        "select": "select", "back": "back", "home": "home",
-    }),
-    "webostv": ("webostv", {
-        "up": "UP", "down": "DOWN", "left": "LEFT", "right": "RIGHT",
-        "select": "ENTER", "back": "BACK", "home": "HOME",
-    }),
-    "samsungtv": ("remote", {
-        "up": "KEY_UP", "down": "KEY_DOWN", "left": "KEY_LEFT", "right": "KEY_RIGHT",
-        "select": "KEY_ENTER", "back": "KEY_RETURN", "home": "KEY_HOME",
-    }),
-    "braviatv": ("remote", {
-        "up": "Up", "down": "Down", "left": "Left", "right": "Right",
-        "select": "Confirm", "back": "Return", "home": "Home",
-    }),
+    "androidtv_remote": (
+        "remote",
+        {
+            "up": "DPAD_UP",
+            "down": "DPAD_DOWN",
+            "left": "DPAD_LEFT",
+            "right": "DPAD_RIGHT",
+            "select": "DPAD_CENTER",
+            "back": "BACK",
+            "home": "HOME",
+        },
+    ),
+    "androidtv": (
+        "adb",
+        {
+            "up": "UP",
+            "down": "DOWN",
+            "left": "LEFT",
+            "right": "RIGHT",
+            "select": "CENTER",
+            "back": "BACK",
+            "home": "HOME",
+        },
+    ),
+    "roku": (
+        "remote",
+        {
+            "up": "up",
+            "down": "down",
+            "left": "left",
+            "right": "right",
+            "select": "select",
+            "back": "back",
+            "home": "home",
+        },
+    ),
+    "webostv": (
+        "webostv",
+        {
+            "up": "UP",
+            "down": "DOWN",
+            "left": "LEFT",
+            "right": "RIGHT",
+            "select": "ENTER",
+            "back": "BACK",
+            "home": "HOME",
+        },
+    ),
+    "samsungtv": (
+        "remote",
+        {
+            "up": "KEY_UP",
+            "down": "KEY_DOWN",
+            "left": "KEY_LEFT",
+            "right": "KEY_RIGHT",
+            "select": "KEY_ENTER",
+            "back": "KEY_RETURN",
+            "home": "KEY_HOME",
+        },
+    ),
+    "braviatv": (
+        "remote",
+        {
+            "up": "Up",
+            "down": "Down",
+            "left": "Left",
+            "right": "Right",
+            "select": "Confirm",
+            "back": "Return",
+            "home": "Home",
+        },
+    ),
     # The Apple TV's "back" is its Menu button.
-    "apple_tv": ("remote", {
-        "up": "up", "down": "down", "left": "left", "right": "right",
-        "select": "select", "back": "menu", "home": "home",
-    }),
+    "apple_tv": (
+        "remote",
+        {
+            "up": "up",
+            "down": "down",
+            "left": "left",
+            "right": "right",
+            "select": "select",
+            "back": "menu",
+            "home": "home",
+        },
+    ),
 }
 
 # Apple TV volume goes through its remote (it drives the TV or receiver).
@@ -111,24 +167,40 @@ def presses(hass: HomeAssistant, entity_id: str) -> dict[str, Press]:
     if platform == "apple_tv":
         if remote:
             for key, command in APPLE_TV_VOLUME.items():
-                keys[key] = Press(REMOTE_DOMAIN, "send_command", {ATTR_ENTITY_ID: remote, ATTR_COMMAND: command})
+                keys[key] = Press(
+                    REMOTE_DOMAIN,
+                    "send_command",
+                    {ATTR_ENTITY_ID: remote, ATTR_COMMAND: command},
+                )
     else:
-        if features & (MediaPlayerEntityFeature.VOLUME_STEP | MediaPlayerEntityFeature.VOLUME_SET):
+        if features & (
+            MediaPlayerEntityFeature.VOLUME_STEP | MediaPlayerEntityFeature.VOLUME_SET
+        ):
             keys[VOLUME_UP] = Press(MEDIA_PLAYER_DOMAIN, "volume_up", target)
             keys[VOLUME_DOWN] = Press(MEDIA_PLAYER_DOMAIN, "volume_down", target)
         if features & MediaPlayerEntityFeature.VOLUME_MUTE:
             muted = bool(state.attributes.get("is_volume_muted"))
-            keys[MUTE] = Press(MEDIA_PLAYER_DOMAIN, "volume_mute", {**target, "is_volume_muted": not muted})
+            keys[MUTE] = Press(
+                MEDIA_PLAYER_DOMAIN,
+                "volume_mute",
+                {**target, "is_volume_muted": not muted},
+            )
 
     if platform in NAV_BY_PLATFORM:
         how, names = NAV_BY_PLATFORM[platform]
         for key, name in names.items():
             if how == "remote" and remote:
-                keys[key] = Press(REMOTE_DOMAIN, "send_command", {ATTR_ENTITY_ID: remote, ATTR_COMMAND: name})
+                keys[key] = Press(
+                    REMOTE_DOMAIN,
+                    "send_command",
+                    {ATTR_ENTITY_ID: remote, ATTR_COMMAND: name},
+                )
             elif how == "webostv":
                 keys[key] = Press("webostv", "button", {**target, "button": name})
             elif how == "adb":
-                keys[key] = Press("androidtv", "adb_command", {**target, "command": name})
+                keys[key] = Press(
+                    "androidtv", "adb_command", {**target, "command": name}
+                )
     return keys
 
 
@@ -140,6 +212,8 @@ def available_keys(hass: HomeAssistant, entity_id: str | None) -> list[str]:
     state = hass.states.get(entity_id)
     if state is not None and POWER not in keys:
         features = int(state.attributes.get("supported_features") or 0)
-        if features & (MediaPlayerEntityFeature.TURN_ON | MediaPlayerEntityFeature.TURN_OFF):
+        if features & (
+            MediaPlayerEntityFeature.TURN_ON | MediaPlayerEntityFeature.TURN_OFF
+        ):
             keys.insert(0, POWER)
     return keys

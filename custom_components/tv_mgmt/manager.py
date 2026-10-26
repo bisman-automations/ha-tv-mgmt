@@ -25,56 +25,54 @@ from .announce import (
 from .apps import ACTION_HOME, APP_MODE_BLOCK, AppRules
 from .backends import TVBackend
 from .const import (
+    ANNOUNCE_GRACE,
     CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
     CONF_ALLOWED_SOURCES,
-    CONF_ENFORCE_ON_POWER_ON,
-    CONF_MAX_ATTEMPTS,
-    CONF_REVERT_DELAY,
-    CONF_TARGET_SOURCE,
-    CONF_APP_ACTION,
-    CONF_APPLE_TV_INPUT,
-    CONF_APP_LIMITS,
-    CONF_BLOCKED_SHOWS,
-    CONF_APP_MODE,
-    CONF_APPS,
-    CONF_DAILY_BUDGET,
-    CONF_INPUT_NAMES,
-    CONF_MEDIA_PLAYER,
-    CONF_MODE_SYNC_ENTITY,
-    CONF_QUIET_WINDOWS,
-    CONF_SLEEP_ON_BLOCK,
-    CONF_WAKE_WITH_TV,
     CONF_ANNOUNCE_AIRPLAY,
     CONF_ANNOUNCE_PLAYERS,
     CONF_ANNOUNCE_SCREEN,
     CONF_ANNOUNCE_TTS,
+    CONF_APP_ACTION,
+    CONF_APP_LIMITS,
+    CONF_APP_MODE,
+    CONF_APPLE_TV_INPUT,
+    CONF_APPS,
+    CONF_BLOCKED_SHOWS,
+    CONF_DAILY_BUDGET,
+    CONF_ENFORCE_ON_POWER_ON,
+    CONF_INPUT_NAMES,
+    CONF_MAX_ATTEMPTS,
+    CONF_MEDIA_PLAYER,
+    CONF_MODE_SYNC_ENTITY,
+    CONF_QUIET_WINDOWS,
+    CONF_REVERT_DELAY,
+    CONF_SLEEP_ON_BLOCK,
+    CONF_STREAMING_PLAYER,
+    CONF_TARGET_SOURCE,
     CONF_TV_LIGHTS,
     CONF_TV_LIGHTS_FOLLOW,
-    SECTION_LIGHTS,
-    ANNOUNCE_GRACE,
-    CONF_STREAMING_PLAYER,
+    CONF_WAKE_WITH_TV,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_COUNTS,
-    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_SLEEP_ON_BLOCK,
+    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_WAKE_WITH_TV,
     DEFAULT_WARN_MINUTES,
     EVENT_APP_BLOCKED,
-    FOLLOW_DELAY,
     EVENT_ENFORCEMENT_CHANGED,
     EVENT_INPUT_BLOCKED,
     EVENT_WARNING,
+    FOLLOW_DELAY,
+    SECTION_LIGHTS,
     SIGNAL_ANY_UPDATED,
     SIGNAL_UPDATED,
     TICK_INTERVAL,
     TURN_OFF_COOLDOWN,
     TURN_OFF_DELAY,
 )
-
-MAX_TURN_OFF_RETRY = 600  # seconds
 from .guard import InputGuard
 from .home_limits import get_home
 from .media import media_key, show_of
@@ -92,6 +90,8 @@ from .state import (
 )
 from .storage import ActivityStore, ProfileState, ProfileStore
 from .streaming import StreamingBox
+
+MAX_TURN_OFF_RETRY = 600  # seconds
 
 if TYPE_CHECKING:
     from .light_sync import LightSync
@@ -115,14 +115,27 @@ def flatten_options(options: dict[str, Any]) -> dict[str, Any]:
 
 
 # Options apply_options() changes in place, by what they feed.
-_INPUT_LOCK_OPTIONS = frozenset({
-    CONF_ALLOWED_SOURCES, CONF_TARGET_SOURCE, CONF_REVERT_DELAY,
-    CONF_ENFORCE_ON_POWER_ON, CONF_MAX_ATTEMPTS, CONF_APPLE_TV_INPUT,
-})
-_APP_RULE_OPTIONS = frozenset({CONF_APP_MODE, CONF_APPS, CONF_APP_LIMITS, CONF_APP_ACTION, CONF_BLOCKED_SHOWS})
-_ANNOUNCE_OPTIONS = frozenset({
-    CONF_ANNOUNCE_TTS, CONF_ANNOUNCE_PLAYERS, CONF_ANNOUNCE_SCREEN, CONF_ANNOUNCE_AIRPLAY,
-})
+_INPUT_LOCK_OPTIONS = frozenset(
+    {
+        CONF_ALLOWED_SOURCES,
+        CONF_TARGET_SOURCE,
+        CONF_REVERT_DELAY,
+        CONF_ENFORCE_ON_POWER_ON,
+        CONF_MAX_ATTEMPTS,
+        CONF_APPLE_TV_INPUT,
+    }
+)
+_APP_RULE_OPTIONS = frozenset(
+    {CONF_APP_MODE, CONF_APPS, CONF_APP_LIMITS, CONF_APP_ACTION, CONF_BLOCKED_SHOWS}
+)
+_ANNOUNCE_OPTIONS = frozenset(
+    {
+        CONF_ANNOUNCE_TTS,
+        CONF_ANNOUNCE_PLAYERS,
+        CONF_ANNOUNCE_SCREEN,
+        CONF_ANNOUNCE_AIRPLAY,
+    }
+)
 # Every option that changes without a reload. The rest are read when needed
 # (limits, warnings, Apple TV sleep and wake, the TV's lights) or rebuilt by
 # apply_options (input names, quiet windows, mode sync).
@@ -131,12 +144,24 @@ _ANNOUNCE_OPTIONS = frozenset({
 # swaps the StreamingBox and its listeners, adds or removes the Apple TV
 # sensors, re-links devices and changes what light sync follows. A changed TV
 # (the entry's data) or name (title) also reloads; the update listener checks.
-LIVE_OPTIONS = frozenset({
-    *_INPUT_LOCK_OPTIONS, *_APP_RULE_OPTIONS, *_ANNOUNCE_OPTIONS,
-    CONF_INPUT_NAMES, CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_QUIET_WINDOWS,
-    CONF_ADULT_MODE_DURATION, CONF_ADULT_MODE_COUNTS, CONF_SLEEP_ON_BLOCK, CONF_WAKE_WITH_TV,
-    CONF_MODE_SYNC_ENTITY, CONF_TV_LIGHTS, CONF_TV_LIGHTS_FOLLOW,
-})
+LIVE_OPTIONS = frozenset(
+    {
+        *_INPUT_LOCK_OPTIONS,
+        *_APP_RULE_OPTIONS,
+        *_ANNOUNCE_OPTIONS,
+        CONF_INPUT_NAMES,
+        CONF_DAILY_BUDGET,
+        CONF_WARN_MINUTES,
+        CONF_QUIET_WINDOWS,
+        CONF_ADULT_MODE_DURATION,
+        CONF_ADULT_MODE_COUNTS,
+        CONF_SLEEP_ON_BLOCK,
+        CONF_WAKE_WITH_TV,
+        CONF_MODE_SYNC_ENTITY,
+        CONF_TV_LIGHTS,
+        CONF_TV_LIGHTS_FOLLOW,
+    }
+)
 
 # _logged_app when the next app must be logged even if it's the one logged last:
 # after adult mode, which didn't log the apps opened in it.
@@ -258,7 +283,9 @@ class TVManager:
         try:
             return parse_windows(self.options.get(CONF_QUIET_WINDOWS, ""))
         except ValueError as err:
-            _LOGGER.error("TV Mgmt %s: ignoring bad quiet windows: %s", self.entry.title, err)
+            _LOGGER.error(
+                "TV Mgmt %s: ignoring bad quiet windows: %s", self.entry.title, err
+            )
             return []
 
     @callback
@@ -272,7 +299,11 @@ class TVManager:
         options outside LIVE_OPTIONS (which Apple TV is linked) need a reload.
         """
         new = flatten_options(options)
-        changed = {key for key in set(new) | set(self.options) if new.get(key) != self.options.get(key)}
+        changed = {
+            key
+            for key in set(new) | set(self.options)
+            if new.get(key) != self.options.get(key)
+        }
         if not changed:
             return True
         if not changed <= LIVE_OPTIONS:
@@ -347,7 +378,9 @@ class TVManager:
 
     @property
     def adult_mode_duration(self) -> int:
-        return int(self.options.get(CONF_ADULT_MODE_DURATION, DEFAULT_ADULT_MODE_DURATION))
+        return int(
+            self.options.get(CONF_ADULT_MODE_DURATION, DEFAULT_ADULT_MODE_DURATION)
+        )
 
     @property
     def adult_mode_active(self) -> bool:
@@ -370,14 +403,23 @@ class TVManager:
     def known_inputs(self) -> list[str]:
         """Every input this TV has reported, most relevant first."""
         seen = [
-            e["source"] for e in reversed(self.activity.events)
-            if e.get("source") and e["type"] in (act.EV_TV_ON, act.EV_INPUT, act.EV_INPUT_BLOCKED)
+            e["source"]
+            for e in reversed(self.activity.events)
+            if e.get("source")
+            and e["type"] in (act.EV_TV_ON, act.EV_INPUT, act.EV_INPUT_BLOCKED)
         ]
         current = [self.backend.current_source] if self.backend.is_on else []
         return [
-            s for s in dict.fromkeys(
-                [*self.guard.allowed_sources, self.guard.target_source, *current, *seen,
-                 *self.backend.source_list, *self.input_names.user]
+            s
+            for s in dict.fromkeys(
+                [
+                    *self.guard.allowed_sources,
+                    self.guard.target_source,
+                    *current,
+                    *seen,
+                    *self.backend.source_list,
+                    *self.input_names.user,
+                ]
             )
             if s
         ]
@@ -426,9 +468,9 @@ class TVManager:
         return self.state.mode == MODE_ENFORCED
 
     def _lock_active(self) -> bool:
-        return (
-            self.state.input_lock
-            and self.decision.state in (STATE_OK, STATE_WARNING)
+        return self.state.input_lock and self.decision.state in (
+            STATE_OK,
+            STATE_WARNING,
         )
 
     @property
@@ -443,11 +485,19 @@ class TVManager:
         self.activity.prune(dt_util.utcnow())
         self._logged_on, self._logged_source = self.activity.last_power
         self._logged_app = next(
-            (e.get("app") for e in reversed(self.activity.events) if e["type"] == act.EV_APP),
+            (
+                e.get("app")
+                for e in reversed(self.activity.events)
+                if e["type"] == act.EV_APP
+            ),
             None,
         )
         self._logged_media = next(
-            (media_key(e) for e in reversed(self.activity.events) if e["type"] == act.EV_MEDIA),
+            (
+                media_key(e)
+                for e in reversed(self.activity.events)
+                if e["type"] == act.EV_MEDIA
+            ),
             None,
         )
         self._rollover_if_needed(dt_util.now())
@@ -458,7 +508,9 @@ class TVManager:
         self._unsubs.append(self.backend.add_listener(self._on_backend_update))
         self._unsubs.append(
             async_track_time_interval(
-                self.hass, self._on_tick, timedelta(seconds=TICK_INTERVAL),
+                self.hass,
+                self._on_tick,
+                timedelta(seconds=TICK_INTERVAL),
                 name=f"tv_mgmt tick {self.name}",
             )
         )
@@ -513,7 +565,9 @@ class TVManager:
         if self.backend.is_on is not None:
             self._tv_was_on = self.backend.is_on
         if (turned_on or turned_off) and self._tv_lights_held_off:
-            self._tv_lights_held_off = False  # a new session: light sync may use them again
+            self._tv_lights_held_off = (
+                False  # a new session: light sync may use them again
+            )
             if self.light_sync:
                 self.light_sync.tv_lights_hold_changed()
         if turned_on:
@@ -573,14 +627,20 @@ class TVManager:
             self.light_sync.tv_lights_turned_on()
         self.hass.async_create_task(
             self.hass.services.async_call(
-                "light", "turn_on" if on else "turn_off", {ATTR_ENTITY_ID: lights}, blocking=False
+                "light",
+                "turn_on" if on else "turn_off",
+                {ATTR_ENTITY_ID: lights},
+                blocking=False,
             )
         )
 
     @callback
     def set_tv_lights_follow(self, enabled: bool) -> None:
         """Save whether the TV lights follow the TV. Applied live (LIVE_OPTIONS)."""
-        options = {k: (dict(v) if isinstance(v, dict) else v) for k, v in self.entry.options.items()}
+        options = {
+            k: (dict(v) if isinstance(v, dict) else v)
+            for k, v in self.entry.options.items()
+        }
         options.setdefault(SECTION_LIGHTS, {})[CONF_TV_LIGHTS_FOLLOW] = bool(enabled)
         self.hass.config_entries.async_update_entry(self.entry, options=options)
 
@@ -603,10 +663,13 @@ class TVManager:
         if self.light_sync:
             await self.light_sync.async_release_tv_lights()
         failed = await async_call_lights(
-            self.hass, {light: (SERVICE_TURN_OFF, {ATTR_ENTITY_ID: light}) for light in lights}
+            self.hass,
+            {light: (SERVICE_TURN_OFF, {ATTR_ENTITY_ID: light}) for light in lights},
         )
         if failed:
-            _LOGGER.warning("TV Mgmt %s: some TV lights didn't turn off: %s", self.name, failed)
+            _LOGGER.warning(
+                "TV Mgmt %s: some TV lights didn't turn off: %s", self.name, failed
+            )
         self._log(act.EV_TV_LIGHTS_OFF, **({"failed": len(failed)} if failed else {}))
         self.notify()
         return {"lights": lights, "failed": failed}
@@ -638,7 +701,9 @@ class TVManager:
         if not self.guard.pinned_source or self._unsub_follow:
             return
         # Give HDMI-CEC a moment: the Apple TV often switches the TV itself.
-        self._unsub_follow = async_call_later(self.hass, FOLLOW_DELAY, self._follow_apple_tv)
+        self._unsub_follow = async_call_later(
+            self.hass, FOLLOW_DELAY, self._follow_apple_tv
+        )
 
     @callback
     def _follow_apple_tv(self, _now: datetime) -> None:
@@ -680,7 +745,13 @@ class TVManager:
         self.store.schedule_save()
         extra = {"show": show} if show else {}
         self._log(
-            act.EV_APP_STOPPED, app=app_id, name=name, reason=reason, action=action, acted=acted, **extra
+            act.EV_APP_STOPPED,
+            app=app_id,
+            name=name,
+            reason=reason,
+            action=action,
+            acted=acted,
+            **extra,
         )
         self.hass.bus.async_fire(
             EVENT_APP_BLOCKED,
@@ -814,19 +885,32 @@ class TVManager:
         self._end_expired_adult_mode()
 
     def _credit_span(
-        self, start: datetime, end: datetime, tv_on: bool, app: str | None, show: str | None
+        self,
+        start: datetime,
+        end: datetime,
+        tv_on: bool,
+        app: str | None,
+        show: str | None,
     ) -> None:
         """Credit [start, end): the part before adult mode ran out as adult mode."""
         until = self.state.adult_mode_until_dt
         if until is not None and start < until:
             adult_end = min(end, until)
-            self._credit(int((adult_end - start).total_seconds()), tv_on, app, show, adult=True)
+            self._credit(
+                int((adult_end - start).total_seconds()), tv_on, app, show, adult=True
+            )
             start = adult_end
         if end > start:
             self._credit(int((end - start).total_seconds()), tv_on, app, show)
 
     def _credit(
-        self, seconds: int, tv_on: bool, app: str | None, show: str | None = None, *, adult: bool = False
+        self,
+        seconds: int,
+        tv_on: bool,
+        app: str | None,
+        show: str | None = None,
+        *,
+        adult: bool = False,
     ) -> None:
         if adult:
             if tv_on:
@@ -842,7 +926,9 @@ class TVManager:
         if app:
             self.state.app_seconds[app] = self.state.app_seconds.get(app, 0) + seconds
         if show:
-            self.state.media_seconds[show] = self.state.media_seconds.get(show, 0) + seconds
+            self.state.media_seconds[show] = (
+                self.state.media_seconds.get(show, 0) + seconds
+            )
 
     @callback
     def _recompute(self, *, fire_events: bool = True) -> None:
@@ -866,10 +952,16 @@ class TVManager:
             return
         if home:
             home.check()
-        if (previous.state, previous.reason) != (self.decision.state, self.decision.reason):
+        if (previous.state, previous.reason) != (
+            self.decision.state,
+            self.decision.reason,
+        ):
             _LOGGER.info(
                 "TV Mgmt %s: %s -> %s (%s)",
-                self.name, previous.state, self.decision.state, self.decision.reason,
+                self.name,
+                previous.state,
+                self.decision.state,
+                self.decision.reason,
             )
             self._log(
                 act.EV_ENFORCEMENT,
@@ -894,14 +986,18 @@ class TVManager:
             if fire_events and self._enforcing_actions() and self.backend.is_on:
                 minutes = round((self.decision.remaining_seconds or 0) / 60)
                 self.announcer.announce(
-                    warning_message(minutes), warning_slide(minutes), airplay_ok=self._box_on()
+                    warning_message(minutes),
+                    warning_slide(minutes),
+                    airplay_ok=self._box_on(),
                 )
             self.hass.bus.async_fire(
                 EVENT_WARNING,
                 {
                     "profile_id": self.entry.entry_id,
                     "tv": self.name,
-                    "remaining_minutes": round((self.decision.remaining_seconds or 0) / 60),
+                    "remaining_minutes": round(
+                        (self.decision.remaining_seconds or 0) / 60
+                    ),
                 },
             )
 
@@ -916,7 +1012,13 @@ class TVManager:
         }
 
     async def async_send_message(
-        self, text: str, *, apple_tv: bool, screen: bool, speak: bool, by: str | None = None
+        self,
+        text: str,
+        *,
+        apple_tv: bool,
+        screen: bool,
+        speak: bool,
+        by: str | None = None,
     ) -> list[str]:
         from .messages import async_send_message
 
@@ -973,7 +1075,9 @@ class TVManager:
                 self._off_announced = True
                 # Give everyone a moment to hear or read it.
                 delay = ANNOUNCE_GRACE
-                self._hold_box_until = dt_util.utcnow() + timedelta(seconds=ANNOUNCE_GRACE)
+                self._hold_box_until = dt_util.utcnow() + timedelta(
+                    seconds=ANNOUNCE_GRACE
+                )
             self._unsub_turn_off = async_call_later(
                 self.hass, delay, self._turn_off_callback
             )
@@ -993,17 +1097,23 @@ class TVManager:
         if self._last_turn_off and (now - self._last_turn_off).total_seconds() < wait:
             # Try again once the wait passes.
             self._unsub_turn_off = async_call_later(
-                self.hass, wait - (now - self._last_turn_off).total_seconds(), self._turn_off_callback
+                self.hass,
+                wait - (now - self._last_turn_off).total_seconds(),
+                self._turn_off_callback,
             )
             return
         self._last_turn_off = now
         self._turn_off_attempts += 1
         if self._turn_off_attempts == 1:
             self._log(act.EV_TURNED_OFF, reason=self.decision.reason)
-            _LOGGER.info("TV Mgmt %s: turning TV off (%s)", self.name, self.decision.reason)
+            _LOGGER.info(
+                "TV Mgmt %s: turning TV off (%s)", self.name, self.decision.reason
+            )
         else:
             _LOGGER.debug(
-                "TV Mgmt %s: TV still on, turning it off again (try %s)", self.name, self._turn_off_attempts
+                "TV Mgmt %s: TV still on, turning it off again (try %s)",
+                self.name,
+                self._turn_off_attempts,
             )
         self.hass.async_create_task(
             self.hass.services.async_call(
@@ -1016,7 +1126,12 @@ class TVManager:
 
     def _retry_delay(self) -> float:
         """15 s, 30 s, 1 min, 2 min ... up to 10 min between tries."""
-        return float(min(TURN_OFF_COOLDOWN * 2 ** max(0, self._turn_off_attempts - 1), MAX_TURN_OFF_RETRY))
+        return float(
+            min(
+                TURN_OFF_COOLDOWN * 2 ** max(0, self._turn_off_attempts - 1),
+                MAX_TURN_OFF_RETRY,
+            )
+        )
 
     @callback
     def _cancel_turn_off(self) -> None:
@@ -1074,7 +1189,9 @@ class TVManager:
         self._count_usage()
         if enabled:
             duration = minutes or self.adult_mode_duration
-            self.state.adult_mode_until = (dt_util.utcnow() + timedelta(minutes=duration)).isoformat()
+            self.state.adult_mode_until = (
+                dt_util.utcnow() + timedelta(minutes=duration)
+            ).isoformat()
             self._log(act.EV_ADULT_MODE, on=True, minutes=duration)
         else:
             was_private = self._adult_private()
@@ -1157,7 +1274,10 @@ class TVManager:
             return
         source = self.backend.current_source if is_on else None
         if is_on != self._logged_on:
-            self._log(act.EV_TV_ON if is_on else act.EV_TV_OFF, **({"source": source} if is_on else {}))
+            self._log(
+                act.EV_TV_ON if is_on else act.EV_TV_OFF,
+                **({"source": source} if is_on else {}),
+            )
         elif is_on and source is not None and source != self._logged_source:
             self._log(act.EV_INPUT, source=source)
         else:

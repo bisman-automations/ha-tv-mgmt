@@ -11,8 +11,8 @@ on any failure.
 
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
-from pathlib import Path
 import os
+from pathlib import Path
 import sys
 import threading
 
@@ -45,7 +45,10 @@ def _checks(page, panel, fail) -> None:
         fail("no Turn TV lights off button next to the TV's power button")
     else:
         lights.click()
-        wait_for("window.lastLightsOff && window.lastLightsOff.entry_id === 'fam'", "Turn TV lights off sent nothing")
+        wait_for(
+            "window.lastLightsOff && window.lastLightsOff.entry_id === 'fam'",
+            "Turn TV lights off sent nothing",
+        )
         wait_for(
             "document.querySelector('tv-mgmt-panel').shadowRoot.querySelector('#tvr-fam').textContent.includes('TV lights off')",
             "no note after turning the TV lights off",
@@ -57,7 +60,10 @@ def _checks(page, panel, fail) -> None:
     zone = "Behind the TV"
     panel.locator(f"button[aria-label='Remove {zone}']").wait_for(timeout=3000)
     panel.locator("button[data-zone-act='resync']").first.click()
-    wait_for("window.lastZoneAction && window.lastZoneAction.zone_id === 'a1'", "Look again didn't name the zone")
+    wait_for(
+        "window.lastZoneAction && window.lastZoneAction.zone_id === 'a1'",
+        "Look again didn't name the zone",
+    )
 
     panel.locator("button[data-zone-edit]").first.click()
     if not panel.locator("#zone-form").count():
@@ -65,7 +71,10 @@ def _checks(page, panel, fail) -> None:
     else:
         panel.locator("#zf-name").fill("Behind the set")
         panel.locator("#zone-form button[type=submit]").click()
-        wait_for("window.lastZone && window.lastZone.zone.id === 'a1'", "saving a zone didn't send its id")
+        wait_for(
+            "window.lastZone && window.lastZone.zone.id === 'a1'",
+            "saving a zone didn't send its id",
+        )
         wait_for(
             "document.querySelector('tv-mgmt-panel').shadowRoot.textContent.includes('Light zone saved')",
             "saving a zone didn't say it was saved",
@@ -73,7 +82,10 @@ def _checks(page, panel, fail) -> None:
         zone = "Behind the set"
 
     panel.locator("input[data-zone-enable='a1']").click(force=True)
-    wait_for("window.lastZone && window.lastZone.zone.enabled === false", "the zone's switch didn't save")
+    wait_for(
+        "window.lastZone && window.lastZone.zone.enabled === false",
+        "the zone's switch didn't save",
+    )
 
     # A remove that fails says so in the Light sync card, and the zone stays.
     page.evaluate("window.failNext = 'zone/remove'")
@@ -81,7 +93,7 @@ def _checks(page, panel, fail) -> None:
     panel.locator("button[data-zone-remove-yes='a1']").click()
     wait_for(
         "[...document.querySelector('tv-mgmt-panel').shadowRoot.querySelectorAll('.card .error')]"
-        ".some((e) => e.textContent.includes(\"Couldn't do that now\"))",
+        '.some((e) => e.textContent.includes("Couldn\'t do that now"))',
         "a failed remove didn't say so next to the zones",
     )
     if not panel.locator("[data-zone-edit='a1']").count():
@@ -89,7 +101,10 @@ def _checks(page, panel, fail) -> None:
 
     panel.locator(f"button[aria-label='Remove {zone}']").click()
     panel.locator("button[data-zone-remove-yes='a1']").click()
-    wait_for("window.lastZoneRemove && window.lastZoneRemove.zone_id === 'a1' && !window.failNext", "Remove didn't remove the zone")
+    wait_for(
+        "window.lastZoneRemove && window.lastZoneRemove.zone_id === 'a1' && !window.failNext",
+        "Remove didn't remove the zone",
+    )
     wait_for(
         "!document.querySelector('tv-mgmt-panel').shadowRoot.querySelector(\"[data-zone-edit='a1']\")",
         "the removed zone is still showing",
@@ -97,7 +112,9 @@ def _checks(page, panel, fail) -> None:
 
 
 def main() -> int:
-    server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_QuietHandler, directory=str(ROOT)))
+    server = ThreadingHTTPServer(
+        ("127.0.0.1", 0), partial(_QuietHandler, directory=str(ROOT))
+    )
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/scripts/panel-preview/index.html"
     errors: list[str] = []
@@ -106,8 +123,17 @@ def main() -> int:
         for w in (360, 390):
             page = browser.new_page(viewport={"width": w, "height": 900})
             page.on("pageerror", lambda e: errors.append(str(e)))
-            page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
-            page.on("dialog", lambda d: (errors.append(f"unexpected dialog: {d.message}"), d.dismiss()))
+            page.on(
+                "console",
+                lambda m: errors.append(m.text) if m.type == "error" else None,
+            )
+            page.on(
+                "dialog",
+                lambda d: (
+                    errors.append(f"unexpected dialog: {d.message}"),
+                    d.dismiss(),
+                ),
+            )
             page.goto(f"{base}?blocked=1&busy=1")
             page.wait_for_timeout(800)
             panel = page.locator("tv-mgmt-panel")

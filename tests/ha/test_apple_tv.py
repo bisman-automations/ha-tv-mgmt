@@ -1,10 +1,9 @@
 from datetime import timedelta
 
-from pytest_homeassistant_custom_component.common import async_fire_time_changed
 import pytest
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 
 from homeassistant.core import HomeAssistant
-
 from tests.ha.test_integration import TV, set_tv, setup
 
 BOX = "media_player.living_room_apple_tv"
@@ -13,12 +12,25 @@ YT = ("com.google.ios.youtube", "YouTube")
 DISNEY = ("com.disney.disneyplus", "Disney+")
 HOME = ("com.apple.HeadBoard", "Home")
 
-LOCK = {"allowed_sources": ["HDMI 2"], "revert_delay": 1, "enforce_on_power_on": True, "max_attempts": 5}
-SCREEN = {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120}
+LOCK = {
+    "allowed_sources": ["HDMI 2"],
+    "revert_delay": 1,
+    "enforce_on_power_on": True,
+    "max_attempts": 5,
+}
+SCREEN = {
+    "daily_budget": 0,
+    "warn_minutes": 5,
+    "quiet_windows": "",
+    "adult_mode_duration": 120,
+}
 
 
 def set_box(hass, app=None, state="playing"):
-    attrs = {"friendly_name": "Living Room Apple TV", "source_list": ["Disney+", "Netflix", "YouTube"]}
+    attrs = {
+        "friendly_name": "Living Room Apple TV",
+        "source_list": ["Disney+", "Netflix", "YouTube"],
+    }
     if app:
         attrs["app_id"], attrs["app_name"] = app
     hass.states.async_set(BOX, state, attrs)
@@ -28,9 +40,18 @@ async def setup_box(hass, **apple_tv):
     options = {
         "input_lock": LOCK,
         "screen_time": SCREEN,
-        "apple_tv": {"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {},
-                     "app_action": "home", "sleep_on_block": True, **apple_tv},
-        "announcements": {}, "lights": {}, "sync": {},
+        "apple_tv": {
+            "streaming_player": BOX,
+            "app_mode": "block",
+            "apps": [],
+            "app_limits": {},
+            "app_action": "home",
+            "sleep_on_block": True,
+            **apple_tv,
+        },
+        "announcements": {},
+        "lights": {},
+        "sync": {},
     }
     return await setup(hass, options=options)
 
@@ -41,11 +62,15 @@ async def tick(hass, freezer, seconds):
     await hass.async_block_till_done()
 
 
-async def test_tracks_time_per_app(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_tracks_time_per_app(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     entry = await setup_box(hass)
-    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state == "YouTube"
+    assert (
+        hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state == "YouTube"
+    )
 
     for _ in range(20):  # 10 minutes
         await tick(hass, freezer, 30)
@@ -54,7 +79,10 @@ async def test_tracks_time_per_app(hass: HomeAssistant, freezer, calls, box_call
     for _ in range(10):  # home screen isn't app time
         await tick(hass, freezer, 30)
 
-    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state == "Home screen"
+    assert (
+        hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state
+        == "Home screen"
+    )
     app_time = hass.states.get("sensor.tv_mgmt_family_room_tv_app_time_today")
     assert float(app_time.state) == pytest.approx(10, abs=0.6)
     assert app_time.attributes["apps"]["YouTube"] == pytest.approx(10, abs=0.6)
@@ -62,10 +90,14 @@ async def test_tracks_time_per_app(hass: HomeAssistant, freezer, calls, box_call
 
     set_box(hass, state="standby")
     await hass.async_block_till_done()
-    assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state == "Asleep"
+    assert (
+        hass.states.get("sensor.tv_mgmt_family_room_tv_current_app").state == "Asleep"
+    )
 
 
-async def test_blocked_app_goes_home(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_blocked_app_goes_home(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, HOME, state="idle")
     entry = await setup_box(hass, apps=["YouTube"])
@@ -80,7 +112,9 @@ async def test_blocked_app_goes_home(hass: HomeAssistant, freezer, calls, box_ca
     set_box(hass, YT)
     await hass.async_block_till_done()
     await tick(hass, freezer, 3)
-    assert [c.data for c in box_calls["remote"]] == [{"entity_id": REMOTE, "command": ["home"]}]
+    assert [c.data for c in box_calls["remote"]] == [
+        {"entity_id": REMOTE, "command": ["home"]}
+    ]
     assert events[0].data["app_name"] == "YouTube"
     assert events[0].data["reason"] == "blocked" and events[0].data["acted"] is True
     assert entry.runtime_data.state.apps_stopped == 1
@@ -125,7 +159,9 @@ async def test_sleep_action(hass: HomeAssistant, freezer, calls, box_calls) -> N
     assert box_calls["remote"] == []
 
 
-async def test_monitor_only_reports_without_acting(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_monitor_only_reports_without_acting(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     events = []
@@ -137,7 +173,9 @@ async def test_monitor_only_reports_without_acting(hass: HomeAssistant, freezer,
     assert len(events) == 1 and events[0].data["acted"] is False
 
 
-async def test_adult_mode_allows_everything(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_adult_mode_allows_everything(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     entry = await setup_box(hass, apps=["YouTube"])
@@ -146,7 +184,9 @@ async def test_adult_mode_allows_everything(hass: HomeAssistant, freezer, calls,
     assert box_calls["remote"] == []
 
 
-async def test_block_puts_apple_tv_to_sleep(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_block_puts_apple_tv_to_sleep(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, DISNEY)
     entry = await setup_box(hass)
@@ -156,7 +196,9 @@ async def test_block_puts_apple_tv_to_sleep(hass: HomeAssistant, freezer, calls,
     assert any(e["type"] == "box_sleep" for e in entry.runtime_data.activity.events)
 
 
-async def test_no_sleep_when_turned_off(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_no_sleep_when_turned_off(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, DISNEY)
     entry = await setup_box(hass, sleep_on_block=False)
@@ -165,7 +207,9 @@ async def test_no_sleep_when_turned_off(hass: HomeAssistant, freezer, calls, box
     assert {"entity_id": BOX} not in [c.data for c in calls["turn_off"]]
 
 
-async def test_without_remote_falls_back_to_sleep(hass: HomeAssistant, freezer, calls) -> None:
+async def test_without_remote_falls_back_to_sleep(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     await setup_box(hass, apps=["YouTube"])
@@ -179,15 +223,29 @@ async def test_no_apple_tv_no_app_sensors(hass: HomeAssistant, calls) -> None:
     assert hass.states.get("sensor.tv_mgmt_family_room_tv_current_app") is None
 
 
-async def test_options_flow_apple_tv_section(hass: HomeAssistant, calls, box_calls) -> None:
+async def test_options_flow_apple_tv_section(
+    hass: HomeAssistant, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     entry = await setup(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
 
-    form = {"input_lock": LOCK, "screen_time": SCREEN, "announcements": {}, "lights": {}, "sync": {},
-            "apple_tv": {"streaming_player": BOX, "app_mode": "allow", "apps": ["Disney+"],
-                         "app_limits": "Disney+ = nope", "app_action": "home", "sleep_on_block": True}}
+    form = {
+        "input_lock": LOCK,
+        "screen_time": SCREEN,
+        "announcements": {},
+        "lights": {},
+        "sync": {},
+        "apple_tv": {
+            "streaming_player": BOX,
+            "app_mode": "allow",
+            "apps": ["Disney+"],
+            "app_limits": "Disney+ = nope",
+            "app_action": "home",
+            "sleep_on_block": True,
+        },
+    }
     bad = await hass.config_entries.options.async_configure(result["flow_id"], form)
     assert bad["errors"] == {"base": "bad_app_limits"}
 
@@ -202,7 +260,9 @@ async def test_options_flow_apple_tv_section(hass: HomeAssistant, calls, box_cal
     assert entry.runtime_data.box.rules.mode == "allow"
 
 
-async def test_panel_api(hass: HomeAssistant, hass_ws_client, freezer, calls, box_calls) -> None:
+async def test_panel_api(
+    hass: HomeAssistant, hass_ws_client, freezer, calls, box_calls
+) -> None:
     set_tv(hass)
     set_box(hass, YT)
     entry = await setup_box(hass, app_limits={"YouTube": 30})
@@ -219,17 +279,27 @@ async def test_panel_api(hass: HomeAssistant, hass_ws_client, freezer, calls, bo
     assert atv["has_remote"] is True
     assert atv["remote_entity"] == REMOTE
 
-    await client.send_json_auto_id({"type": "tv_mgmt/activity", "entry_id": entry.entry_id})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/activity", "entry_id": entry.entry_id}
+    )
     activity = (await client.receive_json())["result"]
     assert activity["app_segments"][0]["name"] == "YouTube"
 
-    await client.send_json_auto_id({"type": "tv_mgmt/analytics", "entry_id": entry.entry_id, "days": 7})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/analytics", "entry_id": entry.entry_id, "days": 7}
+    )
     summary = (await client.receive_json())["result"]["profiles"][0]["summary"]
     assert summary["top_apps"][0]["name"] == "YouTube"
 
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "mode": "allow",
-         "apps": ["Disney+", " "], "limits": {"Disney+": 45, "YouTube": 0}, "action": "sleep"}
+        {
+            "type": "tv_mgmt/apple_tv/set",
+            "entry_id": entry.entry_id,
+            "mode": "allow",
+            "apps": ["Disney+", " "],
+            "limits": {"Disney+": 45, "YouTube": 0},
+            "action": "sleep",
+        }
     )
     assert (await client.receive_json())["success"]
     await hass.async_block_till_done()
@@ -241,16 +311,24 @@ async def test_panel_api(hass: HomeAssistant, hass_ws_client, freezer, calls, bo
     assert entry.runtime_data.box.rules.mode == "allow"
 
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "action": "grant_extension"}
+        {
+            "type": "tv_mgmt/apple_tv/set",
+            "entry_id": entry.entry_id,
+            "action": "grant_extension",
+        }
     )
     assert not (await client.receive_json())["success"]
 
 
-async def test_panel_api_without_apple_tv(hass: HomeAssistant, hass_ws_client, calls) -> None:
+async def test_panel_api_without_apple_tv(
+    hass: HomeAssistant, hass_ws_client, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass)
     client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "mode": "allow"})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "mode": "allow"}
+    )
     res = await client.receive_json()
     assert not res["success"] and res["error"]["code"] == "not_supported"
 
@@ -267,29 +345,55 @@ async def test_diagnostics(hass: HomeAssistant, calls, box_calls) -> None:
     assert diag["apple_tv"]["box_state"]["entity_id"] == BOX
 
 
-async def test_diagnostics_hide_tokens_and_names(hass: HomeAssistant, calls, box_calls) -> None:
+async def test_diagnostics_hide_tokens_and_names(
+    hass: HomeAssistant, calls, box_calls
+) -> None:
     """Picture URLs carry an access token, and notify and speaker targets name people."""
     from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics
 
     set_tv(hass)
     hass.states.async_set(
-        BOX, "playing",
-        {"friendly_name": "Living Room Apple TV", "app_id": YT[0], "app_name": YT[1],
-         "entity_picture": "/api/media_player_proxy/media_player.living_room?token=secret"},
+        BOX,
+        "playing",
+        {
+            "friendly_name": "Living Room Apple TV",
+            "app_id": YT[0],
+            "app_name": YT[1],
+            "entity_picture": "/api/media_player_proxy/media_player.living_room?token=secret",
+        },
     )
     hass.states.async_set(
-        TV, "on",
-        {"friendly_name": "Family Room TV", "source": "HDMI 2", "source_list": ["HDMI 1", "HDMI 2"],
-         "entity_picture": "/api/media_player_proxy/media_player.family_room_tv?token=secret"},
+        TV,
+        "on",
+        {
+            "friendly_name": "Family Room TV",
+            "source": "HDMI 2",
+            "source_list": ["HDMI 1", "HDMI 2"],
+            "entity_picture": "/api/media_player_proxy/media_player.family_room_tv?token=secret",
+        },
     )
-    entry = await setup(hass, options={
-        "input_lock": LOCK, "screen_time": SCREEN,
-        "apple_tv": {"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {},
-                     "app_action": "home", "sleep_on_block": True},
-        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.sams_room"],
-                          "announce_screen": "notify.sams_tv"},
-        "lights": {}, "sync": {},
-    })
+    entry = await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": SCREEN,
+            "apple_tv": {
+                "streaming_player": BOX,
+                "app_mode": "block",
+                "apps": [],
+                "app_limits": {},
+                "app_action": "home",
+                "sleep_on_block": True,
+            },
+            "announcements": {
+                "announce_tts": "tts.piper",
+                "announce_players": ["media_player.sams_room"],
+                "announce_screen": "notify.sams_tv",
+            },
+            "lights": {},
+            "sync": {},
+        },
+    )
     diag = await async_get_config_entry_diagnostics(hass, entry)
     text = repr(diag)
     assert "secret" not in text
@@ -302,22 +406,42 @@ PRIME = ("com.amazon.aiv.AIVApp", "Prime Video")
 
 
 def play(hass, state="playing", **media):
-    attrs = {"friendly_name": "Living Room Apple TV", "app_id": PRIME[0], "app_name": PRIME[1], **media}
+    attrs = {
+        "friendly_name": "Living Room Apple TV",
+        "app_id": PRIME[0],
+        "app_name": PRIME[1],
+        **media,
+    }
     hass.states.async_set(BOX, state, attrs)
 
 
-async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+async def test_tracks_what_is_watched(
+    hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls
+) -> None:
     set_tv(hass)
-    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 14 Learn Vehicle Names")
+    play(
+        hass,
+        media_title="Genevieve's Playhouse",
+        media_artist="Season 2, Ep. 14 Learn Vehicle Names",
+    )
     entry = await setup_box(hass)
     manager = entry.runtime_data
     for _ in range(20):  # 10 minutes playing
         await tick(hass, freezer, 30)
-    play(hass, state="paused", media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 14 Learn Vehicle Names")
+    play(
+        hass,
+        state="paused",
+        media_title="Genevieve's Playhouse",
+        media_artist="Season 2, Ep. 14 Learn Vehicle Names",
+    )
     await hass.async_block_till_done()
     for _ in range(10):  # paused doesn't count
         await tick(hass, freezer, 30)
-    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 15 Colors")
+    play(
+        hass,
+        media_title="Genevieve's Playhouse",
+        media_artist="Season 2, Ep. 15 Colors",
+    )
     await hass.async_block_till_done()
     for _ in range(10):
         await tick(hass, freezer, 30)
@@ -325,7 +449,9 @@ async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_clie
     await hass.async_block_till_done()
     await tick(hass, freezer, 60)
 
-    assert manager.state.media_seconds["Genevieve's Playhouse"] == pytest.approx(15 * 60, abs=40)
+    assert manager.state.media_seconds["Genevieve's Playhouse"] == pytest.approx(
+        15 * 60, abs=40
+    )
     assert manager.state.media_seconds["Moana"] == pytest.approx(60, abs=5)
     media = [e for e in manager.activity.events if e["type"] == "media"]
     assert [(e.get("series"), e.get("episode"), e["title"]) for e in media] == [
@@ -337,7 +463,9 @@ async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_clie
 
     current = hass.states.get("sensor.tv_mgmt_family_room_tv_current_app")
     assert current.attributes["now_watching"] == "Moana"
-    shows = hass.states.get("sensor.tv_mgmt_family_room_tv_app_time_today").attributes["shows"]
+    shows = hass.states.get("sensor.tv_mgmt_family_room_tv_app_time_today").attributes[
+        "shows"
+    ]
     assert list(shows) == ["Genevieve's Playhouse", "Moana"]
 
     client = await hass_ws_client(hass)
@@ -345,13 +473,17 @@ async def test_tracks_what_is_watched(hass: HomeAssistant, freezer, hass_ws_clie
     atv = (await client.receive_json())["result"]["profiles"][0]["apple_tv"]
     assert atv["media_today"][0]["show"] == "Genevieve's Playhouse"
     assert atv["media_today"][0]["app"] == "Prime Video"
-    await client.send_json_auto_id({"type": "tv_mgmt/analytics", "entry_id": entry.entry_id, "days": 7})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/analytics", "entry_id": entry.entry_id, "days": 7}
+    )
     summary = (await client.receive_json())["result"]["profiles"][0]["summary"]
     assert summary["top_media"][0]["show"] == "Genevieve's Playhouse"
     assert summary["top_media"][0]["app"] == "Prime Video"
 
 
-async def test_blocks_shows_and_movies(hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls) -> None:
+async def test_blocks_shows_and_movies(
+    hass: HomeAssistant, freezer, hass_ws_client, calls, box_calls
+) -> None:
     set_tv(hass)
     play(hass, media_title="Cars 2")
     entry = await setup_box(hass, blocked_shows=["Cars", "Genevieve's Playhouse"])
@@ -363,7 +495,11 @@ async def test_blocks_shows_and_movies(hass: HomeAssistant, freezer, hass_ws_cli
     await tick(hass, freezer, 5)
     assert box_calls["remote"] == []
 
-    play(hass, media_title="Genevieve's Playhouse", media_artist="Season 2, Ep. 15 Colors")
+    play(
+        hass,
+        media_title="Genevieve's Playhouse",
+        media_artist="Season 2, Ep. 15 Colors",
+    )
     await hass.async_block_till_done()
     assert manager.box.stop_reason == "show_blocked"
     assert manager.box.stop_show == "Genevieve's Playhouse"
@@ -389,8 +525,14 @@ async def test_blocks_shows_and_movies(hass: HomeAssistant, freezer, hass_ws_cli
     assert atv["rules"]["blocked_shows"] == ["Cars", "Genevieve's Playhouse"]
     assert {"Cars 2", "Genevieve's Playhouse"} <= set(atv["known_shows"])
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/apple_tv/set", "entry_id": entry.entry_id, "blocked_shows": [" Cars 2 ", "Cars 2", ""]}
+        {
+            "type": "tv_mgmt/apple_tv/set",
+            "entry_id": entry.entry_id,
+            "blocked_shows": [" Cars 2 ", "Cars 2", ""],
+        }
     )
     assert (await client.receive_json())["success"]
     await hass.async_block_till_done()
-    assert hass.config_entries.async_get_entry(entry.entry_id).options["apple_tv"]["blocked_shows"] == ["Cars 2"]
+    assert hass.config_entries.async_get_entry(entry.entry_id).options["apple_tv"][
+        "blocked_shows"
+    ] == ["Cars 2"]

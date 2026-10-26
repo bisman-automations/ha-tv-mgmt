@@ -3,14 +3,21 @@
 from datetime import timedelta
 import pathlib
 
-from pytest_homeassistant_custom_component.common import async_fire_time_changed, async_mock_service
+from pytest_homeassistant_custom_component.common import (
+    async_fire_time_changed,
+    async_mock_service,
+)
 
 from homeassistant.core import HomeAssistant
-
 from tests.ha.test_apple_tv import BOX, YT, set_box
 from tests.ha.test_integration import TV, set_tv, setup
 
-LOCK = {"allowed_sources": ["HDMI 2"], "revert_delay": 1, "enforce_on_power_on": True, "max_attempts": 5}
+LOCK = {
+    "allowed_sources": ["HDMI 2"],
+    "revert_delay": 1,
+    "enforce_on_power_on": True,
+    "max_attempts": 5,
+}
 
 
 async def tick(hass, freezer, seconds):
@@ -19,32 +26,53 @@ async def tick(hass, freezer, seconds):
     await hass.async_block_till_done()
 
 
-async def test_warns_then_announces_turning_off(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_warns_then_announces_turning_off(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     speak = async_mock_service(hass, "tts", "speak")
     screen = async_mock_service(hass, "notify", "family_room_tv")
     box_off = calls["turn_off"]
     set_tv(hass)
     set_box(hass, YT)
-    await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 10, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
-        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"],
-                          "announce_screen": "notify.family_room_tv"},
-        "lights": {}, "sync": {},
-    })
+    await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 10,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
+            "announcements": {
+                "announce_tts": "tts.piper",
+                "announce_players": ["media_player.homepod"],
+                "announce_screen": "notify.family_room_tv",
+            },
+            "lights": {},
+            "sync": {},
+        },
+    )
 
     for _ in range(10):  # 5 minutes: 5 left
         await tick(hass, freezer, 30)
     assert [c.data["message"] for c in speak] == ["5 minutes of TV time left."]
     assert speak[0].data["entity_id"] == "tts.piper"
     assert speak[0].data["media_player_entity_id"] == ["media_player.homepod"]
-    assert screen[0].data == {"message": "5 minutes of TV time left.", "title": "TV Mgmt"}
+    assert screen[0].data == {
+        "message": "5 minutes of TV time left.",
+        "title": "TV Mgmt",
+    }
 
     for _ in range(10):  # time's up
         await tick(hass, freezer, 30)
-    assert speak[-1].data["message"] == "TV time is up for today. The TV is turning off."
-    assert screen[-1].data["message"] == "TV time is up for today. The TV is turning off."
+    assert (
+        speak[-1].data["message"] == "TV time is up for today. The TV is turning off."
+    )
+    assert (
+        screen[-1].data["message"] == "TV time is up for today. The TV is turning off."
+    )
     # Nothing is turned off while the message plays...
     await tick(hass, freezer, 5)
     assert box_off == []
@@ -63,18 +91,29 @@ async def test_no_announcements_set(hass: HomeAssistant, freezer, calls) -> None
     assert calls["turn_off"]  # turned off right away, without waiting
 
 
-async def test_airplays_message_to_apple_tv(hass: HomeAssistant, freezer, calls, box_calls) -> None:
+async def test_airplays_message_to_apple_tv(
+    hass: HomeAssistant, freezer, calls, box_calls
+) -> None:
     hass.config.internal_url = "http://homeassistant.local:8123"
     play = async_mock_service(hass, "media_player", "play_media")
     set_tv(hass)
     set_box(hass, YT)
-    await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 10, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
-        "announcements": {"announce_airplay": True},
-        "lights": {}, "sync": {},
-    })
+    await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 10,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {"streaming_player": BOX, "sleep_on_block": True},
+            "announcements": {"announce_airplay": True},
+            "lights": {},
+            "sync": {},
+        },
+    )
     for _ in range(10):
         await tick(hass, freezer, 30)
     assert play[0].data == {
@@ -93,28 +132,46 @@ async def test_airplays_message_to_apple_tv(hass: HomeAssistant, freezer, calls,
 def test_slides_exist() -> None:
     import pathlib
 
-    folder = pathlib.Path(__file__).parents[2] / "custom_components/tv_mgmt/frontend/airplay"
+    folder = (
+        pathlib.Path(__file__).parents[2] / "custom_components/tv_mgmt/frontend/airplay"
+    )
     from custom_components.tv_mgmt.announce import WARN_SLIDE_MINUTES, warning_slide
 
-    names = {"almost-up", "time-up", "quiet-time", *(warning_slide(m) for m in WARN_SLIDE_MINUTES)}
+    names = {
+        "almost-up",
+        "time-up",
+        "quiet-time",
+        *(warning_slide(m) for m in WARN_SLIDE_MINUTES),
+    }
     for name in names:
         assert (folder / f"{name}.mp4").stat().st_size > 10_000
     assert warning_slide(7) == "left-7" and warning_slide(17) == "almost-up"
 
 
-async def test_dashboard_message(hass: HomeAssistant, hass_ws_client, calls, box_calls) -> None:
+async def test_dashboard_message(
+    hass: HomeAssistant, hass_ws_client, calls, box_calls
+) -> None:
     hass.config.internal_url = "http://homeassistant.local:8123"
     play = async_mock_service(hass, "media_player", "play_media")
     screen = async_mock_service(hass, "notify", "family_room_tv")
     set_tv(hass)
     set_box(hass, YT)
-    entry = await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {"streaming_player": BOX},
-        "announcements": {"announce_screen": "notify.family_room_tv"},
-        "lights": {}, "sync": {},
-    })
+    entry = await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {"streaming_player": BOX},
+            "announcements": {"announce_screen": "notify.family_room_tv"},
+            "lights": {},
+            "sync": {},
+        },
+    )
     client = await hass_ws_client(hass)
 
     async def call(**msg):
@@ -122,30 +179,52 @@ async def test_dashboard_message(hass: HomeAssistant, hass_ws_client, calls, box
         return await client.receive_json()
 
     profile = (await call(type="tv_mgmt/profiles"))["result"]["profiles"][0]
-    assert profile["message_targets"] == {"apple_tv": True, "screen": True, "speak": False}
+    assert profile["message_targets"] == {
+        "apple_tv": True,
+        "screen": True,
+        "speak": False,
+    }
     assert "Dinner is ready" in profile["message_presets"]
 
-    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="  Dinner is ready  ",
-                     apple_tv=True, screen=True)
+    res = await call(
+        type="tv_mgmt/message",
+        entry_id=entry.entry_id,
+        text="  Dinner is ready  ",
+        apple_tv=True,
+        screen=True,
+    )
     assert res["success"], res
     assert res["result"]["sent"] == ["apple_tv", "screen"]
     url = play[0].data["media_content_id"]
-    assert url.startswith("http://homeassistant.local:8123/tv_mgmt_messages/") and url.endswith(".mp4")
+    assert url.startswith(
+        "http://homeassistant.local:8123/tv_mgmt_messages/"
+    ) and url.endswith(".mp4")
     assert play[0].data["media_content_type"] == "video"
-    video = pathlib.Path(hass.config.path(".storage", "tv_mgmt_messages", url.rsplit("/", 1)[1]))
+    video = pathlib.Path(
+        hass.config.path(".storage", "tv_mgmt_messages", url.rsplit("/", 1)[1])
+    )
     assert video.stat().st_size > 10_000
     assert screen[0].data == {"message": "Dinner is ready", "title": "TV Mgmt"}
     event = entry.runtime_data.activity.events[-1]
     assert event["type"] == "message" and event["text"] == "Dinner is ready"
 
     # The same message reuses its video.
-    await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="Dinner is ready", apple_tv=True)
+    await call(
+        type="tv_mgmt/message",
+        entry_id=entry.entry_id,
+        text="Dinner is ready",
+        apple_tv=True,
+    )
     assert play[1].data["media_content_id"] == url
 
     # Nowhere to send it.
-    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="Hi", speak=True)
+    res = await call(
+        type="tv_mgmt/message", entry_id=entry.entry_id, text="Hi", speak=True
+    )
     assert not res["success"] and res["error"]["code"] == "not_supported"
-    res = await call(type="tv_mgmt/message", entry_id=entry.entry_id, text="   ", screen=True)
+    res = await call(
+        type="tv_mgmt/message", entry_id=entry.entry_id, text="   ", screen=True
+    )
     assert not res["success"]
 
 
@@ -156,45 +235,77 @@ async def test_send_message_service(hass: HomeAssistant, calls) -> None:
 
     screen = async_mock_service(hass, "notify", "family_room_tv")
     set_tv(hass)
-    entry = await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {},
-        "announcements": {"announce_screen": "notify.family_room_tv"},
-        "lights": {}, "sync": {},
-    })
+    entry = await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {},
+            "announcements": {"announce_screen": "notify.family_room_tv"},
+            "lights": {},
+            "sync": {},
+        },
+    )
     await hass.services.async_call(
-        "tv_mgmt", "send_message", {"profile_id": entry.entry_id, "message": "Time for bed"}, blocking=True
+        "tv_mgmt",
+        "send_message",
+        {"profile_id": entry.entry_id, "message": "Time for bed"},
+        blocking=True,
     )
     assert screen[0].data == {"message": "Time for bed", "title": "TV Mgmt"}
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
-            "tv_mgmt", "send_message",
-            {"profile_id": entry.entry_id, "message": "Hi", "screen": False}, blocking=True,
+            "tv_mgmt",
+            "send_message",
+            {"profile_id": entry.entry_id, "message": "Hi", "screen": False},
+            blocking=True,
         )
 
 
-async def test_tv_that_wont_turn_off_is_announced_once(hass: HomeAssistant, freezer, calls) -> None:
+async def test_tv_that_wont_turn_off_is_announced_once(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     """Issue #1: a TV that can't be reached stays "on", and the bedtime
     announcement used to repeat on the speakers every minute all night."""
     speak = async_mock_service(hass, "tts", "speak")
     set_tv(hass)
-    entry = await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {},
-        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
-        "lights": {}, "sync": {},
-    })
+    entry = await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {},
+            "announcements": {
+                "announce_tts": "tts.piper",
+                "announce_players": ["media_player.homepod"],
+            },
+            "lights": {},
+            "sync": {},
+        },
+    )
     entry.runtime_data.force_block()
     await hass.async_block_till_done()
     for _ in range(120):  # an hour; the TV never reports off
         await tick(hass, freezer, 30)
-    assert [c.data["message"] for c in speak] == ["A parent turned off TV time. The TV is turning off."]
+    assert [c.data["message"] for c in speak] == [
+        "A parent turned off TV time. The TV is turning off."
+    ]
     # It keeps trying to turn the TV off, but backs off to every 10 minutes.
     tries = [c for c in calls["turn_off"] if c.data["entity_id"] == TV]
     assert 5 <= len(tries) <= 12
-    turned_off_events = [e for e in entry.runtime_data.activity.events if e["type"] == "turned_off"]
+    turned_off_events = [
+        e for e in entry.runtime_data.activity.events if e["type"] == "turned_off"
+    ]
     assert len(turned_off_events) == 1
 
     # Once the TV is off, turning it back on during the block is announced again.
@@ -206,16 +317,30 @@ async def test_tv_that_wont_turn_off_is_announced_once(hass: HomeAssistant, free
     assert len(speak) == 2
 
 
-async def test_unreachable_tv_isnt_announced(hass: HomeAssistant, freezer, calls) -> None:
+async def test_unreachable_tv_isnt_announced(
+    hass: HomeAssistant, freezer, calls
+) -> None:
     speak = async_mock_service(hass, "tts", "speak")
     set_tv(hass, state="unavailable", source=None)
-    entry = await setup(hass, options={
-        "input_lock": LOCK,
-        "screen_time": {"daily_budget": 0, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {},
-        "announcements": {"announce_tts": "tts.piper", "announce_players": ["media_player.homepod"]},
-        "lights": {}, "sync": {},
-    })
+    entry = await setup(
+        hass,
+        options={
+            "input_lock": LOCK,
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "apple_tv": {},
+            "announcements": {
+                "announce_tts": "tts.piper",
+                "announce_players": ["media_player.homepod"],
+            },
+            "lights": {},
+            "sync": {},
+        },
+    )
     entry.runtime_data.force_block()
     for _ in range(20):
         await tick(hass, freezer, 30)
@@ -223,7 +348,9 @@ async def test_unreachable_tv_isnt_announced(hass: HomeAssistant, freezer, calls
     assert [c for c in calls["turn_off"] if c.data["entity_id"] == TV] == []
 
 
-async def test_ffmpeg_is_looked_up_off_the_event_loop_once(hass: HomeAssistant, monkeypatch) -> None:
+async def test_ffmpeg_is_looked_up_off_the_event_loop_once(
+    hass: HomeAssistant, monkeypatch
+) -> None:
     """Without Home Assistant's ffmpeg, the PATH is searched in an executor, and only once."""
     import threading
 

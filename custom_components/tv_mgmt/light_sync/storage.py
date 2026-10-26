@@ -41,14 +41,14 @@ from .const import (
     CONF_ZONE_ID,
     DOMAIN,
     FUZZY_MATCH_CUTOFF,
-    SETTINGS_DEFAULTS,
-    STORAGE_KEY_CONFIG,
-    ZONE_DEFAULTS,
     IMAGE_CACHE_SIZE,
     LOGGER,
+    SETTINGS_DEFAULTS,
     SIGNAL_TITLE_COLORS_UPDATED,
+    STORAGE_KEY_CONFIG,
     STORAGE_KEY_TITLES,
     STORAGE_VERSION,
+    ZONE_DEFAULTS,
 )
 
 if TYPE_CHECKING:
@@ -94,7 +94,7 @@ class TitleColorStore:
                     rgb_color=list(clamp_rgb(record["rgb_color"])),
                     updated=str(record.get("updated", "")),
                 )
-            except (KeyError, TypeError, ValueError):
+            except KeyError, TypeError, ValueError:
                 LOGGER.warning("Skipping invalid title colour record %r", key)
         LOGGER.debug("Loaded %d title colour mappings", len(self._titles))
 
@@ -262,7 +262,9 @@ class LightSyncConfig:
             for entry_id, items in zones.items():
                 if isinstance(items, list):
                     self._zones[str(entry_id)] = [
-                        dict(z) for z in items if isinstance(z, dict) and z.get(CONF_ZONE_ID)
+                        dict(z)
+                        for z in items
+                        if isinstance(z, dict) and z.get(CONF_ZONE_ID)
                     ]
 
     def _data(self) -> dict[str, Any]:
@@ -300,7 +302,9 @@ class LightSyncConfig:
     async def async_save_zone(self, entry_id: str, zone: dict[str, Any]) -> None:
         """Add a zone, or replace the one with the same id (keeping its place)."""
         zones = self._zones.setdefault(entry_id, [])
-        clean = {k: v for k, v in zone.items() if k in ZONE_DEFAULTS or k in _ZONE_IDENTITY}
+        clean = {
+            k: v for k, v in zone.items() if k in ZONE_DEFAULTS or k in _ZONE_IDENTITY
+        }
         for index, existing in enumerate(zones):
             if existing.get(CONF_ZONE_ID) == clean[CONF_ZONE_ID]:
                 zones[index] = clean

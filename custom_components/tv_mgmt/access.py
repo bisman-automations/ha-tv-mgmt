@@ -25,7 +25,9 @@ DATA_ACCESS = f"{DOMAIN}_access"
 class Access:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.access")
+        self._store: Store[dict[str, Any]] = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}.access"
+        )
         self.user_ids: list[str] = []
 
     async def async_load(self) -> None:

@@ -14,7 +14,11 @@ from slides import AMBER, BLUE, RED, render, to_video  # noqa: E402
 OUT = Path("custom_components/tv_mgmt/frontend/airplay")
 
 SLIDES = {
-    "almost-up": ("TV time is almost up", "Finish what you're watching. The TV turns off soon.", AMBER),
+    "almost-up": (
+        "TV time is almost up",
+        "Finish what you're watching. The TV turns off soon.",
+        AMBER,
+    ),
     "time-up": ("TV time is up", "The TV is turning off now.", RED),
     "quiet-time": ("It's quiet time", "The TV is turning off now.", BLUE),
 }
@@ -36,7 +40,9 @@ def main() -> None:
         to_video(image, OUT / f"{name}.mp4")
         if not name.startswith("left-") or name == "left-5":
             # Previews for the README.
-            image.resize((image.width // 2, image.height // 2)).save(DOCS / f"airplay-{name}.jpg", quality=85)
+            image.resize((image.width // 2, image.height // 2)).save(
+                DOCS / f"airplay-{name}.jpg", quality=85
+            )
 
 
 if __name__ == "__main__":

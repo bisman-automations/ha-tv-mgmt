@@ -59,10 +59,10 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping
-import time
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from enum import StrEnum
+import time
 from typing import Any
 
 import aiohttp
@@ -143,28 +143,29 @@ from .color import (
     normalize_title,
 )
 from .const import (
+    BLOCK_SUPPRESS,
     CONF_BRIGHTNESS_PCT,
     CONF_COLOR_MODE,
     CONF_COLOR_SOURCES,
     CONF_DARK_THRESHOLD,
     CONF_DEFAULT_COLOR,
+    CONF_ENABLED,
     CONF_EXPAND_GROUPS,
+    CONF_EXTRA_PLAYERS,
     CONF_EXTRACTION_METHOD,
     CONF_FUZZY_TITLE_MATCH,
     CONF_LIGHT_THRESHOLD,
-    CONF_ENABLED,
-    CONF_EXTRA_PLAYERS,
     CONF_LIGHTS,
     CONF_MEDIA_TYPES,
     CONF_METADATA_ARTWORK,
-    CONF_NAME,
-    CONF_REQUIRE_TV_ON,
     CONF_MIN_BRIGHTNESS,
     CONF_MIN_SATURATION,
+    CONF_NAME,
     CONF_PALETTE_SIZE,
     CONF_PALETTE_STRATEGY,
     CONF_PAUSE_BEHAVIOR,
     CONF_PERSIST_SNAPSHOT,
+    CONF_REQUIRE_TV_ON,
     CONF_RESTORE_DELAY,
     CONF_SATURATION_BOOST,
     CONF_SKIP_ACHROMATIC,
@@ -174,7 +175,6 @@ from .const import (
     CONF_USE_APPLE_TV,
     CONF_USE_TV_PLAYER,
     CONF_ZONE_ID,
-    BLOCK_SUPPRESS,
     DOMAIN,
     EVALUATE_DEBOUNCE,
     GENRE_ATTRIBUTES,
@@ -228,7 +228,6 @@ RELEVANT_PLAYER_ATTRS: tuple[str, ...] = (
 )
 UNAVAILABLE_STATES = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 _MEDIA_PLAYER_PROXY_PATH = "/api/media_player_proxy/"
-
 
 
 class ZoneLink:
@@ -723,7 +722,9 @@ class LightZone(DataUpdateCoordinator[SyncState]):
             for entity_id in dropped:
                 self._snapshot.pop(entity_id)
             if dropped:
-                LOGGER.debug("%s: TV lights turned off, not restoring %s", self.label, dropped)
+                LOGGER.debug(
+                    "%s: TV lights turned off, not restoring %s", self.label, dropped
+                )
                 await self._async_save_snapshot()
         self.async_set_updated_data(self._state)
 
@@ -823,7 +824,9 @@ class LightZone(DataUpdateCoordinator[SyncState]):
     async def _async_release(self, lights: set[str]) -> None:
         """Restore lights that were removed from the zone while syncing."""
         async with self._lock:
-            part = {e: self._snapshot.pop(e) for e in list(self._snapshot) if e in lights}
+            part = {
+                e: self._snapshot.pop(e) for e in list(self._snapshot) if e in lights
+            }
             if not part:
                 return
             failed = await async_restore_snapshot(
@@ -1644,9 +1647,7 @@ class LightZone(DataUpdateCoordinator[SyncState]):
                 await self._async_run_idle_behavior(behavior, session_end=session_end)
                 self.async_set_updated_data(self._state)
 
-        LOGGER.debug(
-            "%s: scheduling %s in %.1fs", self.label, behavior, delay
-        )
+        LOGGER.debug("%s: scheduling %s in %.1fs", self.label, behavior, delay)
         self._idle_unsub = async_call_later(
             self.hass, max(delay, 0.0), HassJob(_run, cancel_on_shutdown=True)
         )
@@ -1893,7 +1894,9 @@ async def async_remove_zone_snapshots(
     """A TV was deleted: restore its zones' saved light states, then drop them."""
     for zone in zones:
         store: Store[dict[str, Any]] = Store(
-            hass, STORAGE_VERSION, f"{STORAGE_KEY_SNAPSHOT}.{entry_id}_{zone[CONF_ZONE_ID]}"
+            hass,
+            STORAGE_VERSION,
+            f"{STORAGE_KEY_SNAPSHOT}.{entry_id}_{zone[CONF_ZONE_ID]}",
         )
         data = await store.async_load() or {}
         snapshot = data.get("lights")

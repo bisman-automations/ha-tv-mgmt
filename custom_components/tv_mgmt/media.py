@@ -13,7 +13,8 @@ from typing import Any
 # Some apps (Prime Video) put the show in the title and the episode in the
 # artist: "Season 2, Ep. 14 Learn Vehicle Names with Transforming Robots!"
 _EPISODE_IN_ARTIST = re.compile(
-    r"^\s*(?:Season|S)\s*(\d+)\s*,?\s*(?:Episode|Ep\.?|E)\s*(\d+)\s*[:.\-–—]?\s*(.*)$", re.IGNORECASE
+    r"^\s*(?:Season|S)\s*(\d+)\s*,?\s*(?:Episode|Ep\.?|E)\s*(\d+)\s*[:.\-–—]?\s*(.*)$",
+    re.IGNORECASE,
 )
 
 PLAYING = "playing"
@@ -47,11 +48,17 @@ def media_from(state: str | None, attributes: dict[str, Any]) -> dict[str, Any] 
     if not (title or series):
         return None
     media: dict[str, Any] = {"title": title}
-    episode_in_artist = _EPISODE_IN_ARTIST.match(artist) if artist and not series else None
+    episode_in_artist = (
+        _EPISODE_IN_ARTIST.match(artist) if artist and not series else None
+    )
     if episode_in_artist and title:
         season, episode, episode_title = episode_in_artist.groups()
-        media = {"series": title, "season": int(season), "episode": int(episode),
-                 "title": _clean(episode_title) or title}
+        media = {
+            "series": title,
+            "season": int(season),
+            "episode": int(episode),
+            "title": _clean(episode_title) or title,
+        }
     elif series:
         media["series"] = series
         media["season"] = _number(attributes.get("media_season"))
@@ -74,7 +81,13 @@ def media_key(media: dict[str, Any] | None) -> tuple | None:
     """Identity of one episode, movie or song, to tell when it changes."""
     if not media:
         return None
-    return (media.get("series"), media.get("season"), media.get("episode"), media.get("title"), media.get("artist"))
+    return (
+        media.get("series"),
+        media.get("season"),
+        media.get("episode"),
+        media.get("title"),
+        media.get("artist"),
+    )
 
 
 def describe(media: dict[str, Any] | None) -> str | None:
@@ -84,10 +97,16 @@ def describe(media: dict[str, Any] | None) -> str | None:
     if series := media.get("series"):
         parts = [series]
         se = ", ".join(
-            p for p in (
-                f"Season {media['season']}" if media.get("season") is not None else None,
-                f"Episode {media['episode']}" if media.get("episode") is not None else None,
-            ) if p
+            p
+            for p in (
+                f"Season {media['season']}"
+                if media.get("season") is not None
+                else None,
+                f"Episode {media['episode']}"
+                if media.get("episode") is not None
+                else None,
+            )
+            if p
         )
         if se:
             parts.append(f", {se}")
@@ -101,7 +120,9 @@ def describe(media: dict[str, Any] | None) -> str | None:
     return title
 
 
-def blocked_show(media: dict[str, Any] | None, blocked: list[str] | tuple[str, ...]) -> str | None:
+def blocked_show(
+    media: dict[str, Any] | None, blocked: list[str] | tuple[str, ...]
+) -> str | None:
     """The blocked show or movie this is, if any: its series or title, ignoring case.
 
     Whole names only, so blocking "Cars" doesn't block "Cars 2".

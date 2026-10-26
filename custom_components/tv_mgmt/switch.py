@@ -19,7 +19,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     manager = entry.runtime_data
-    async_add_entities([InputLockSwitch(manager), AdultModeSwitch(manager), TVLightsFollowSwitch(manager)])
+    async_add_entities(
+        [
+            InputLockSwitch(manager),
+            AdultModeSwitch(manager),
+            TVLightsFollowSwitch(manager),
+        ]
+    )
     if (light_sync := entry.runtime_data.light_sync) is not None:
         light_sync.register_platform(FACTORIES["switch"], async_add_entities)
 
@@ -92,7 +98,10 @@ class TVLightsFollowSwitch(TVMgmtEntity, SwitchEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"lights": self.manager.tv_lights, "held_off": self.manager.tv_lights_held_off}
+        return {
+            "lights": self.manager.tv_lights,
+            "held_off": self.manager.tv_lights_held_off,
+        }
 
     async def async_turn_on(self, **kwargs: Any) -> None:
         await self._ensure_allowed()

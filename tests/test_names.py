@@ -1,5 +1,4 @@
 import pytest
-
 from tv_mgmt_pure.names import InputNames, clean_names, format_names, parse_names
 
 

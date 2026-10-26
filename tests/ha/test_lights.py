@@ -3,17 +3,26 @@
 from pytest_homeassistant_custom_component.common import async_mock_service
 
 from homeassistant.core import HomeAssistant
-
 from tests.ha.test_integration import set_tv, setup
 
 LIGHTS = ["light.tv_backlight", "light.lamp"]
-LOCK = {"allowed_sources": ["HDMI 2"], "revert_delay": 1, "enforce_on_power_on": True, "max_attempts": 5}
+LOCK = {
+    "allowed_sources": ["HDMI 2"],
+    "revert_delay": 1,
+    "enforce_on_power_on": True,
+    "max_attempts": 5,
+}
 
 
 def options(lights=LIGHTS, budget=0):
     return {
         "input_lock": LOCK,
-        "screen_time": {"daily_budget": budget, "warn_minutes": 5, "quiet_windows": "", "adult_mode_duration": 120},
+        "screen_time": {
+            "daily_budget": budget,
+            "warn_minutes": 5,
+            "quiet_windows": "",
+            "adult_mode_duration": 120,
+        },
         "apple_tv": {},
         "announcements": {},
         "lights": {"tv_lights": lights},
@@ -57,23 +66,38 @@ async def test_blocked_tv_doesnt_turn_lights_on(hass: HomeAssistant, calls) -> N
     assert on == []
 
 
-async def test_set_lights_from_the_sidebar_app(hass: HomeAssistant, hass_ws_client, calls) -> None:
+async def test_set_lights_from_the_sidebar_app(
+    hass: HomeAssistant, hass_ws_client, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass, options=options(lights=[]))
     client = await hass_ws_client(hass)
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/lights/set", "entry_id": entry.entry_id, "lights": ["light.lamp", "light.lamp"]}
+        {
+            "type": "tv_mgmt/lights/set",
+            "entry_id": entry.entry_id,
+            "lights": ["light.lamp", "light.lamp"],
+        }
     )
-    assert (await client.receive_json())["result"] == {"lights": ["light.lamp"], "follow": True}
+    assert (await client.receive_json())["result"] == {
+        "lights": ["light.lamp"],
+        "follow": True,
+    }
     await hass.async_block_till_done()
     entry = hass.config_entries.async_get_entry(entry.entry_id)
     assert entry.options["lights"] == {"tv_lights": ["light.lamp"]}
     assert entry.runtime_data.tv_lights == ["light.lamp"]
     await client.send_json_auto_id({"type": "tv_mgmt/profiles"})
-    assert (await client.receive_json())["result"]["profiles"][0]["tv_lights"] == ["light.lamp"]
+    assert (await client.receive_json())["result"]["profiles"][0]["tv_lights"] == [
+        "light.lamp"
+    ]
     # Only lights.
     await client.send_json_auto_id(
-        {"type": "tv_mgmt/lights/set", "entry_id": entry.entry_id, "lights": ["switch.heater"]}
+        {
+            "type": "tv_mgmt/lights/set",
+            "entry_id": entry.entry_id,
+            "lights": ["switch.heater"],
+        }
     )
     assert not (await client.receive_json())["success"]
 
@@ -89,7 +113,9 @@ async def test_turn_off_now(hass: HomeAssistant, hass_ws_client, calls) -> None:
     set_tv(hass)
     entry = await setup(hass, options=options())
     client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": "tv_mgmt/lights/off", "entry_id": entry.entry_id})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/lights/off", "entry_id": entry.entry_id}
+    )
     res = (await client.receive_json())["result"]
     assert res["lights"] == LIGHTS and res["failed"] == {}
     assert res["profile"]["tv_lights_held_off"] is True
@@ -99,11 +125,17 @@ async def test_turn_off_now(hass: HomeAssistant, hass_ws_client, calls) -> None:
 
     # The button and the service do the same.
     off.clear()
-    await hass.services.async_call("button", "press", {"entity_id": BUTTON}, blocking=True)
+    await hass.services.async_call(
+        "button", "press", {"entity_id": BUTTON}, blocking=True
+    )
     assert len(off) == 2
     off.clear()
     result = await hass.services.async_call(
-        "tv_mgmt", "turn_off_tv_lights", {"profile_id": entry.entry_id}, blocking=True, return_response=True
+        "tv_mgmt",
+        "turn_off_tv_lights",
+        {"profile_id": entry.entry_id},
+        blocking=True,
+        return_response=True,
     )
     assert result == {"lights": LIGHTS, "failed": {}} and len(off) == 2
 
@@ -113,7 +145,9 @@ async def test_turn_off_now(hass: HomeAssistant, hass_ws_client, calls) -> None:
     assert entry.runtime_data.tv_lights_held_off is False
 
 
-async def test_turn_off_reports_a_light_that_failed(hass: HomeAssistant, hass_ws_client, calls) -> None:
+async def test_turn_off_reports_a_light_that_failed(
+    hass: HomeAssistant, hass_ws_client, calls
+) -> None:
     from homeassistant.exceptions import HomeAssistantError
 
     done = []
@@ -127,11 +161,16 @@ async def test_turn_off_reports_a_light_that_failed(hass: HomeAssistant, hass_ws
     set_tv(hass)
     entry = await setup(hass, options=options())
     client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": "tv_mgmt/lights/off", "entry_id": entry.entry_id})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/lights/off", "entry_id": entry.entry_id}
+    )
     res = (await client.receive_json())["result"]
     assert done == ["light.tv_backlight"]  # the other light still went off
     assert res["failed"] == {"light.lamp": "Lamp is offline"}
-    assert entry.runtime_data.activity.events[-1] == {**entry.runtime_data.activity.events[-1], "failed": 1}
+    assert entry.runtime_data.activity.events[-1] == {
+        **entry.runtime_data.activity.events[-1],
+        "failed": 1,
+    }
 
 
 async def test_nothing_to_turn_off(hass: HomeAssistant, hass_ws_client, calls) -> None:
@@ -140,11 +179,16 @@ async def test_nothing_to_turn_off(hass: HomeAssistant, hass_ws_client, calls) -
     entry = await setup(hass, options=options(lights=[]))
     assert hass.states.get(BUTTON).state == "unavailable"
     assert hass.states.get(FOLLOW).state == "unavailable"
-    assert await entry.runtime_data.async_turn_off_tv_lights() == {"lights": [], "failed": {}}
+    assert await entry.runtime_data.async_turn_off_tv_lights() == {
+        "lights": [],
+        "failed": {},
+    }
     assert off == []
 
 
-async def test_follow_can_be_turned_off_live(hass: HomeAssistant, hass_ws_client, calls) -> None:
+async def test_follow_can_be_turned_off_live(
+    hass: HomeAssistant, hass_ws_client, calls
+) -> None:
     from unittest.mock import patch
 
     on = async_mock_service(hass, "light", "turn_on")
@@ -154,7 +198,9 @@ async def test_follow_can_be_turned_off_live(hass: HomeAssistant, hass_ws_client
     manager = entry.runtime_data
     assert hass.states.get(FOLLOW).state == "on"
     with patch.object(hass.config_entries, "async_reload") as reload:
-        await hass.services.async_call("switch", "turn_off", {"entity_id": FOLLOW}, blocking=True)
+        await hass.services.async_call(
+            "switch", "turn_off", {"entity_id": FOLLOW}, blocking=True
+        )
         await hass.async_block_till_done()
     reload.assert_not_called()
     assert entry.runtime_data is manager
@@ -170,7 +216,9 @@ async def test_follow_can_be_turned_off_live(hass: HomeAssistant, hass_ws_client
 
     # And back on from the sidebar app.
     client = await hass_ws_client(hass)
-    await client.send_json_auto_id({"type": "tv_mgmt/lights/set", "entry_id": entry.entry_id, "follow": True})
+    await client.send_json_auto_id(
+        {"type": "tv_mgmt/lights/set", "entry_id": entry.entry_id, "follow": True}
+    )
     assert (await client.receive_json())["result"] == {"lights": LIGHTS, "follow": True}
     await hass.async_block_till_done()
     assert entry.options["lights"]["tv_lights"] == LIGHTS  # the lights are kept
@@ -178,4 +226,6 @@ async def test_follow_can_be_turned_off_live(hass: HomeAssistant, hass_ws_client
     await hass.async_block_till_done()
     assert [c.data for c in on] == [{"entity_id": LIGHTS}]
     await client.send_json_auto_id({"type": "tv_mgmt/profiles"})
-    assert (await client.receive_json())["result"]["profiles"][0]["tv_lights_follow"] is True
+    assert (await client.receive_json())["result"]["profiles"][0][
+        "tv_lights_follow"
+    ] is True

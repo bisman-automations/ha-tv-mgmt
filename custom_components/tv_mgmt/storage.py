@@ -43,7 +43,9 @@ class ProfileState:
     last_stopped_app: str | None = None
     last_stopped_at: str | None = None
     known_apps: dict[str, str] = field(default_factory=dict)  # app ID -> name, kept
-    media_seconds: dict[str, int] = field(default_factory=dict)  # today, by show or title
+    media_seconds: dict[str, int] = field(
+        default_factory=dict
+    )  # today, by show or title
     media_apps: dict[str, str] = field(default_factory=dict)  # show -> app name, kept
 
     def reset_day(self, day: date) -> None:
@@ -61,7 +63,11 @@ class ProfileState:
 
     @property
     def adult_mode_until_dt(self) -> datetime | None:
-        return datetime.fromisoformat(self.adult_mode_until) if self.adult_mode_until else None
+        return (
+            datetime.fromisoformat(self.adult_mode_until)
+            if self.adult_mode_until
+            else None
+        )
 
 
 class ProfileStore:

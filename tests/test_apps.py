@@ -1,5 +1,4 @@
 import pytest
-
 from tv_mgmt_pure.apps import (
     APP_MODE_ALLOW,
     APP_MODE_BLOCK,

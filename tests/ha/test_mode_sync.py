@@ -1,9 +1,11 @@
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_mock_service,
+)
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.setup import async_setup_component
-
 from tests.ha.test_integration import DOMAIN, TV, set_tv
 
 ATV_MODE = "select.apple_tv_mgmt_living_room_mode"
@@ -28,11 +30,21 @@ async def setup_synced(hass, *, atv_mode="enforced"):
         unique_id=TV,
         data={"media_player": TV},
         options={
-            "input_lock": {"allowed_sources": ["HDMI 2"], "revert_delay": 1,
-                           "enforce_on_power_on": True, "max_attempts": 5},
-            "screen_time": {"daily_budget": 0, "warn_minutes": 5,
-                            "quiet_windows": "", "adult_mode_duration": 120},
-            "announcements": {}, "lights": {}, "sync": {"mode_sync_entity": ATV_MODE},
+            "input_lock": {
+                "allowed_sources": ["HDMI 2"],
+                "revert_delay": 1,
+                "enforce_on_power_on": True,
+                "max_attempts": 5,
+            },
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "quiet_windows": "",
+                "adult_mode_duration": 120,
+            },
+            "announcements": {},
+            "lights": {},
+            "sync": {"mode_sync_entity": ATV_MODE},
         },
     )
     entry.add_to_hass(hass)
@@ -70,19 +82,28 @@ async def test_pushes_when_apple_tv_mgmt_comes_back(hass: HomeAssistant) -> None
     # Apple TV Mgmt loads with its stored mode; ours changed meanwhile, so ours wins.
     set_atv(hass, "enforced")
     await hass.async_block_till_done()
-    assert [c.data for c in calls] == [{"entity_id": ATV_MODE, "option": "monitor_only"}]
+    assert [c.data for c in calls] == [
+        {"entity_id": ATV_MODE, "option": "monitor_only"}
+    ]
     assert hass.states.get(OUR_MODE).state == "monitor_only"
 
 
-async def test_suggests_matching_profile(hass: HomeAssistant, entity_registry: er.EntityRegistry) -> None:
+async def test_suggests_matching_profile(
+    hass: HomeAssistant, entity_registry: er.EntityRegistry
+) -> None:
     from custom_components.tv_mgmt.mode_sync import suggest_mode_select
 
-    other = MockConfigEntry(domain="appletv_mgmt", options={"tv_entity_id": "media_player.bedroom_tv"})
+    other = MockConfigEntry(
+        domain="appletv_mgmt", options={"tv_entity_id": "media_player.bedroom_tv"}
+    )
     mine = MockConfigEntry(domain="appletv_mgmt", options={"tv_entity_id": TV})
     for entry, name in ((other, "bedroom"), (mine, "living_room")):
         entry.add_to_hass(hass)
         entity_registry.async_get_or_create(
-            "select", "appletv_mgmt", f"profile_{name}_mode", config_entry=entry,
+            "select",
+            "appletv_mgmt",
+            f"profile_{name}_mode",
+            config_entry=entry,
             suggested_object_id=f"apple_tv_mgmt_{name}_mode",
         )
     assert suggest_mode_select(hass, TV) == ATV_MODE
@@ -97,12 +118,21 @@ async def test_options_flow_saves_link_and_shows_it_again(
     atv_entry = MockConfigEntry(domain="appletv_mgmt", options={"tv_entity_id": TV})
     atv_entry.add_to_hass(hass)
     entity_registry.async_get_or_create(
-        "select", "appletv_mgmt", "profile_living_room_mode", config_entry=atv_entry,
+        "select",
+        "appletv_mgmt",
+        "profile_living_room_mode",
+        config_entry=atv_entry,
         suggested_object_id="apple_tv_mgmt_living_room_mode",
     )
     entry, _ = await setup_synced(hass)
     hass.config_entries.async_update_entry(
-        entry, options={**entry.options, "announcements": {}, "lights": {}, "sync": {"mode_sync_entity": None}}
+        entry,
+        options={
+            **entry.options,
+            "announcements": {},
+            "lights": {},
+            "sync": {"mode_sync_entity": None},
+        },
     )
     await hass.async_block_till_done()
 
@@ -116,11 +146,21 @@ async def test_options_flow_saves_link_and_shows_it_again(
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
         {
-            "input_lock": {"allowed_sources": ["HDMI 2"], "revert_delay": 2,
-                           "enforce_on_power_on": True, "max_attempts": 5},
-            "screen_time": {"daily_budget": 0, "warn_minutes": 5, "adult_mode_duration": 120},
+            "input_lock": {
+                "allowed_sources": ["HDMI 2"],
+                "revert_delay": 2,
+                "enforce_on_power_on": True,
+                "max_attempts": 5,
+            },
+            "screen_time": {
+                "daily_budget": 0,
+                "warn_minutes": 5,
+                "adult_mode_duration": 120,
+            },
             "apple_tv": {},
-            "announcements": {}, "lights": {}, "sync": {"mode_sync_entity": ATV_MODE},
+            "announcements": {},
+            "lights": {},
+            "sync": {"mode_sync_entity": ATV_MODE},
         },
     )
     await hass.async_block_till_done()
@@ -150,7 +190,9 @@ async def test_unlinking_and_relinking_applies_live(hass: HomeAssistant) -> None
         await hass.async_block_till_done()
         assert hass.states.get(OUR_MODE).state == "enforced"  # not followed anymore
 
-        hass.config_entries.async_update_entry(entry, options=with_sync({"mode_sync_entity": ATV_MODE}))
+        hass.config_entries.async_update_entry(
+            entry, options=with_sync({"mode_sync_entity": ATV_MODE})
+        )
         await hass.async_block_till_done()
     reload.assert_not_called()
     assert entry.runtime_data is manager

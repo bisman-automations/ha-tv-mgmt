@@ -8,7 +8,12 @@ from homeassistant.components.media_player import (
     DOMAIN as MEDIA_PLAYER_DOMAIN,
     SERVICE_SELECT_SOURCE,
 )
-from homeassistant.const import ATTR_ENTITY_ID, STATE_OFF, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.const import (
+    ATTR_ENTITY_ID,
+    STATE_OFF,
+    STATE_UNAVAILABLE,
+    STATE_UNKNOWN,
+)
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, State, callback
 from homeassistant.helpers.event import async_track_state_change_event
 

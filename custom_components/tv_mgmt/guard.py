@@ -92,7 +92,9 @@ class InputGuard:
 
     @property
     def enforce_on_power_on(self) -> bool:
-        return bool(self.options.get(CONF_ENFORCE_ON_POWER_ON, DEFAULT_ENFORCE_ON_POWER_ON))
+        return bool(
+            self.options.get(CONF_ENFORCE_ON_POWER_ON, DEFAULT_ENFORCE_ON_POWER_ON)
+        )
 
     @property
     def max_attempts(self) -> int:
@@ -192,7 +194,10 @@ class InputGuard:
             return
 
         now = dt_util.utcnow()
-        while self._attempts and (now - self._attempts[0]).total_seconds() > ATTEMPT_WINDOW:
+        while (
+            self._attempts
+            and (now - self._attempts[0]).total_seconds() > ATTEMPT_WINDOW
+        ):
             self._attempts.popleft()
         if len(self._attempts) >= self.max_attempts:
             if not self.paused_reason:

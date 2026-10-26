@@ -48,7 +48,9 @@ def _to(calls: list[ServiceCall], entity_id: str) -> list[ServiceCall]:
 
 
 async def _play(hass: HomeAssistant, player: str = MEDIA_PLAYER) -> None:
-    hass.states.async_set(player, "playing", {"media_title": TITLE, "media_content_type": "movie"})
+    hass.states.async_set(
+        player, "playing", {"media_title": TITLE, "media_content_type": "movie"}
+    )
     await settle(hass)
 
 
@@ -139,7 +141,9 @@ async def test_blocked_app_restores_the_lights(
     assert hass.states.get(SYNCING).state == "on"
     on.clear()
 
-    mapped.runtime_data._on_app_stopped("com.example.app", "Example", "blocked", "home", True)
+    mapped.runtime_data._on_app_stopped(
+        "com.example.app", "Example", "blocked", "home", True
+    )
     await hass.async_block_till_done(wait_background_tasks=True)
     restore = _to(on, LIGHT_COLOR)
     assert restore and restore[-1].data["color_temp_kelvin"] == 2700
@@ -148,7 +152,9 @@ async def test_blocked_app_restores_the_lights(
 
     # The player still reporting the title a moment later doesn't recolor.
     on.clear()
-    hass.states.async_set(MEDIA_PLAYER, "playing", {"media_title": TITLE, "media_position": 3})
+    hass.states.async_set(
+        MEDIA_PLAYER, "playing", {"media_title": TITLE, "media_position": 3}
+    )
     await settle(hass)
     assert not [c for c in on if "rgb_color" in c.data]
 
@@ -158,7 +164,9 @@ async def test_stop_that_didnt_act_leaves_lights_alone(
 ) -> None:
     await _play(hass)
     mocked_lights["turn_on"].clear()
-    mapped.runtime_data._on_app_stopped("com.example.app", "Example", "blocked", "none", False)
+    mapped.runtime_data._on_app_stopped(
+        "com.example.app", "Example", "blocked", "none", False
+    )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert mocked_lights["turn_on"] == []
     assert hass.states.get(SYNCING).state == "on"
@@ -176,7 +184,9 @@ async def test_snapshot_waits_for_the_tv_lights(
         set_tv(hass)
         await hass.async_block_till_done()
         # TV Mgmt asked for the TV light to turn on.
-        assert _to(mocked_lights["turn_on"], LIGHT_COLOR)[-1].data == {"entity_id": [LIGHT_COLOR]}
+        assert _to(mocked_lights["turn_on"], LIGHT_COLOR)[-1].data == {
+            "entity_id": [LIGHT_COLOR]
+        }
         await _play(hass)
     zone = light_zone(mapped)
     assert zone.snapshot[LIGHT_COLOR]["state"] == "on"
@@ -193,9 +203,20 @@ async def test_snapshot_waits_for_the_tv_lights(
 
 @pytest.mark.parametrize(
     "tv_options",
-    [tv_options_with(apple_tv={"streaming_player": BOX, "app_mode": "block", "apps": [], "app_limits": {}})],
+    [
+        tv_options_with(
+            apple_tv={
+                "streaming_player": BOX,
+                "app_mode": "block",
+                "apps": [],
+                "app_limits": {},
+            }
+        )
+    ],
 )
-@pytest.mark.parametrize("zone", [zone_config(use_tv_player=True, use_apple_tv=True, extra_players=[MUSIC])])
+@pytest.mark.parametrize(
+    "zone", [zone_config(use_tv_player=True, use_apple_tv=True, extra_players=[MUSIC])]
+)
 async def test_zone_follows_tv_apple_tv_and_extra_players(
     hass: HomeAssistant, mapped: MockConfigEntry, mocked_lights: dict[str, list]
 ) -> None:
@@ -217,7 +238,11 @@ async def test_tv_lights_change_live(
     client = await hass_ws_client(hass)
     with patch.object(hass.config_entries, "async_reload") as reload:
         await client.send_json_auto_id(
-            {"type": "tv_mgmt/lights/set", "entry_id": mapped.entry_id, "lights": [LIGHT_COLOR]}
+            {
+                "type": "tv_mgmt/lights/set",
+                "entry_id": mapped.entry_id,
+                "lights": [LIGHT_COLOR],
+            }
         )
         assert (await client.receive_json())["success"]
         await hass.async_block_till_done()
@@ -245,7 +270,10 @@ async def test_linking_another_apple_tv_reloads(
     hass: HomeAssistant, mapped: MockConfigEntry
 ) -> None:
     options: dict[str, Any] = dict(mapped.options)
-    options["apple_tv"] = {**options.get("apple_tv", {}), "streaming_player": "media_player.other_apple_tv"}
+    options["apple_tv"] = {
+        **options.get("apple_tv", {}),
+        "streaming_player": "media_player.other_apple_tv",
+    }
     with patch.object(hass.config_entries, "async_reload") as reload:
         hass.config_entries.async_update_entry(mapped, options=options)
         await hass.async_block_till_done()

@@ -12,7 +12,6 @@ from . import TVMgmtConfigEntry
 from .const import CONF_ANNOUNCE_PLAYERS, CONF_ANNOUNCE_SCREEN
 from .home_limits import get_home
 
-
 # Picture URLs carry an access token that works until Home Assistant restarts,
 # and notify and speaker targets are often named after people.
 TO_REDACT = {
@@ -40,10 +39,14 @@ async def async_get_config_entry_diagnostics(
     manager = entry.runtime_data
     backend = manager.backend
     tv_state = hass.states.get(manager.tv_entity_id)
-    return async_redact_data(_diagnostics(hass, entry, manager, backend, tv_state), TO_REDACT)
+    return async_redact_data(
+        _diagnostics(hass, entry, manager, backend, tv_state), TO_REDACT
+    )
 
 
-def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend, tv_state) -> dict[str, Any]:
+def _diagnostics(
+    hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend, tv_state
+) -> dict[str, Any]:
     return {
         "data": dict(entry.data),
         "options": dict(entry.options),
@@ -76,7 +79,10 @@ def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend
         },
         "home": (home.summary() if (home := get_home(hass)) else None),
         "mode_sync": (
-            {"entity_id": manager.mode_sync.entity_id, "linked_mode": manager.mode_sync.linked_mode}
+            {
+                "entity_id": manager.mode_sync.entity_id,
+                "linked_mode": manager.mode_sync.linked_mode,
+            }
             if manager.mode_sync
             else None
         ),
@@ -90,7 +96,9 @@ def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend
                     "action": manager.box.action,
                 },
                 "box_state": (
-                    s.as_dict() if (s := hass.states.get(manager.box.entity_id)) else None
+                    s.as_dict()
+                    if (s := hass.states.get(manager.box.entity_id))
+                    else None
                 ),
             }
             if manager.box
@@ -110,7 +118,11 @@ def _light_sync(hass: HomeAssistant, manager) -> dict[str, Any] | None:
 
     def _state(entity_id: str) -> dict[str, Any] | None:
         state = hass.states.get(entity_id)
-        return {"state": state.state, "attributes": dict(state.attributes)} if state else None
+        return (
+            {"state": state.state, "attributes": dict(state.attributes)}
+            if state
+            else None
+        )
 
     return {
         "settings": data.config.settings,

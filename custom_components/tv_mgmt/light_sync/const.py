@@ -82,7 +82,6 @@ CONF_RESTORE_DELAY: Final = "restore_delay"
 CONF_PERSIST_SNAPSHOT: Final = "persist_snapshot"
 
 
-
 class ColorSource(StrEnum):
     """Where a colour came from (also the ENUM sensor's options)."""
 
@@ -281,7 +280,13 @@ METADATA_OPTIONS: Final[frozenset[str]] = frozenset(
 # Zone settings that change which players or lights are watched; changing
 # them re-subscribes the zone's state listeners (still without a reload).
 TRACKING_OPTIONS: Final[frozenset[str]] = frozenset(
-    {CONF_LIGHTS, CONF_USE_TV_PLAYER, CONF_USE_APPLE_TV, CONF_EXTRA_PLAYERS, CONF_EXPAND_GROUPS}
+    {
+        CONF_LIGHTS,
+        CONF_USE_TV_PLAYER,
+        CONF_USE_APPLE_TV,
+        CONF_EXTRA_PLAYERS,
+        CONF_EXPAND_GROUPS,
+    }
 )
 
 # Most zones one TV may have; keeps the panel and the device list readable.

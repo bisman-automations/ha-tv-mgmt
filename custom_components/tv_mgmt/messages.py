@@ -45,7 +45,11 @@ def messages_dir(hass: HomeAssistant) -> Path:
 
 
 async def async_register_messages_path(hass: HomeAssistant) -> None:
-    if hass.data.get(_REGISTERED) or hass.http is None or "http" not in hass.config.components:
+    if (
+        hass.data.get(_REGISTERED)
+        or hass.http is None
+        or "http" not in hass.config.components
+    ):
         return
     from homeassistant.components.http import StaticPathConfig
 
@@ -67,11 +71,13 @@ async def _async_ffmpeg(hass: HomeAssistant) -> str | None:
 
         try:
             return get_ffmpeg_manager(hass).binary
-        except (KeyError, ValueError):
+        except KeyError, ValueError:
             pass
     if _FFMPEG_PATH not in hass.data:
         # shutil.which reads the file system, so not on the event loop.
-        hass.data[_FFMPEG_PATH] = await hass.async_add_executor_job(shutil.which, "ffmpeg")
+        hass.data[_FFMPEG_PATH] = await hass.async_add_executor_job(
+            shutil.which, "ffmpeg"
+        )
     return hass.data[_FFMPEG_PATH]
 
 
@@ -81,7 +87,9 @@ def _build(out: Path, text: str, sub: str, ffmpeg: str) -> None:
     if not out.exists():
         slides.to_video(slides.render(text, sub, slides.BLUE), out, ffmpeg)
     # Keep the newest few.
-    videos = sorted(out.parent.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+    videos = sorted(
+        out.parent.glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True
+    )
     for old in videos[MAX_FILES:]:
         old.unlink(missing_ok=True)
 
@@ -98,7 +106,9 @@ async def async_message_video_url(hass: HomeAssistant, text: str, sub: str = "")
         ) from err
     ffmpeg = await _async_ffmpeg(hass)
     if not ffmpeg:
-        raise HomeAssistantError("ffmpeg isn't available, so the message can't be made into a video.")
+        raise HomeAssistantError(
+            "ffmpeg isn't available, so the message can't be made into a video."
+        )
     secret = await instance_id.async_get(hass)
     key = hashlib.sha256(f"{secret}\n{text}\n{sub}".encode()).hexdigest()[:32]
     out = messages_dir(hass) / f"{key}.mp4"
@@ -126,19 +136,45 @@ async def async_send_message(
     if apple_tv:
         url = await async_message_video_url(hass, text, sub)
         calls.append(
-            ("media_player", "play_media",
-             {ATTR_ENTITY_ID: apple_tv, "media_content_id": url, "media_content_type": "video"}, "apple_tv")
+            (
+                "media_player",
+                "play_media",
+                {
+                    ATTR_ENTITY_ID: apple_tv,
+                    "media_content_id": url,
+                    "media_content_type": "video",
+                },
+                "apple_tv",
+            )
         )
     if screen:
         domain, _, name = screen.partition(".")
         message = f"{text}\n{sub}" if sub else text
         if hass.states.get(screen) is not None:
-            calls.append((domain, "send_message", {ATTR_ENTITY_ID: screen, "message": message, "title": "TV Mgmt"}, "screen"))
+            calls.append(
+                (
+                    domain,
+                    "send_message",
+                    {ATTR_ENTITY_ID: screen, "message": message, "title": "TV Mgmt"},
+                    "screen",
+                )
+            )
         else:
-            calls.append((domain, name, {"message": message, "title": "TV Mgmt"}, "screen"))
+            calls.append(
+                (domain, name, {"message": message, "title": "TV Mgmt"}, "screen")
+            )
     if tts_entity and players:
         calls.append(
-            ("tts", "speak", {ATTR_ENTITY_ID: tts_entity, "media_player_entity_id": players, "message": text}, "speak")
+            (
+                "tts",
+                "speak",
+                {
+                    ATTR_ENTITY_ID: tts_entity,
+                    "media_player_entity_id": players,
+                    "message": text,
+                },
+                "speak",
+            )
         )
     errors: list[str] = []
     for domain, service, data, where in calls:

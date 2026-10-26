@@ -57,7 +57,9 @@ def clean_names(names: dict[str, str] | None) -> dict[str, str]:
     return {
         str(raw).strip(): str(name).strip()
         for raw, name in (names or {}).items()
-        if str(raw).strip() and str(name).strip() and str(name).strip() != str(raw).strip()
+        if str(raw).strip()
+        and str(name).strip()
+        and str(name).strip() != str(raw).strip()
     }
 
 

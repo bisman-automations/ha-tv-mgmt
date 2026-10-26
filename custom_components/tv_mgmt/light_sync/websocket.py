@@ -101,12 +101,18 @@ def _number(low: float, high: float, kind: type = float) -> vol.All:
 ZONE_SCHEMA = vol.Schema(
     {
         vol.Optional(CONF_ZONE_ID): vol.All(str, vol.Match(r"^[a-z0-9]{1,16}$")),
-        vol.Optional(CONF_NAME, default=""): vol.All(str, vol.Strip, vol.Length(max=60)),
-        vol.Required(CONF_LIGHTS): vol.All([_LIGHT], _unique, vol.Length(min=1, max=50)),
+        vol.Optional(CONF_NAME, default=""): vol.All(
+            str, vol.Strip, vol.Length(max=60)
+        ),
+        vol.Required(CONF_LIGHTS): vol.All(
+            [_LIGHT], _unique, vol.Length(min=1, max=50)
+        ),
         vol.Optional(CONF_ENABLED): bool,
         vol.Optional(CONF_USE_TV_PLAYER): bool,
         vol.Optional(CONF_USE_APPLE_TV): bool,
-        vol.Optional(CONF_EXTRA_PLAYERS): vol.All([_PLAYER], _unique, vol.Length(max=10)),
+        vol.Optional(CONF_EXTRA_PLAYERS): vol.All(
+            [_PLAYER], _unique, vol.Length(max=10)
+        ),
         vol.Optional(CONF_REQUIRE_TV_ON): bool,
         vol.Optional(CONF_BRIGHTNESS_PCT): _number(1, 100, int),
         vol.Optional(CONF_TRANSITION): _number(0, 30),
@@ -130,7 +136,9 @@ ZONE_SCHEMA = vol.Schema(
         vol.Optional(CONF_RESTORE_DELAY): _number(0, 300),
         vol.Optional(CONF_PERSIST_SNAPSHOT): bool,
         vol.Optional(CONF_COLOR_MODE): _values(SyncColorMode),
-        vol.Optional(CONF_PALETTE_SIZE): _number(MIN_PALETTE_SIZE, MAX_PALETTE_SIZE, int),
+        vol.Optional(CONF_PALETTE_SIZE): _number(
+            MIN_PALETTE_SIZE, MAX_PALETTE_SIZE, int
+        ),
         vol.Optional(CONF_PALETTE_STRATEGY): _values(PaletteStrategy),
         vol.Optional(CONF_METADATA_ARTWORK): bool,
     }
@@ -141,7 +149,9 @@ def _light_sync(hass: HomeAssistant, connection, msg) -> LightSync | None:
     if (manager := _manager(hass, connection, msg)) is None:
         return None
     if manager.light_sync is None:
-        connection.send_error(msg["id"], "not_found", "Light sync isn't running for this TV")
+        connection.send_error(
+            msg["id"], "not_found", "Light sync isn't running for this TV"
+        )
         return None
     return manager.light_sync
 
@@ -191,7 +201,9 @@ def ws_get(hass: HomeAssistant, connection, msg) -> None:
             "max_zones": MAX_ZONES_PER_TV,
             "choices": {
                 "color_sources": list(SELECTABLE_COLOR_SOURCES),
-                "presets": {k: [str(s) for s in v] for k, v in COLOR_SOURCE_PRESETS.items()},
+                "presets": {
+                    k: [str(s) for s in v] for k, v in COLOR_SOURCE_PRESETS.items()
+                },
                 "media_types": list(MEDIA_TYPE_OPTIONS),
                 "extraction_methods": [m.value for m in ExtractionMethod],
                 "idle_behaviors": [m.value for m in IdleBehavior],
@@ -224,14 +236,18 @@ async def ws_zone_save(hass: HomeAssistant, connection, msg) -> None:
     config = hass.data[DATA_LIGHT_SYNC].config
     entry_id = light_sync.entry.entry_id
     zone = dict(msg["zone"])
-    existing = config.zone(entry_id, zone[CONF_ZONE_ID]) if CONF_ZONE_ID in zone else None
+    existing = (
+        config.zone(entry_id, zone[CONF_ZONE_ID]) if CONF_ZONE_ID in zone else None
+    )
     if CONF_ZONE_ID in zone and existing is None:
         connection.send_error(msg["id"], "not_found", "That light zone doesn't exist")
         return
     if existing is None:
         if len(config.zones_for(entry_id)) >= MAX_ZONES_PER_TV:
             connection.send_error(
-                msg["id"], "too_many", f"A TV can have up to {MAX_ZONES_PER_TV} light zones"
+                msg["id"],
+                "too_many",
+                f"A TV can have up to {MAX_ZONES_PER_TV} light zones",
             )
             return
         zone[CONF_ZONE_ID] = new_zone_id()
@@ -310,7 +326,9 @@ async def ws_zone_action(hass: HomeAssistant, connection, msg) -> None:
         ),
         # Left out: keep the saved key. Empty: forget it.
         vol.Optional(CONF_TMDB_API_KEY): vol.All(str, vol.Strip, vol.Length(max=200)),
-        vol.Optional(CONF_TRAKT_CLIENT_ID): vol.All(str, vol.Strip, vol.Length(max=200)),
+        vol.Optional(CONF_TRAKT_CLIENT_ID): vol.All(
+            str, vol.Strip, vol.Length(max=200)
+        ),
     }
 )
 @require_access
@@ -331,7 +349,9 @@ async def ws_settings_set(hass: HomeAssistant, connection, msg) -> None:
                 await async_validate_credentials(hass, provider, value)
             except MetadataAuthError:
                 connection.send_error(
-                    msg["id"], "invalid_key", f"{provider.value.upper()} didn't accept that key"
+                    msg["id"],
+                    "invalid_key",
+                    f"{provider.value.upper()} didn't accept that key",
                 )
                 return
             except MetadataError as err:
@@ -347,7 +367,9 @@ async def ws_settings_set(hass: HomeAssistant, connection, msg) -> None:
     await config.async_set_settings(settings)
     async_rebuild_metadata(hass)
     _changed(hass)
-    connection.send_result(msg["id"], {"settings": _settings_for_panel(config.settings)})
+    connection.send_result(
+        msg["id"], {"settings": _settings_for_panel(config.settings)}
+    )
 
 
 @websocket_api.websocket_command(
@@ -381,7 +403,9 @@ async def ws_titles_set(hass: HomeAssistant, connection, msg) -> None:
 async def ws_titles_remove(hass: HomeAssistant, connection, msg) -> None:
     """Forget a title's colour."""
     if not await hass.data[DATA_LIGHT_SYNC].titles.async_remove(msg["title"]):
-        connection.send_error(msg["id"], "not_found", "No color is saved for that title")
+        connection.send_error(
+            msg["id"], "not_found", "No color is saved for that title"
+        )
         return
     connection.send_result(msg["id"])
 

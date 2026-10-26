@@ -48,7 +48,10 @@ class SamsungTVBackend(MediaPlayerBackend):
             await self.hass.services.async_call(
                 REMOTE_DOMAIN,
                 SERVICE_SEND_COMMAND,
-                {ATTR_ENTITY_ID: remote, ATTR_COMMAND: [f"KEY_HDMI{source.split()[-1]}"]},
+                {
+                    ATTR_ENTITY_ID: remote,
+                    ATTR_COMMAND: [f"KEY_HDMI{source.split()[-1]}"],
+                },
                 blocking=False,
             )
         else:

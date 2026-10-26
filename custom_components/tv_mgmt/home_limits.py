@@ -50,10 +50,14 @@ def _duration(seconds: int) -> str:
 class HomeLimits:
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self._store: Store[dict[str, Any]] = Store(hass, STORAGE_VERSION, f"{DOMAIN}.home")
+        self._store: Store[dict[str, Any]] = Store(
+            hass, STORAGE_VERSION, f"{DOMAIN}.home"
+        )
         self.settings = HomeSettings()
         self.extensions: dict[str, int] = {}  # ISO date -> extra minutes given that day
-        self.notified: dict[str, str] = {}  # what was sent -> the day or week it was for
+        self.notified: dict[
+            str, str
+        ] = {}  # what was sent -> the day or week it was for
         self._managers: dict[str, TVManager] = {}
         self._exhausted = False
 
@@ -64,13 +68,19 @@ class HomeLimits:
         try:
             self.settings = HomeSettings.from_dict(data.get("settings"))
         except ValueError:
-            _LOGGER.warning("TV Mgmt: ignoring stored whole-home settings that no longer validate")
+            _LOGGER.warning(
+                "TV Mgmt: ignoring stored whole-home settings that no longer validate"
+            )
             self.settings = HomeSettings()
         self.extensions = {k: int(v) for k, v in (data.get("extensions") or {}).items()}
         self.notified = dict(data.get("notified") or {})
 
     def _data(self) -> dict[str, Any]:
-        return {"settings": self.settings.as_dict(), "extensions": self.extensions, "notified": self.notified}
+        return {
+            "settings": self.settings.as_dict(),
+            "extensions": self.extensions,
+            "notified": self.notified,
+        }
 
     def _schedule_save(self) -> None:
         self._store.async_delay_save(self._data, SAVE_DELAY)
@@ -99,7 +109,9 @@ class HomeLimits:
             if manager.state.day == today_key:
                 today_seconds += manager.state.used_seconds
             daily = manager.activity.daily
-            week_seconds += sum(daily.get(day, {}).get("used_seconds", 0) for day in earlier)
+            week_seconds += sum(
+                daily.get(day, {}).get("used_seconds", 0) for day in earlier
+            )
         week_seconds += today_seconds
         return home_status(
             self.settings,
@@ -134,7 +146,9 @@ class HomeLimits:
         key = today.isoformat()
         self.extensions[key] = self.extensions.get(key, 0) + minutes
         oldest = (today - timedelta(days=KEEP_EXTENSION_DAYS)).isoformat()
-        self.extensions = {d: m for d, m in self.extensions.items() if d >= oldest and m}
+        self.extensions = {
+            d: m for d, m in self.extensions.items() if d >= oldest and m
+        }
         self._schedule_save()
         for manager in self.counted():
             manager.log_home_extension(minutes, by)
@@ -158,8 +172,16 @@ class HomeLimits:
         today = dt_util.now().date()
         status = self.status(today)
         periods = {
-            "daily": (status.daily_remaining, self.settings.daily_minutes, today.isoformat()),
-            "weekly": (status.weekly_remaining, self.settings.weekly_minutes, week_start(today, self.settings.week_start).isoformat()),
+            "daily": (
+                status.daily_remaining,
+                self.settings.daily_minutes,
+                today.isoformat(),
+            ),
+            "weekly": (
+                status.weekly_remaining,
+                self.settings.weekly_minutes,
+                week_start(today, self.settings.week_start).isoformat(),
+            ),
         }
         for period, (remaining, limit, key) in periods.items():
             if remaining is None:
@@ -171,14 +193,24 @@ class HomeLimits:
                 self._announce(period, "warning", key, used, limit, remaining)
 
         exhausted = status.remaining is not None and status.remaining <= 0
-        if exhausted and not self._exhausted and self.settings.action == ACTION_TURN_OFF:
+        if (
+            exhausted
+            and not self._exhausted
+            and self.settings.action == ACTION_TURN_OFF
+        ):
             # The TV that counted the last minute blocks itself; the rest follow now
             # instead of on their next tick.
             self.hass.loop.call_soon(self.refresh_all)
         self._exhausted = exhausted
 
     def _announce(
-        self, period: str, kind: str, key: str, used: int, limit: int, remaining: int | None = None
+        self,
+        period: str,
+        kind: str,
+        key: str,
+        used: int,
+        limit: int,
+        remaining: int | None = None,
     ) -> None:
         marker = f"{period}_{kind}"
         if self.notified.get(marker) == key:
@@ -189,7 +221,9 @@ class HomeLimits:
         if kind == "warning":
             message = f"{_duration(remaining or 0)} of TV time left for the whole home {when}."
         else:
-            message = f"The home has used its {_duration(limit * 60)} of TV time {when}."
+            message = (
+                f"The home has used its {_duration(limit * 60)} of TV time {when}."
+            )
             if self.settings.action == ACTION_TURN_OFF:
                 message += " The TVs are turning off."
         _LOGGER.info("TV Mgmt home: %s", message)
@@ -200,7 +234,9 @@ class HomeLimits:
                 "state": kind,
                 "used_minutes": round(used / 60),
                 "limit_minutes": limit,
-                "remaining_minutes": round(remaining / 60) if remaining is not None else 0,
+                "remaining_minutes": round(remaining / 60)
+                if remaining is not None
+                else 0,
                 "action": self.settings.action,
                 "message": message,
             },
@@ -214,14 +250,22 @@ class HomeLimits:
             if domain == "notify" and self.hass.states.get(target) is not None:
                 # A notify entity
                 await self.hass.services.async_call(
-                    "notify", "send_message", {"entity_id": target, "title": "TV Mgmt", "message": message}, blocking=True
+                    "notify",
+                    "send_message",
+                    {"entity_id": target, "title": "TV Mgmt", "message": message},
+                    blocking=True,
                 )
             elif domain == "notify" and self.hass.services.has_service("notify", name):
                 await self.hass.services.async_call(
-                    "notify", name, {"title": "TV Mgmt", "message": message}, blocking=True
+                    "notify",
+                    name,
+                    {"title": "TV Mgmt", "message": message},
+                    blocking=True,
                 )
             else:
-                _LOGGER.warning("TV Mgmt home: can't notify %s, it no longer exists", target)
+                _LOGGER.warning(
+                    "TV Mgmt home: can't notify %s, it no longer exists", target
+                )
         except Exception:  # noqa: BLE001 - a failing phone mustn't stop the limit
             _LOGGER.exception("TV Mgmt home: couldn't notify %s", target)
 
@@ -230,7 +274,9 @@ class HomeLimits:
     def extension_week(self, today: date | None = None) -> int:
         today = today or dt_util.now().date()
         start = week_start(today, self.settings.week_start).isoformat()
-        return sum(m for d, m in self.extensions.items() if start <= d <= today.isoformat())
+        return sum(
+            m for d, m in self.extensions.items() if start <= d <= today.isoformat()
+        )
 
     def summary(self) -> dict[str, Any]:
         status = self.status()
@@ -245,14 +291,17 @@ class HomeLimits:
             "reason": status.reason,
             "extension_minutes": status.extension_minutes,
             "extension_week_minutes": self.extension_week(),
-            "week_start_date": week_start(dt_util.now().date(), self.settings.week_start).isoformat(),
+            "week_start_date": week_start(
+                dt_util.now().date(), self.settings.week_start
+            ).isoformat(),
         }
 
 
 def notify_targets(hass: HomeAssistant) -> list[str]:
     """Notify services (like a phone's) and notify entities that can take a message."""
     services = [
-        f"notify.{name}" for name in sorted(hass.services.async_services_for_domain("notify"))
+        f"notify.{name}"
+        for name in sorted(hass.services.async_services_for_domain("notify"))
         if name not in ("notify", "send_message")
     ]
     entities = sorted(s.entity_id for s in hass.states.async_all("notify"))
@@ -270,4 +319,11 @@ def get_home(hass: HomeAssistant) -> HomeLimits | None:
     return hass.data.get(DATA_HOME)
 
 
-__all__ = ["REASON_HOME_DAILY", "EVENT_HOME_LIMIT", "HomeLimits", "async_get_home", "get_home", "notify_targets"]
+__all__ = [
+    "REASON_HOME_DAILY",
+    "EVENT_HOME_LIMIT",
+    "HomeLimits",
+    "async_get_home",
+    "get_home",
+    "notify_targets",
+]

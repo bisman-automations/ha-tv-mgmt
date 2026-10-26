@@ -8,39 +8,74 @@ def test_nothing_playing():
 
 
 def test_series():
-    media = media_from("playing", {
-        "media_title": "Hammerbarn", "media_series_title": "Bluey", "media_season": "2", "media_episode": 14,
-    })
-    assert media == {"title": "Hammerbarn", "series": "Bluey", "season": 2, "episode": 14}
+    media = media_from(
+        "playing",
+        {
+            "media_title": "Hammerbarn",
+            "media_series_title": "Bluey",
+            "media_season": "2",
+            "media_episode": 14,
+        },
+    )
+    assert media == {
+        "title": "Hammerbarn",
+        "series": "Bluey",
+        "season": 2,
+        "episode": 14,
+    }
     assert show_of(media) == "Bluey"
     assert describe(media) == "Bluey, Season 2, Episode 14: Hammerbarn"
 
 
 def test_episode_in_artist_like_prime_video():
-    media = media_from("paused", {
-        "media_title": "Genevieve's Playhouse",
-        "media_artist": "Season 2, Ep. 14 Learn Vehicle Names with Transforming Robots!",
-    })
+    media = media_from(
+        "paused",
+        {
+            "media_title": "Genevieve's Playhouse",
+            "media_artist": "Season 2, Ep. 14 Learn Vehicle Names with Transforming Robots!",
+        },
+    )
     assert media == {
-        "series": "Genevieve's Playhouse", "season": 2, "episode": 14,
+        "series": "Genevieve's Playhouse",
+        "season": 2,
+        "episode": 14,
         "title": "Learn Vehicle Names with Transforming Robots!",
     }
     assert show_of(media) == "Genevieve's Playhouse"
-    assert media_from("playing", {"media_title": "Show", "media_artist": "S1 E3"})["title"] == "Show"
+    assert (
+        media_from("playing", {"media_title": "Show", "media_artist": "S1 E3"})["title"]
+        == "Show"
+    )
 
 
 def test_movie_and_song():
     movie = media_from("playing", {"media_title": "Moana"})
     assert show_of(movie) == "Moana" and describe(movie) == "Moana"
-    song = media_from("playing", {"media_title": "How Far I'll Go", "media_artist": "Auliʻi Cravalho", "media_album_name": "Moana"})
+    song = media_from(
+        "playing",
+        {
+            "media_title": "How Far I'll Go",
+            "media_artist": "Auliʻi Cravalho",
+            "media_album_name": "Moana",
+        },
+    )
     assert describe(song) == "How Far I'll Go by Auliʻi Cravalho"
     assert show_of(song) == "How Far I'll Go"
 
 
 def test_key_changes_per_episode():
-    a = media_from("playing", {"media_title": "A", "media_series_title": "Bluey", "media_episode": 1})
-    b = media_from("paused", {"media_title": "A", "media_series_title": "Bluey", "media_episode": 1})
-    c = media_from("playing", {"media_title": "B", "media_series_title": "Bluey", "media_episode": 2})
+    a = media_from(
+        "playing",
+        {"media_title": "A", "media_series_title": "Bluey", "media_episode": 1},
+    )
+    b = media_from(
+        "paused",
+        {"media_title": "A", "media_series_title": "Bluey", "media_episode": 1},
+    )
+    c = media_from(
+        "playing",
+        {"media_title": "B", "media_series_title": "Bluey", "media_episode": 2},
+    )
     assert media_key(a) == media_key(b) != media_key(c)
     assert media_key(None) is None
 
@@ -52,9 +87,13 @@ def test_blocked_show():
     cars2 = media_from("playing", {"media_title": "Cars 2"})
     assert blocked_show(cars, ["cars "]) == "cars "
     assert blocked_show(cars2, ["Cars"]) is None
-    episode = media_from("paused", {
-        "media_title": "Genevieve's Playhouse", "media_artist": "Season 2, Ep. 14 Learn Vehicle Names",
-    })
+    episode = media_from(
+        "paused",
+        {
+            "media_title": "Genevieve's Playhouse",
+            "media_artist": "Season 2, Ep. 14 Learn Vehicle Names",
+        },
+    )
     assert blocked_show(episode, ["Genevieve's Playhouse"]) == "Genevieve's Playhouse"
     assert blocked_show(None, ["Cars"]) is None
     assert blocked_show(cars, []) is None

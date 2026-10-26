@@ -6,7 +6,6 @@ import pytest
 
 from homeassistant.core import Context, HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
-
 from tests.ha.test_integration import set_tv, setup
 
 LOCK = "switch.tv_mgmt_family_room_tv_input_lock"
@@ -15,7 +14,12 @@ MODE = "select.tv_mgmt_family_room_tv_mode"
 
 
 async def test_websocket_access(
-    hass: HomeAssistant, hass_ws_client, hass_admin_user, hass_read_only_user, hass_read_only_access_token, calls
+    hass: HomeAssistant,
+    hass_ws_client,
+    hass_admin_user,
+    hass_read_only_user,
+    hass_read_only_access_token,
+    calls,
 ) -> None:
     set_tv(hass)
     entry = await setup(hass)
@@ -27,7 +31,12 @@ async def test_websocket_access(
         return await client.receive_json()
 
     me = (await call(kid, type="tv_mgmt/access/me"))["result"]
-    assert me == {"allowed": False, "is_admin": False, "user_id": hass_read_only_user.id, "name": hass_read_only_user.name}
+    assert me == {
+        "allowed": False,
+        "is_admin": False,
+        "user_id": hass_read_only_user.id,
+        "name": hass_read_only_user.name,
+    }
     assert (await call(admin, type="tv_mgmt/access/me"))["result"]["allowed"] is True
 
     for msg in (
@@ -50,18 +59,28 @@ async def test_websocket_access(
     assert people[hass_read_only_user.id]["is_admin"] is False
 
     # Unknown IDs are dropped.
-    res = await call(admin, type="tv_mgmt/access/set", user_ids=[hass_read_only_user.id, "nobody"])
+    res = await call(
+        admin, type="tv_mgmt/access/set", user_ids=[hass_read_only_user.id, "nobody"]
+    )
     assert res["result"]["user_ids"] == [hass_read_only_user.id]
 
     assert (await call(kid, type="tv_mgmt/access/me"))["result"]["allowed"] is True
     assert (await call(kid, type="tv_mgmt/profiles"))["success"]
-    res = await call(kid, type="tv_mgmt/action", entry_id=entry.entry_id, action="grant_extension", minutes=20)
+    res = await call(
+        kid,
+        type="tv_mgmt/action",
+        entry_id=entry.entry_id,
+        action="grant_extension",
+        minutes=20,
+    )
     assert res["success"] and res["result"]["profile"]["extension_minutes"] == 20
     # Still only admins manage access.
     assert not (await call(kid, type="tv_mgmt/access/get"))["success"]
 
 
-async def test_entities_and_services(hass: HomeAssistant, hass_admin_user, calls) -> None:
+async def test_entities_and_services(
+    hass: HomeAssistant, hass_admin_user, calls
+) -> None:
     set_tv(hass)
     entry = await setup(hass)
     # A regular, non-admin Home Assistant user, who can control entities.
@@ -69,17 +88,29 @@ async def test_entities_and_services(hass: HomeAssistant, hass_admin_user, calls
     kid = Context(user_id=user.id)
 
     with pytest.raises(HomeAssistantError) as err:
-        await hass.services.async_call("switch", "turn_on", {"entity_id": ADULT}, blocking=True, context=kid)
+        await hass.services.async_call(
+            "switch", "turn_on", {"entity_id": ADULT}, blocking=True, context=kid
+        )
     assert err.value.translation_key == "not_allowed"
     with pytest.raises(HomeAssistantError):
-        await hass.services.async_call("switch", "turn_off", {"entity_id": LOCK}, blocking=True, context=kid)
-    with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            "select", "select_option", {"entity_id": MODE, "option": "paused"}, blocking=True, context=kid
+            "switch", "turn_off", {"entity_id": LOCK}, blocking=True, context=kid
         )
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            "tv_mgmt", "grant_extension", {"profile_id": entry.entry_id, "minutes": 60}, blocking=True, context=kid
+            "select",
+            "select_option",
+            {"entity_id": MODE, "option": "paused"},
+            blocking=True,
+            context=kid,
+        )
+    with pytest.raises(HomeAssistantError):
+        await hass.services.async_call(
+            "tv_mgmt",
+            "grant_extension",
+            {"profile_id": entry.entry_id, "minutes": 60},
+            blocking=True,
+            context=kid,
         )
     assert hass.states.get(ADULT).state == "off"
     assert hass.states.get(LOCK).state == "on"
@@ -87,9 +118,18 @@ async def test_entities_and_services(hass: HomeAssistant, hass_admin_user, calls
 
     # Admins and automations (no user) can.
     await hass.services.async_call(
-        "switch", "turn_off", {"entity_id": LOCK}, blocking=True, context=Context(user_id=hass_admin_user.id)
+        "switch",
+        "turn_off",
+        {"entity_id": LOCK},
+        blocking=True,
+        context=Context(user_id=hass_admin_user.id),
     )
-    await hass.services.async_call("tv_mgmt", "grant_extension", {"profile_id": entry.entry_id, "minutes": 10}, blocking=True)
+    await hass.services.async_call(
+        "tv_mgmt",
+        "grant_extension",
+        {"profile_id": entry.entry_id, "minutes": 10},
+        blocking=True,
+    )
     assert hass.states.get(LOCK).state == "off"
     assert entry.runtime_data.state.extension_minutes == 10
 
@@ -97,7 +137,9 @@ async def test_entities_and_services(hass: HomeAssistant, hass_admin_user, calls
     from custom_components.tv_mgmt.access import get_access
 
     await get_access(hass).async_set([user.id])
-    await hass.services.async_call("switch", "turn_on", {"entity_id": LOCK}, blocking=True, context=kid)
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": LOCK}, blocking=True, context=kid
+    )
     assert hass.states.get(LOCK).state == "on"
 
 
@@ -111,7 +153,9 @@ async def test_sidebar_shows_to_everyone_only_for_non_admin_parents(
     hass.config.components.add("frontend")
     hass.http = MagicMock(async_register_static_paths=AsyncMock())
     with (
-        patch("homeassistant.components.panel_custom.async_register_panel", AsyncMock()) as register,
+        patch(
+            "homeassistant.components.panel_custom.async_register_panel", AsyncMock()
+        ) as register,
         patch("homeassistant.components.frontend.async_remove_panel") as remove,
     ):
         await panel.async_register_panel(hass)

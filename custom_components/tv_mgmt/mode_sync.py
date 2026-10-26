@@ -21,7 +21,13 @@ from homeassistant.components.select import (
     SERVICE_SELECT_OPTION,
 )
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.core import CALLBACK_TYPE, Event, EventStateChangedData, HomeAssistant, callback
+from homeassistant.core import (
+    CALLBACK_TYPE,
+    Event,
+    EventStateChangedData,
+    HomeAssistant,
+    callback,
+)
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_track_state_change_event
 

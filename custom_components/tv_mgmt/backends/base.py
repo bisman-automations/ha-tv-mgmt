@@ -56,10 +56,10 @@ class TVBackend(ABC):
     async def async_select_source(self, source: str) -> None:
         """Switch the TV to a source label."""
 
-    async def async_start(self) -> None:
+    async def async_start(self) -> None:  # noqa: B027 - optional hook, most backends don't need it
         """Start receiving updates."""
 
-    async def async_stop(self) -> None:
+    async def async_stop(self) -> None:  # noqa: B027 - optional hook, most backends don't need it
         """Stop receiving updates."""
 
     # ---- helpers -------------------------------------------------------------

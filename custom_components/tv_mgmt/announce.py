@@ -75,7 +75,11 @@ def screen_targets(hass: HomeAssistant) -> list[str]:
         for name in sorted(hass.services.async_services_for_domain("notify"))
         if name not in NOT_SCREENS
     ]
-    targets += [s.entity_id for s in hass.states.async_all("notify") if s.entity_id not in targets]
+    targets += [
+        s.entity_id
+        for s in hass.states.async_all("notify")
+        if s.entity_id not in targets
+    ]
     return targets
 
 
@@ -105,7 +109,9 @@ class Announcer:
         return self.speaks or bool(self.screen) or bool(self.airplay)
 
     @callback
-    def announce(self, message: str, slide: str | None = None, *, airplay_ok: bool = True) -> bool:
+    def announce(
+        self, message: str, slide: str | None = None, *, airplay_ok: bool = True
+    ) -> bool:
         """Say and show a message. Returns True if anything was sent.
 
         With a slide, and when the Apple TV is on (airplay_ok), it's also
@@ -120,7 +126,8 @@ class Announcer:
         self._last[message] = now
         if self.speaks:
             self._call(
-                "tts", "speak",
+                "tts",
+                "speak",
                 {
                     ATTR_ENTITY_ID: self.tts_entity,
                     "media_player_entity_id": self.players,
@@ -129,14 +136,23 @@ class Announcer:
             )
         if self.airplay and slide and airplay_ok and (url := self._slide_url(slide)):
             self._call(
-                "media_player", "play_media",
-                {ATTR_ENTITY_ID: self.airplay, "media_content_id": url, "media_content_type": "video"},
+                "media_player",
+                "play_media",
+                {
+                    ATTR_ENTITY_ID: self.airplay,
+                    "media_content_id": url,
+                    "media_content_type": "video",
+                },
             )
         if self.screen:
             domain, _, name = self.screen.partition(".")
             if self.hass.states.get(self.screen) is not None:
                 # A notify entity.
-                self._call(domain, "send_message", {ATTR_ENTITY_ID: self.screen, "message": message, "title": TITLE})
+                self._call(
+                    domain,
+                    "send_message",
+                    {ATTR_ENTITY_ID: self.screen, "message": message, "title": TITLE},
+                )
             else:
                 # A notify service, like notify.family_room_tv.
                 self._call(domain, name, {"message": message, "title": TITLE})
@@ -147,19 +163,27 @@ class Announcer:
         try:
             base = get_url(self.hass, allow_cloud=False, prefer_external=False)
         except NoURLAvailableError:
-            _LOGGER.warning("TV Mgmt can't AirPlay a message: Home Assistant has no local URL set")
+            _LOGGER.warning(
+                "TV Mgmt can't AirPlay a message: Home Assistant has no local URL set"
+            )
             return None
         return f"{base}{SLIDES_PATH}/{slide}.mp4"
 
     def _call(self, domain: str, service: str, data: dict[str, Any]) -> None:
         if not self.hass.services.has_service(domain, service):
-            _LOGGER.warning("TV Mgmt can't announce: %s.%s isn't available", domain, service)
+            _LOGGER.warning(
+                "TV Mgmt can't announce: %s.%s isn't available", domain, service
+            )
             return
 
         async def _send() -> None:
             try:
-                await self.hass.services.async_call(domain, service, data, blocking=True)
+                await self.hass.services.async_call(
+                    domain, service, data, blocking=True
+                )
             except Exception as err:  # noqa: BLE001 - an announcement must never break enforcement
-                _LOGGER.warning("TV Mgmt couldn't announce with %s.%s: %s", domain, service, err)
+                _LOGGER.warning(
+                    "TV Mgmt couldn't announce with %s.%s: %s", domain, service, err
+                )
 
         self.hass.async_create_task(_send())

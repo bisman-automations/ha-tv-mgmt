@@ -1,7 +1,6 @@
 from datetime import time
 
 import pytest
-
 from tv_mgmt_pure.quiet import QuietWindow, active_window, parse_window, parse_windows
 
 
@@ -18,7 +17,9 @@ def test_parse_list_and_blank():
     assert [w.name for w in windows] == ["Lunch", "20:30-07:00"]
 
 
-@pytest.mark.parametrize("raw", ["20:30", "25:00-07:00", "8-9", "20:30-07:61", "aa:bb-cc:dd"])
+@pytest.mark.parametrize(
+    "raw", ["20:30", "25:00-07:00", "8-9", "20:30-07:61", "aa:bb-cc:dd"]
+)
 def test_parse_rejects_bad_input(raw):
     with pytest.raises(ValueError):
         parse_window(raw)

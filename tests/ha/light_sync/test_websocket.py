@@ -70,7 +70,9 @@ async def test_get(hass: HomeAssistant, ws) -> None:
     assert "balanced" in result["choices"]["presets"]
 
 
-async def test_add_change_and_remove_a_zone(hass: HomeAssistant, ws, loaded_entry) -> None:
+async def test_add_change_and_remove_a_zone(
+    hass: HomeAssistant, ws, loaded_entry
+) -> None:
     manager = loaded_entry.runtime_data
     with patch.object(hass.config_entries, "async_reload") as reload:
         res = await ws(
@@ -98,7 +100,12 @@ async def test_add_change_and_remove_a_zone(hass: HomeAssistant, ws, loaded_entr
         res = await ws(
             type="tv_mgmt/light_sync/zone/save",
             entry_id=ENTRY_ID,
-            zone={"id": new["id"], "name": "Sofa", "lights": [LIGHT_WHITE], "enabled": False},
+            zone={
+                "id": new["id"],
+                "name": "Sofa",
+                "lights": [LIGHT_WHITE],
+                "enabled": False,
+            },
         )
         assert res["success"], res
         await hass.async_block_till_done()
@@ -106,7 +113,9 @@ async def test_add_change_and_remove_a_zone(hass: HomeAssistant, ws, loaded_entr
         assert hass.states.get(switch).state == "off"
         assert devices.async_get(device.id).name == "TV Mgmt — Living Room TV · Sofa"
 
-        res = await ws(type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id=new["id"])
+        res = await ws(
+            type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id=new["id"]
+        )
         assert res["success"]
         await hass.async_block_till_done()
     reload.assert_not_called()
@@ -124,40 +133,83 @@ async def test_zone_errors(hass: HomeAssistant, ws) -> None:
         {"lights": [LIGHT_COLOR], "brightness_pct": 0},
         {"lights": [LIGHT_COLOR], "extra_players": ["light.lamp"]},
     ):
-        res = await ws(type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone=zone)
+        res = await ws(
+            type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone=zone
+        )
         assert not res["success"], zone
-    res = await ws(type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone={"id": "nope", "lights": [LIGHT_COLOR]})
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/save",
+        entry_id=ENTRY_ID,
+        zone={"id": "nope", "lights": [LIGHT_COLOR]},
+    )
     assert res["error"]["code"] == "not_found"
-    res = await ws(type="tv_mgmt/light_sync/zone/save", entry_id="nope", zone={"lights": [LIGHT_COLOR]})
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/save",
+        entry_id="nope",
+        zone={"lights": [LIGHT_COLOR]},
+    )
     assert res["error"]["code"] == "not_found"
-    res = await ws(type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id="nope")
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id="nope"
+    )
     assert res["error"]["code"] == "not_found"
 
     for _ in range(7):
-        res = await ws(type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone={"lights": [LIGHT_COLOR]})
+        res = await ws(
+            type="tv_mgmt/light_sync/zone/save",
+            entry_id=ENTRY_ID,
+            zone={"lights": [LIGHT_COLOR]},
+        )
         assert res["success"]
-    res = await ws(type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone={"lights": [LIGHT_COLOR]})
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/save",
+        entry_id=ENTRY_ID,
+        zone={"lights": [LIGHT_COLOR]},
+    )
     assert res["error"]["code"] == "too_many"
 
 
 async def test_zone_actions(hass: HomeAssistant, ws, mocked_lights) -> None:
-    res = await ws(type="tv_mgmt/light_sync/zone/action", entry_id=ENTRY_ID, zone_id=ZONE_ID, action="save_title_color")
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/action",
+        entry_id=ENTRY_ID,
+        zone_id=ZONE_ID,
+        action="save_title_color",
+    )
     assert res["error"]["code"] == "failed"  # nothing playing
 
-    res = await ws(type="tv_mgmt/light_sync/titles/set", title="The Matrix", rgb_color=[0, 255, 0])
+    res = await ws(
+        type="tv_mgmt/light_sync/titles/set", title="The Matrix", rgb_color=[0, 255, 0]
+    )
     assert res["result"]["key"] == "matrix"
     hass.states.async_set(MEDIA_PLAYER, "playing", {"media_title": "The Matrix"})
     await settle(hass)
-    res = await ws(type="tv_mgmt/light_sync/zone/action", entry_id=ENTRY_ID, zone_id=ZONE_ID, action="resync")
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/action",
+        entry_id=ENTRY_ID,
+        zone_id=ZONE_ID,
+        action="resync",
+    )
     assert res["success"] and res["result"]["outcome"] == "ok"
-    res = await ws(type="tv_mgmt/light_sync/zone/action", entry_id=ENTRY_ID, zone_id=ZONE_ID, action="save_title_color")
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/action",
+        entry_id=ENTRY_ID,
+        zone_id=ZONE_ID,
+        action="save_title_color",
+    )
     assert res["result"]["title"] == "matrix"
 
     titles = (await ws(type="tv_mgmt/light_sync/get"))["result"]["titles"]
     assert [t["key"] for t in titles] == ["matrix"]
-    assert (await ws(type="tv_mgmt/light_sync/titles/remove", title="matrix"))["success"]
-    assert (await ws(type="tv_mgmt/light_sync/titles/remove", title="matrix"))["error"]["code"] == "not_found"
-    assert (await ws(type="tv_mgmt/light_sync/titles/set", title="!!!", rgb_color=[1, 2, 3]))["error"]["code"] == "invalid_title"
+    assert (await ws(type="tv_mgmt/light_sync/titles/remove", title="matrix"))[
+        "success"
+    ]
+    assert (await ws(type="tv_mgmt/light_sync/titles/remove", title="matrix"))["error"][
+        "code"
+    ] == "not_found"
+    assert (
+        await ws(type="tv_mgmt/light_sync/titles/set", title="!!!", rgb_color=[1, 2, 3])
+    )["error"]["code"] == "invalid_title"
 
 
 async def test_settings(hass: HomeAssistant, ws, loaded_entry) -> None:
@@ -168,7 +220,11 @@ async def test_settings(hass: HomeAssistant, ws, loaded_entry) -> None:
     assert data.metadata_service is None
 
     with patch(VALIDATE) as validate:
-        res = await ws(type="tv_mgmt/light_sync/settings/set", tmdb_api_key=V3_KEY, metadata_providers=["tmdb"])
+        res = await ws(
+            type="tv_mgmt/light_sync/settings/set",
+            tmdb_api_key=V3_KEY,
+            metadata_providers=["tmdb"],
+        )
     assert res["success"] and validate.call_count == 1
     assert res["result"]["settings"]["tmdb_key_set"] is True
     assert V3_KEY not in repr(res)
@@ -178,7 +234,9 @@ async def test_settings(hass: HomeAssistant, ws, loaded_entry) -> None:
 
     # Left out: kept (and not checked again). Empty: forgotten.
     with patch(VALIDATE) as validate:
-        res = await ws(type="tv_mgmt/light_sync/settings/set", metadata_providers=["tmdb", "trakt"])
+        res = await ws(
+            type="tv_mgmt/light_sync/settings/set", metadata_providers=["tmdb", "trakt"]
+        )
         assert validate.call_count == 0
     assert res["result"]["settings"]["tmdb_key_set"] is True
     res = await ws(type="tv_mgmt/light_sync/settings/set", tmdb_api_key="")
@@ -192,11 +250,28 @@ async def test_only_allowed_people(
     kid = await hass_ws_client(hass, hass_read_only_access_token)
     for msg in (
         {"type": "tv_mgmt/light_sync/get"},
-        {"type": "tv_mgmt/light_sync/zone/save", "entry_id": ENTRY_ID, "zone": {"lights": [LIGHT_COLOR]}},
-        {"type": "tv_mgmt/light_sync/zone/remove", "entry_id": ENTRY_ID, "zone_id": ZONE_ID},
-        {"type": "tv_mgmt/light_sync/zone/action", "entry_id": ENTRY_ID, "zone_id": ZONE_ID, "action": "resync"},
+        {
+            "type": "tv_mgmt/light_sync/zone/save",
+            "entry_id": ENTRY_ID,
+            "zone": {"lights": [LIGHT_COLOR]},
+        },
+        {
+            "type": "tv_mgmt/light_sync/zone/remove",
+            "entry_id": ENTRY_ID,
+            "zone_id": ZONE_ID,
+        },
+        {
+            "type": "tv_mgmt/light_sync/zone/action",
+            "entry_id": ENTRY_ID,
+            "zone_id": ZONE_ID,
+            "action": "resync",
+        },
         {"type": "tv_mgmt/light_sync/settings/set", "metadata_providers": []},
-        {"type": "tv_mgmt/light_sync/titles/set", "title": "Up", "rgb_color": [1, 2, 3]},
+        {
+            "type": "tv_mgmt/light_sync/titles/set",
+            "title": "Up",
+            "rgb_color": [1, 2, 3],
+        },
         {"type": "tv_mgmt/light_sync/titles/remove", "title": "Up"},
     ):
         await kid.send_json_auto_id(msg)
@@ -212,15 +287,42 @@ async def test_only_allowed_people(
         (DOMAIN, "resync_lights", {}),
         (DOMAIN, "clear_artwork_cache", {}),
         ("switch", "turn_off", {"entity_id": SWITCH}),
-        ("button", "press", {"entity_id": "button.tv_mgmt_living_room_tv_lights_look_again"}),
-        ("number", "set_value", {"entity_id": "number.tv_mgmt_living_room_tv_lights_brightness", "value": 10}),
-        ("select", "select_option", {"entity_id": "select.tv_mgmt_living_room_tv_lights_color_mode", "option": "palette"}),
+        (
+            "button",
+            "press",
+            {"entity_id": "button.tv_mgmt_living_room_tv_lights_look_again"},
+        ),
+        (
+            "number",
+            "set_value",
+            {
+                "entity_id": "number.tv_mgmt_living_room_tv_lights_brightness",
+                "value": 10,
+            },
+        ),
+        (
+            "select",
+            "select_option",
+            {
+                "entity_id": "select.tv_mgmt_living_room_tv_lights_color_mode",
+                "option": "palette",
+            },
+        ),
     ):
         with pytest.raises(HomeAssistantError) as err:
-            await hass.services.async_call(domain, service, data, blocking=True, context=context)
+            await hass.services.async_call(
+                domain, service, data, blocking=True, context=context
+            )
         assert err.value.translation_key == "not_allowed", service
     with pytest.raises(HomeAssistantError):
-        await hass.services.async_call(DOMAIN, "list_title_colors", {}, blocking=True, context=context, return_response=True)
+        await hass.services.async_call(
+            DOMAIN,
+            "list_title_colors",
+            {},
+            blocking=True,
+            context=context,
+            return_response=True,
+        )
     assert hass.states.get(SWITCH).state == "on"
 
 
@@ -232,8 +334,12 @@ async def test_zones_survive_a_reload(hass: HomeAssistant, loaded_entry) -> None
     assert device is not None
 
 
-async def test_removing_the_tv_forgets_its_zones(hass: HomeAssistant, loaded_entry, mocked_lights) -> None:
-    hass.states.async_set(MEDIA_PLAYER, "playing", {"media_title": "Night", "media_genre": "Horror"})
+async def test_removing_the_tv_forgets_its_zones(
+    hass: HomeAssistant, loaded_entry, mocked_lights
+) -> None:
+    hass.states.async_set(
+        MEDIA_PLAYER, "playing", {"media_title": "Night", "media_genre": "Horror"}
+    )
     await settle(hass)
     assert light_zone(loaded_entry).snapshot
     mocked_lights["turn_on"].clear()

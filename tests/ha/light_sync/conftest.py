@@ -11,7 +11,6 @@ from pytest_homeassistant_custom_component.common import (
     async_fire_time_changed,
     async_mock_service,
 )
-
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from homeassistant.core import HomeAssistant
@@ -49,8 +48,11 @@ def set_tv(hass: HomeAssistant, state: str = "on") -> None:
     hass.states.async_set(
         TV,
         state,
-        {"friendly_name": TV_TITLE, "source": "HDMI 2" if state == "on" else None,
-         "source_list": ["HDMI 1", "HDMI 2"]},
+        {
+            "friendly_name": TV_TITLE,
+            "source": "HDMI 2" if state == "on" else None,
+            "source_list": ["HDMI 1", "HDMI 2"],
+        },
     )
 
 
@@ -73,11 +75,22 @@ def zone_config(**overrides: Any) -> dict[str, Any]:
 def tv_options_with(**sections: Any) -> dict[str, Any]:
     """TV options with input lock and screen time off, plus ``sections``."""
     return {
-        "input_lock": {"allowed_sources": [], "revert_delay": 1,
-                       "enforce_on_power_on": False, "max_attempts": 5},
-        "screen_time": {"daily_budget": 0, "warn_minutes": 5,
-                        "quiet_windows": "", "adult_mode_duration": 120},
-        "apple_tv": {}, "announcements": {}, "lights": {}, "sync": {},
+        "input_lock": {
+            "allowed_sources": [],
+            "revert_delay": 1,
+            "enforce_on_power_on": False,
+            "max_attempts": 5,
+        },
+        "screen_time": {
+            "daily_budget": 0,
+            "warn_minutes": 5,
+            "quiet_windows": "",
+            "adult_mode_duration": 120,
+        },
+        "apple_tv": {},
+        "announcements": {},
+        "lights": {},
+        "sync": {},
         **sections,
     }
 

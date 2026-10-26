@@ -76,7 +76,9 @@ def test_quiet_window_blocks_even_with_time_left():
 
 
 def test_force_block_wins_over_quiet_window():
-    d = run(force_block=True, now=time(21, 0), quiet_windows=parse_windows("20:30-07:00"))
+    d = run(
+        force_block=True, now=time(21, 0), quiet_windows=parse_windows("20:30-07:00")
+    )
     assert d.reason == REASON_MANUAL
 
 

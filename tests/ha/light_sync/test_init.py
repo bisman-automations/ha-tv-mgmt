@@ -36,7 +36,9 @@ async def test_setup_and_unload(
     """Entities are created and the entry unloads cleanly."""
     assert loaded_entry.state is ConfigEntryState.LOADED
     assert hass.states.get(SWITCH).state == "on"
-    assert hass.states.get(SWITCH).name == "TV Mgmt — Living Room TV · Lights Light sync"
+    assert (
+        hass.states.get(SWITCH).name == "TV Mgmt — Living Room TV · Lights Light sync"
+    )
     assert hass.states.get(SYNCING).state == "off"
     assert hass.states.get(SOURCE_SENSOR).state == "none"
     assert await hass.config_entries.async_unload(loaded_entry.entry_id)
@@ -218,9 +220,7 @@ async def test_diagnostics_redacts(
     hass: HomeAssistant, loaded_entry: MockConfigEntry
 ) -> None:
     """Diagnostics redact artwork URLs."""
-    from custom_components.tv_mgmt.diagnostics import (  # noqa: PLC0415
-        async_get_config_entry_diagnostics,
-    )
+    from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics  # noqa: PLC0415
 
     hass.states.async_set(
         MEDIA_PLAYER,
@@ -229,9 +229,9 @@ async def test_diagnostics_redacts(
     )
     diag = await async_get_config_entry_diagnostics(hass, loaded_entry)
     zone = diag["light_sync"]["zones"][0]
-    assert zone["player_states"][MEDIA_PLAYER]["attributes"][
-        "entity_picture"
-    ] == ("**REDACTED**")
+    assert zone["player_states"][MEDIA_PLAYER]["attributes"]["entity_picture"] == (
+        "**REDACTED**"
+    )
     assert zone["name"] == "Lights"
 
 

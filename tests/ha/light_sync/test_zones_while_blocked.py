@@ -20,20 +20,36 @@ from custom_components.tv_mgmt.light_sync.const import CONF_ZONE_ID
 from custom_components.tv_mgmt.light_sync.websocket import ZONE_SCHEMA
 from homeassistant.core import HomeAssistant
 
-from .conftest import ENTRY_ID, LIGHT_COLOR, LIGHT_WHITE, SYNCING, ZONE_ID, set_tv, settle, tv_options_with
+from .conftest import (
+    ENTRY_ID,
+    LIGHT_COLOR,
+    LIGHT_WHITE,
+    SYNCING,
+    ZONE_ID,
+    set_tv,
+    settle,
+    tv_options_with,
+)
 
-PANEL = Path(__file__).parents[3] / "custom_components/tv_mgmt/frontend/tv-mgmt-panel.js"
+PANEL = (
+    Path(__file__).parents[3] / "custom_components/tv_mgmt/frontend/tv-mgmt-panel.js"
+)
 PREVIEW = Path(__file__).parents[3] / "scripts/panel-preview/index.html"
 
 
 def _panel_keys() -> list[str]:
     """The zone settings the panel's zone form sends (from its source)."""
     source = PANEL.read_text()
-    listed = re.search(r'for \(const key of \[([^\]]+)\]\) \{\s*if \(c\[key\] !== undefined\) zone\[key\]', source)
+    listed = re.search(
+        r"for \(const key of \[([^\]]+)\]\) \{\s*if \(c\[key\] !== undefined\) zone\[key\]",
+        source,
+    )
     assert listed, "the panel's zone form keys moved"
     numbers = re.search(r"const LS_NUMBERS = \[(.*?)\n\];", source, re.S)
     assert numbers
-    return re.findall(r'"(\w+)"', listed.group(1)) + re.findall(r'\["(\w+)"', numbers.group(1))
+    return re.findall(r'"(\w+)"', listed.group(1)) + re.findall(
+        r'\["(\w+)"', numbers.group(1)
+    )
 
 
 def _as_the_panel_saves(config: dict[str, Any], **changes: Any) -> dict[str, Any]:
@@ -51,7 +67,9 @@ def test_the_panel_uses_the_backends_zone_keys() -> None:
     schema_keys = {str(k) for k in ZONE_SCHEMA.schema}
     assert set(_panel_keys()) <= schema_keys
     # The preview's sample backend refuses what the real one does.
-    defaults = re.search(r"const LIGHT_DEFAULTS = \{(.*?)\};", PREVIEW.read_text(), re.S)
+    defaults = re.search(
+        r"const LIGHT_DEFAULTS = \{(.*?)\};", PREVIEW.read_text(), re.S
+    )
     assert defaults
     assert set(re.findall(r"(\w+):", defaults.group(1))) <= schema_keys
 
@@ -83,9 +101,15 @@ async def _hold(hass: HomeAssistant, entry: MockConfigEntry, how: str) -> None:
     await settle(hass)
 
 
-@pytest.mark.parametrize("how", ["blocked", "bedtime_and_off", "tv_off", "paused", "adult_mode"])
+@pytest.mark.parametrize(
+    "how", ["blocked", "bedtime_and_off", "tv_off", "paused", "adult_mode"]
+)
 async def test_change_and_remove_zones_whatever_the_tv_is_doing(
-    hass: HomeAssistant, ws, loaded_entry: MockConfigEntry, mocked_lights: dict[str, list], how: str
+    hass: HomeAssistant,
+    ws,
+    loaded_entry: MockConfigEntry,
+    mocked_lights: dict[str, list],
+    how: str,
 ) -> None:
     await _hold(hass, loaded_entry, how)
     light_sync = loaded_entry.runtime_data.light_sync
@@ -118,17 +142,26 @@ async def test_change_and_remove_zones_whatever_the_tv_is_doing(
     assert res["result"]["zone"]["enabled"] is False
 
     # Look again: allowed, even if there's nothing to colour.
-    res = await ws(type="tv_mgmt/light_sync/zone/action", entry_id=ENTRY_ID, zone_id=ZONE_ID, action="resync")
+    res = await ws(
+        type="tv_mgmt/light_sync/zone/action",
+        entry_id=ENTRY_ID,
+        zone_id=ZONE_ID,
+        action="resync",
+    )
     assert res["success"], res
 
     # Add one and remove both.
     res = await ws(
-        type="tv_mgmt/light_sync/zone/save", entry_id=ENTRY_ID, zone={"name": "Couch", "lights": [LIGHT_WHITE]}
+        type="tv_mgmt/light_sync/zone/save",
+        entry_id=ENTRY_ID,
+        zone={"name": "Couch", "lights": [LIGHT_WHITE]},
     )
     assert res["success"], res
     new = res["result"]["zone"]["id"]
     for zone_id in (new, ZONE_ID):
-        res = await ws(type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id=zone_id)
+        res = await ws(
+            type="tv_mgmt/light_sync/zone/remove", entry_id=ENTRY_ID, zone_id=zone_id
+        )
         assert res["success"], res
     await settle(hass)
     assert light_sync.zones == {}
@@ -136,7 +169,9 @@ async def test_change_and_remove_zones_whatever_the_tv_is_doing(
     assert res["result"]["tvs"][0]["zones"] == []
 
 
-async def test_the_old_panel_payload_is_refused(hass: HomeAssistant, ws, loaded_entry: MockConfigEntry) -> None:
+async def test_the_old_panel_payload_is_refused(
+    hass: HomeAssistant, ws, loaded_entry: MockConfigEntry
+) -> None:
     """What 1.16.0's panel sent for a zone's switch: refused, so it must show an error."""
     res = await ws(
         type="tv_mgmt/light_sync/zone/save",
@@ -149,9 +184,14 @@ async def test_the_old_panel_payload_is_refused(hass: HomeAssistant, ws, loaded_
     assert not res["success"]
 
 
-@pytest.mark.parametrize("tv_options", [tv_options_with(lights={"tv_lights": [LIGHT_COLOR]})])
+@pytest.mark.parametrize(
+    "tv_options", [tv_options_with(lights={"tv_lights": [LIGHT_COLOR]})]
+)
 async def test_tv_lights_turn_off_at_bedtime(
-    hass: HomeAssistant, ws, loaded_entry: MockConfigEntry, mocked_lights: dict[str, list]
+    hass: HomeAssistant,
+    ws,
+    loaded_entry: MockConfigEntry,
+    mocked_lights: dict[str, list],
 ) -> None:
     """The dashboard's Turn TV lights off works with the TV blocked and off."""
     await _hold(hass, loaded_entry, "bedtime_and_off")
@@ -159,4 +199,8 @@ async def test_tv_lights_turn_off_at_bedtime(
     res = await ws(type="tv_mgmt/lights/off", entry_id=ENTRY_ID)
     assert res["success"], res
     assert res["result"]["lights"] == [LIGHT_COLOR] and res["result"]["failed"] == {}
-    assert [c for c in mocked_lights["turn_off"] if c.data.get("entity_id") in (LIGHT_COLOR, [LIGHT_COLOR])]
+    assert [
+        c
+        for c in mocked_lights["turn_off"]
+        if c.data.get("entity_id") in (LIGHT_COLOR, [LIGHT_COLOR])
+    ]

@@ -34,8 +34,8 @@ from homeassistant.helpers.event import async_call_later, async_track_state_chan
 from homeassistant.util import dt as dt_util
 
 from .apps import ACTION_HOME, ACTION_SLEEP, REASON_SHOW, AppRules, is_home
-from .media import PLAYING, blocked_show, media_from, media_key
 from .const import APP_STOP_DELAY, ATTEMPT_WINDOW, TURN_OFF_COOLDOWN
+from .media import PLAYING, blocked_show, media_from, media_key
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,7 +86,9 @@ class StreamingBox:
         self._last_sleep: datetime | None = None
         self._last_wake: datetime | None = None
 
-    def set_rules(self, rules: AppRules, action: str, blocked_shows: list[str] | None) -> None:
+    def set_rules(
+        self, rules: AppRules, action: str, blocked_shows: list[str] | None
+    ) -> None:
         """Use new app and show rules (settings saved). Call evaluate() to act on them."""
         self.rules = rules
         self.action = action if action in (ACTION_HOME, ACTION_SLEEP) else ACTION_HOME
@@ -133,7 +135,9 @@ class StreamingBox:
             listener()
 
         # Must be a @callback: otherwise Home Assistant runs it in a worker thread.
-        self._unsub = async_track_state_change_event(self.hass, [self.entity_id], _changed)
+        self._unsub = async_track_state_change_event(
+            self.hass, [self.entity_id], _changed
+        )
         self.app_id, self.app_name = self.reported_app()
         self.refresh_media()
 
@@ -177,7 +181,9 @@ class StreamingBox:
         if not self._rules_active():
             return None, None
         if self.app_id and (
-            reason := self.rules.check(self.app_id, self.app_name, self._used_seconds(self.app_id))
+            reason := self.rules.check(
+                self.app_id, self.app_name, self._used_seconds(self.app_id)
+            )
         ):
             return reason, None
         media, _playing = self.reported_media()
@@ -192,7 +198,9 @@ class StreamingBox:
             self._cancel_stop()
             return
         if self._unsub_stop is None:
-            self._unsub_stop = async_call_later(self.hass, APP_STOP_DELAY, self._stop_callback)
+            self._unsub_stop = async_call_later(
+                self.hass, APP_STOP_DELAY, self._stop_callback
+            )
 
     @callback
     def _stop_callback(self, _now: datetime) -> None:
@@ -206,7 +214,9 @@ class StreamingBox:
         # Report each app (or show) once per visit, even in monitor-only mode.
         if self._reported != (self.app_id, reason, show):
             self._reported = (self.app_id, reason, show)
-            self._on_stop(self.app_id, self.app_name, reason, self.action, acting, show=show)
+            self._on_stop(
+                self.app_id, self.app_name, reason, self.action, acting, show=show
+            )
 
         if not acting:
             return
@@ -214,16 +224,25 @@ class StreamingBox:
         while self._stops and (now - self._stops[0]).total_seconds() > ATTEMPT_WINDOW:
             self._stops.popleft()
         if len(self._stops) >= MAX_STOPS_PER_MINUTE:
-            _LOGGER.warning("TV Mgmt: %s keeps reopening %s; waiting", self.entity_id, self.app_name)
+            _LOGGER.warning(
+                "TV Mgmt: %s keeps reopening %s; waiting", self.entity_id, self.app_name
+            )
             return
         self._stops.append(now)
-        _LOGGER.info("TV Mgmt: stopping %s on %s (%s)", show or self.app_name, self.entity_id, reason)
+        _LOGGER.info(
+            "TV Mgmt: stopping %s on %s (%s)",
+            show or self.app_name,
+            self.entity_id,
+            reason,
+        )
         if self.action == ACTION_SLEEP:
             self._sleep()
         else:
             self._go_home()
         # Check again in case the box didn't report the change.
-        self._unsub_stop = async_call_later(self.hass, APP_STOP_DELAY + 3, self._recheck)
+        self._unsub_stop = async_call_later(
+            self.hass, APP_STOP_DELAY + 3, self._recheck
+        )
 
     @callback
     def _recheck(self, _now: datetime) -> None:
@@ -283,7 +302,10 @@ class StreamingBox:
         if not self.is_on:
             return False
         now = dt_util.utcnow()
-        if self._last_sleep and (now - self._last_sleep).total_seconds() < TURN_OFF_COOLDOWN:
+        if (
+            self._last_sleep
+            and (now - self._last_sleep).total_seconds() < TURN_OFF_COOLDOWN
+        ):
             return False
         self._last_sleep = now
         self._sleep()
@@ -304,7 +326,10 @@ class StreamingBox:
         if not int(state.attributes.get("supported_features") or 0) & _TURN_ON:
             return False
         now = dt_util.utcnow()
-        if self._last_wake and (now - self._last_wake).total_seconds() < TURN_OFF_COOLDOWN:
+        if (
+            self._last_wake
+            and (now - self._last_wake).total_seconds() < TURN_OFF_COOLDOWN
+        ):
             return False
         self._last_wake = now
         self.hass.async_create_task(
