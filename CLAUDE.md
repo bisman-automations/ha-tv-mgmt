@@ -51,17 +51,18 @@ The sidebar app is the product. Every setting should be manageable there, not on
 
 ## Testing
 
-Run the suite on both Python versions. CI runs Python 3.13 (Home Assistant before 2026.8, the older device path) and 3.14 (newest Home Assistant):
+Run the suite against the oldest and the newest Home Assistant TV Mgmt supports, both on Python 3.14. CI does the same (`test.yml`): `requirements_test_min.txt` pins Home Assistant 2026.3.1 (the oldest release the test harness has for 2026.3, with the older device path), and `requirements_test.txt` takes the newest. There's no Python 3.13 job: Home Assistant 2026.3 and newer need 3.14, and a 3.13 venv resolves 2026.2, which TV Mgmt doesn't support. When `hacs.json`'s minimum goes up, move the pin in `requirements_test_min.txt` with it; CI fails if it tests a Home Assistant below the minimum.
 
 ```bash
-pip install -r requirements_test.txt   # in a Python 3.13 and a Python 3.14 venv
+pip install -r requirements_test_min.txt   # in one Python 3.14 venv
+pip install -r requirements_test.txt       # in another
 pytest -q
 ```
 
 - Treat any `Detected that custom integration 'tv_mgmt' ...` warning as a bug to fix, even if tests pass. To see them: `pytest -q -o log_cli=true --log-cli-level=WARNING | grep Detected`.
 - To try the next Home Assistant before it's released, clone `home-assistant/core`, install its `pyproject.toml` requirements and then the clone with `--no-deps` into the Python 3.14 venv, and run pytest from Python with Home Assistant imported first (it aliases `httpx`): `python -c "import homeassistant, sys, pytest; sys.exit(pytest.main(['tests', '-q']))"`.
 - `tests/test_*.py` cover the pure modules; `tests/ha/` runs inside Home Assistant. `tests/ha/form.py` serializes a form's schema on any Home Assistant version.
-- The message tests need `ffmpeg` installed.
+- The message tests need `ffmpeg` on the PATH. CI uses the static build from the `imageio-ffmpeg` package rather than apt, which took up to 15 minutes.
 - For panel changes, run `python scripts/panel-preview/shoot.py <out dir>` (needs Playwright with Chromium) and look at the screenshots. It fails on console errors or sideways scrolling. Add sample data to `scripts/panel-preview/index.html` when a feature needs it.
 
 ## Writing
@@ -78,4 +79,4 @@ pytest -q
 4. Update the README for anything a user would notice.
 5. Push to `main`. `draft-release.yml` creates or updates a draft GitHub release for that version. The maintainer publishes it, which is what HACS users get. Don't create tags or publish releases.
 
-`test.yml` (pytest on both Python versions) and `validate.yml` (hassfest and the HACS check) must pass.
+`test.yml` (pytest on the oldest and newest supported Home Assistant) and `validate.yml` (hassfest and the HACS check) must pass.

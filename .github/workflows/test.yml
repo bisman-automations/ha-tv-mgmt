@@ -7,19 +7,47 @@ on:
 
 jobs:
   pytest:
+    name: pytest (Home Assistant ${{ matrix.ha }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # 3.13 gets Home Assistant before 2026.8, 3.14 the newest; device
-        # linking works differently in each.
-        python-version: ["3.13", "3.14"]
+        # Every job runs a Home Assistant TV Mgmt supports (hacs.json, 2026.3+).
+        # Home Assistant 2026.3 and newer need Python 3.14, so there's no 3.13
+        # job: the newest Home Assistant that ran on 3.13 was 2026.2.
+        # The oldest supported release uses the older device linking (before
+        # 2026.8); the newest uses the shared-identifier linking.
+        include:
+          - ha: oldest supported
+            requirements: requirements_test_min.txt
+          - ha: newest
+            requirements: requirements_test.txt
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: ${{ matrix.requirements }}
+      - run: pip install -r ${{ matrix.requirements }}
+      - name: Check Home Assistant is a supported version
+        run: |
+          python - <<'PY'
+          import json
+          from homeassistant.const import __version__
+          from awesomeversion import AwesomeVersion
+
+          minimum = json.load(open("hacs.json"))["homeassistant"]
+          print(f"Home Assistant {__version__} (TV Mgmt supports {minimum} and newer)")
+          assert AwesomeVersion(__version__) >= AwesomeVersion(minimum), "below hacs.json's minimum"
+          PY
+      # The message tests make real videos. A static ffmpeg from PyPI installs
+      # in seconds (and is cached with pip); apt-get took up to 15 minutes.
       - name: Install ffmpeg (makes the Apple TV message videos)
-        run: which ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
-      - run: pip install -r requirements_test.txt
+        run: |
+          pip install imageio-ffmpeg==0.6.0
+          mkdir -p "$RUNNER_TEMP/ffmpeg"
+          ln -sf "$(python -c 'import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())')" "$RUNNER_TEMP/ffmpeg/ffmpeg"
+          "$RUNNER_TEMP/ffmpeg/ffmpeg" -hide_banner -version
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
       - run: pytest -q
