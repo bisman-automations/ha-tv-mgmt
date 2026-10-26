@@ -1,18 +1,13 @@
 # Changelog
 
-All notable changes to this project are documented here.
+All notable changes to this project are documented in this file.
 
-The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
 ## [1.16.1] - 2026-10-26
-
-### Fixed
-
-- **Light zones can be changed and removed again.** In the Lights tab, **Change**, **✕** (remove), a zone's on/off switch and **Look again** did nothing in Home Assistant, because the panel looked for each zone under the wrong name. They now work whatever the TV is doing, including while it's off or blocked at bedtime. Only the coloring waits.
-- When a zone can't be saved, removed or switched, the error now shows in the Light sync card, next to the zones, instead of only at the top of the page. A switch that didn't save flips back.
-- Removing a zone asks first in the zone itself, instead of a pop-up that some Home Assistant apps don't show.
 
 ### Added
 
@@ -21,6 +16,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Changed
 
 - The dashboard's power button for the TV now reads **Turn TV on** (and **Turn TV off**), so it isn't mistaken for the lights.
+
+### Fixed
+
+- **Light zones can be changed and removed again.** In the Lights tab, **Change**, **✕** (remove), a zone's on/off switch and **Look again** did nothing in Home Assistant, because the panel looked for each zone under the wrong name. They now work whatever the TV is doing, including while it's off or blocked at bedtime. Only the coloring waits.
+- When a zone can't be saved, removed or switched, the error now shows in the Light sync card, next to the zones, instead of only at the top of the page. A switch that didn't save flips back.
+- Removing a zone asks first in the zone itself, instead of a pop-up that some Home Assistant apps don't show.
 
 ## [1.16.0] - 2026-10-26
 
@@ -324,10 +325,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [1.0.1] - 2026-10-08
 
-### Fixed
-
-- Adding a TV failed with "Unknown error occurred" after picking it. The settings form sent an invalid empty unit for the max retries field.
-
 ### Added
 
 - Tests that run the integration inside Home Assistant, covering:
@@ -338,11 +335,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   - services
   - upgrading from 0.1
 
+### Fixed
+
+- Adding a TV failed with "Unknown error occurred" after picking it. The settings form sent an invalid empty unit for the max retries field.
+
 ## [1.0.0] - 2026-10-08
 
 TV Mgmt is now a full parental-control integration for smart TVs, modeled on [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt). The 0.1 input lock is one part of it, alongside screen-time limits and quiet windows.
 
-### Breaking changes
+**Breaking changes:**
 
 - **Requires Home Assistant 2026.3 or newer.**
 - Renamed from "TV Management" to **TV Mgmt**. It's now a service integration instead of a helper.
@@ -403,7 +404,6 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Input lock** switch to turn enforcement on and off. Its state is restored after restart.
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
-
 
 [Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...HEAD
 [1.16.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...v1.16.1
