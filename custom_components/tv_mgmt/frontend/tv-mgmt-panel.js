@@ -8,6 +8,7 @@ const TABS = [
   { id: "activity", label: "Activity" },
   { id: "analytics", label: "Analytics" },
   { id: "limits", label: "Limits" },
+  { id: "lights", label: "Lights" },
 ];
 
 const MODES = [
@@ -23,6 +24,46 @@ const APP_COLOURS = ["#29b6f6", "#ab47bc", "#26a69a", "#ffa726", "#ec407a", "#8d
 
 const esc = (value) =>
   String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
+
+// Lights tab wording.
+const LS_HELD = {
+  tv_off: "Waiting for the TV to turn on",
+  blocked: "Paused while the TV is blocked",
+  stopped: "Paused after a blocked app was stopped",
+};
+const LS_SOURCES = { title_mapping: "Saved title colors", poster: "Artwork", genre: "Genre", default: "Default color", none: "Nothing" };
+const LS_PRESETS = {
+  balanced: "Saved titles, then artwork, then genre",
+  artwork_first: "Artwork first",
+  genre_first: "Genre before artwork",
+  titles_only: "Saved titles only",
+  artwork_only: "Artwork only",
+  genre_only: "Genre only",
+  custom: "My own order",
+};
+const LS_MEDIA = { movie: "Movies", tvshow: "TV shows", episode: "Episodes", video: "Videos", channel: "TV channels", music: "Music", podcast: "Podcasts", game: "Games", app: "Apps" };
+const LS_EXTRACTION = { dominant: "The most common color", vibrant: "The most vivid color", average: "The average of the artwork" };
+const LS_IDLE = { restore: "Put the lights back how they were", turn_off: "Turn the lights off", default_color: "Show the default color", leave: "Leave the color as it is" };
+const LS_UNSUPPORTED = { brightness_only: "Set their brightness only", skip: "Leave them alone" };
+const LS_COLOR_MODES = { single: "One color for every light", palette: "A palette spread across the lights" };
+const LS_STRATEGIES = { spread: "Take turns", dominant_first: "Main color on the first light", mirrored: "Mirrored from both ends" };
+// [key, label, min, max, whole number]
+const LS_NUMBERS = [
+  ["brightness_pct", "Brightness", 1, 100, true],
+  ["transition", "Fade", 0, 30, false],
+  ["restore_delay", "Wait before putting the lights back", 0, 300, false],
+  ["palette_size", "Colors in the palette", 3, 5, true],
+  ["min_saturation", "Skip colors greyer than", 0, 100, true],
+  ["saturation_boost", "Make colors richer by", 1, 3, false],
+  ["min_brightness", "Lowest color brightness", 0, 100, true],
+  ["dark_threshold", "Ignore pixels darker than", 0, 255, true],
+  ["light_threshold", "Ignore pixels lighter than", 0, 255, true],
+];
+const rgbHex = (rgb) => (Array.isArray(rgb) ? `#${rgb.map((n) => Number(n).toString(16).padStart(2, "0")).join("")}` : "#ff9329");
+const hexRgb = (hex) => {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || "");
+  return m ? m.slice(1).map((x) => parseInt(x, 16)) : [255, 147, 41];
+};
 
 const minutes = (seconds) => Math.round((seconds || 0) / 60);
 
@@ -445,7 +486,7 @@ form { display: grid; gap: 20px; max-width: 560px; }
 .field { display: grid; gap: 6px; }
 .field label { font-size: 14px; font-weight: 500; }
 .field small { color: var(--secondary-text-color); font-size: 13px; line-height: 1.4; }
-input[type="number"], input[type="text"], input[type="time"] {
+input[type="number"], input[type="text"], input[type="time"], input[type="password"] {
   font: inherit; font-size: 15px; padding: 10px 12px; border-radius: 8px; min-height: 42px;
   border: 1px solid var(--divider-color); background: var(--card-background-color, transparent); color: var(--primary-text-color);
 }
@@ -545,6 +586,7 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
 .message-form { display: grid; gap: 10px; max-width: none; }
 .message-row { display: flex; gap: 8px; }
 .message-row input { flex: 1; min-width: 0; }
+.message-row input[type="color"] { flex: none; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-btn { font-size: 13px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--divider-color);
   background: transparent; cursor: pointer; color: var(--primary-text-color); }
@@ -574,6 +616,23 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
   .window input[type="text"] { grid-column: 1 / 3; grid-row: 2; }
   .date-nav h2 { min-width: 0; font-size: 16px; }
 }
+.zone { display: grid; gap: 8px; padding: 14px 0; border-top: 1px solid var(--divider-color); }
+.zone.editing { gap: 16px; }
+.zone-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.zone-spacer { flex: 1; }
+.zone-now { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.zone-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.swatch { display: inline-block; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--divider-color); }
+.tone-bad-text { color: var(--tm-bad); }
+.order { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 14px; }
+.order-item { display: inline-flex; align-items: center; gap: 6px; }
+.titles { display: grid; gap: 6px; }
+.title-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 14px; }
+.more summary { cursor: pointer; font-size: 14px; font-weight: 500; }
+.more-body { display: grid; gap: 16px; margin-top: 14px; }
+select { font: inherit; font-size: 15px; padding: 9px 10px; border-radius: 8px; min-height: 42px; max-width: 100%;
+  border: 1px solid var(--divider-color); background: var(--card-background-color, transparent); color: var(--primary-text-color); }
+input[type="color"] { width: 52px; height: 42px; padding: 2px; border-radius: 8px; border: 1px solid var(--divider-color); background: transparent; cursor: pointer; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .card-head h2 { margin: 0; font-size: 16px; font-weight: 500; }
 .home-strip { margin-bottom: 20px; }
@@ -759,6 +818,7 @@ class TvMgmtPanel extends HTMLElement {
       if (this._tab === "activity" && this._activity && this._activity.date === this._activity.today) {
         await this._loadActivity({ quiet: true });
       }
+      if (this._tab === "lights") await this._loadLightSync({ quiet: true });
     }, 600);
   }
 
@@ -783,6 +843,8 @@ class TvMgmtPanel extends HTMLElement {
     }
     // The limits form keeps what you're typing; don't redraw it on live updates.
     if (quiet && this._tab === "limits") return;
+    // The Lights tab redraws when its own data comes back.
+    if (quiet && this._tab === "lights") return;
     if (quiet && this._typing()) {
       this._renderLater = true;
       return;
@@ -930,6 +992,7 @@ class TvMgmtPanel extends HTMLElement {
         activity: () => this._renderActivity(),
         analytics: () => this._renderAnalytics(),
         limits: () => this._renderLimits(),
+        lights: () => this._renderLightsTab(),
       }[this._tab]();
     }
     const error = this._error ? `<div class="error" role="alert">${esc(this._error)}</div>` : "";
@@ -1852,8 +1915,7 @@ class TvMgmtPanel extends HTMLElement {
         </form>
       </div></section>
       ${this._renderAppRules()}
-      ${this._renderNames()}
-      ${this._renderLights()}`;
+      ${this._renderNames()}`;
   }
 
   _renderAppRules() {
@@ -2065,12 +2127,560 @@ class TvMgmtPanel extends HTMLElement {
     </div></section>`;
   }
 
+  // ---- Lights tab -----------------------------------------------------------------------
+
+  async _loadLightSync({ quiet = false } = {}) {
+    try {
+      this._ls = await this._ws({ type: "tv_mgmt/light_sync/get" });
+      if (!quiet) this._error = null;
+    } catch (err) {
+      if (!quiet) this._error = this._errorText(err);
+      if (!this._ls) this._ls = { failed: true };
+    }
+    if (this._tab !== "lights") return;
+    // Don't redraw a zone you're changing, or a box you're typing in.
+    if (quiet && this._zoneEdit) return;
+    if (quiet && this._typing()) {
+      this._renderLater = true;
+      return;
+    }
+    this._render();
+  }
+
+  _lsTv() {
+    return this._ls?.tvs?.find((t) => t.entry_id === this._selected) || null;
+  }
+
+  _renderLightsTab() {
+    if (!this._ls) {
+      if (!this._loadingLs) {
+        this._loadingLs = true;
+        this._loadLightSync().finally(() => (this._loadingLs = false));
+      }
+      return `<div class="toolbar">${this._renderPicker()}</div>${loading("Loading lights…")}`;
+    }
+    if (this._ls.failed) return `<div class="toolbar">${this._renderPicker()}</div>`;
+    return `<div class="toolbar">${this._renderPicker()}</div>
+      ${this._renderLights()}
+      ${this._renderZones()}
+      ${this._renderLightSettings()}
+      ${this._renderTitleColors()}`;
+  }
+
+  // A checklist of entities from one domain, with a search box when the list is long.
+  _entityChecklist({ domain, picked, filter, attr, filterAttr, exclude = [], empty }) {
+    const states = this._hass?.states || {};
+    const nameOf = (eid) => states[eid]?.attributes?.friendly_name || eid;
+    const all = [...new Set([...Object.keys(states).filter((e) => e.startsWith(`${domain}.`) && !exclude.includes(e)), ...picked])]
+      .sort((a, b) => Number(picked.includes(b)) - Number(picked.includes(a)) || nameOf(a).localeCompare(nameOf(b)));
+    const q = (filter || "").trim().toLowerCase();
+    const shown = q ? all.filter((e) => picked.includes(e) || nameOf(e).toLowerCase().includes(q) || e.includes(q)) : all;
+    const rows = shown
+      .map((eid) => `<label class="show-rule"><input type="checkbox" class="check" ${attr}="${esc(eid)}" ${picked.includes(eid) ? "checked" : ""}> ${esc(nameOf(eid))}</label>`)
+      .join("");
+    return `${all.length > 10 ? `<input type="text" ${filterAttr} placeholder="Search" value="${esc(filter || "")}" autocomplete="off">` : ""}
+      ${rows ? `<div class="show-rules">${rows}</div>` : `<p class="muted">${all.length ? "Nothing matches." : esc(empty)}</p>`}`;
+  }
+
+  _renderZones() {
+    const tv = this._lsTv();
+    if (!tv) return "";
+    const zones = tv.zones || [];
+    const editingNew = this._zoneEdit && this._zoneEdit.entry_id === tv.entry_id && !this._zoneEdit.cfg.zone_id;
+    const list = zones
+      .map((z) => (this._zoneEdit?.entry_id === tv.entry_id && this._zoneEdit.cfg.zone_id === z.config.zone_id ? this._renderZoneForm(tv) : this._renderZone(tv, z)))
+      .join("");
+    const canAdd = zones.length < (this._ls.max_zones || 8);
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <div class="field">
+        <label>Light sync</label>
+        <small>Color lights to match what's playing on this TV, from the artwork, a color you saved for the title, or the genre. When playback stops, the lights go back to how they were. Nothing is colored while the TV is off or blocked, and if a blocked app is stopped the lights go back straight away.</small>
+      </div>
+      ${list || (editingNew ? "" : `<p class="muted">No light zones yet. A zone is a group of lights that change together, like a strip behind the TV.</p>`)}
+      ${editingNew ? this._renderZoneForm(tv) : ""}
+      ${!this._zoneEdit && canAdd ? `<span><button type="button" class="btn" data-zone-add>${icon("plus")} Add a light zone</button></span>` : ""}
+      ${!canAdd ? `<small>A TV can have up to ${esc(this._ls.max_zones)} light zones.</small>` : ""}
+      ${this._zoneNote ? `<span class="saved" role="status">${esc(this._zoneNote)}</span>` : ""}
+    </div></section>`;
+  }
+
+  _renderZone(tv, z) {
+    const c = z.config;
+    const s = z.status;
+    const states = this._hass?.states || {};
+    const nameOf = (eid) => states[eid]?.attributes?.friendly_name || eid;
+    let chip;
+    if (!s) chip = `<span class="chip tone-muted">Starting</span>`;
+    else if (!c.enabled) chip = `<span class="chip tone-muted">Off</span>`;
+    else if (s.syncing) chip = `<span class="chip tone-good">Coloring</span>`;
+    else if (s.held) chip = `<span class="chip tone-warn">${esc(LS_HELD[s.held] || s.held)}</span>`;
+    else chip = `<span class="chip tone-muted">Waiting for something to play</span>`;
+    const colors = s?.syncing ? (s.palette?.length > 1 ? s.palette : s.color ? [s.color] : []) : [];
+    const swatches = colors.map((hex) => `<span class="swatch" style="background:${esc(hex)}" title="${esc(hex)}"></span>`).join("");
+    const now = s?.syncing && s.title
+      ? `<div class="zone-now">${swatches}<span>${esc(s.title)}</span><span class="muted">· ${esc(LS_SOURCES[s.source] || s.source)}</span></div>`
+      : "";
+    const failed = s && Object.keys(s.failed_lights || {}).length
+      ? `<small class="tone-bad-text">Couldn't reach: ${esc(Object.keys(s.failed_lights).map(nameOf).join(", "))}</small>`
+      : "";
+    const err = s?.last_error ? `<small class="tone-bad-text">${esc(s.last_error)}</small>` : "";
+    const players = [
+      c.use_tv_player && tv.tv_player ? "the TV" : null,
+      c.use_apple_tv && tv.apple_tv ? "the Apple TV" : null,
+      ...(c.extra_players || []).map(nameOf),
+    ].filter(Boolean);
+    const id = esc(c.zone_id);
+    return `<div class="zone">
+      <div class="zone-head">
+        <strong>${esc(c.name)}</strong>${chip}
+        <span class="zone-spacer"></span>
+        <label class="switch" title="Light sync on or off"><input type="checkbox" data-zone-enable="${id}" aria-label="Light sync for ${esc(c.name)}" ${c.enabled ? "checked" : ""}><span></span></label>
+      </div>
+      ${now}
+      <small class="muted">${esc((c.lights || []).map(nameOf).join(", "))}${players.length ? ` · follows ${esc(players.join(", "))}` : " · not following any player yet"}</small>
+      ${failed}${err}
+      <div class="zone-actions">
+        <button type="button" class="btn" data-zone-act="resync" data-zone="${id}">Look again</button>
+        ${s?.save_title ? `<button type="button" class="btn" data-zone-act="save_title_color" data-zone="${id}">Keep this color for ${esc(s.save_title)}</button>` : ""}
+        <button type="button" class="btn" data-zone-edit="${id}">Change</button>
+        <button type="button" class="btn danger" data-zone-remove="${id}" aria-label="Remove ${esc(c.name)}">${icon("delete")}</button>
+      </div>
+    </div>`;
+  }
+
+  _startZoneEdit(tv, zoneId) {
+    const source = zoneId ? tv.zones.find((z) => z.config.zone_id === zoneId)?.config : { ...this._ls.defaults, name: "" };
+    if (!source) return;
+    this._zoneEdit = { entry_id: tv.entry_id, cfg: JSON.parse(JSON.stringify(source)), lightFilter: "", playerFilter: "" };
+    if (!zoneId) delete this._zoneEdit.cfg.zone_id;
+    this._zoneNote = "";
+    this._error = null;
+    this._render();
+  }
+
+  _renderZoneForm(tv) {
+    const e = this._zoneEdit;
+    const c = e.cfg;
+    const ch = this._ls.choices;
+    const opts = (values, labels, current) =>
+      values.map((v) => `<option value="${esc(v)}" ${String(current) === String(v) ? "selected" : ""}>${esc(labels[v] || v)}</option>`).join("");
+    const toggle = (key, label, hint = "") =>
+      `<label class="toggle"><span>${label}${hint ? `<small>${hint}</small>` : ""}</span>
+        <span class="switch"><input type="checkbox" data-zf="${key}" data-ztype="bool" ${c[key] ? "checked" : ""}><span></span></span></label>`;
+    const number = (key, label, min, max, step, unit, hint = "") =>
+      `<div class="field"><label for="zf-${key}">${label}</label>
+        <span><input id="zf-${key}" type="number" data-zf="${key}" min="${min}" max="${max}" step="${step}" value="${esc(c[key])}"> ${unit ? `<span class="muted">${unit}</span>` : ""}</span>
+        ${hint ? `<small>${hint}</small>` : ""}</div>`;
+    const select = (key, label, values, labels, hint = "") =>
+      `<div class="field"><label for="zf-${key}">${label}</label>
+        <select id="zf-${key}" data-zf="${key}">${opts(values, labels, c[key])}</select>
+        ${hint ? `<small>${hint}</small>` : ""}</div>`;
+
+    const lights = c.lights || [];
+    const order = c.color_mode === "palette" && lights.length > 1
+      ? `<div class="order">${lights
+          .map((eid, i) => `<span class="order-item"><span>${i + 1}. ${esc(this._hass?.states?.[eid]?.attributes?.friendly_name || eid)}</span>${i ? `<button type="button" class="chip-btn" data-zlight-up="${esc(eid)}" aria-label="Move up">↑</button>` : ""}</span>`)
+          .join("")}</div><small>Palette colors go to the lights in this order.</small>`
+      : "";
+    const sources = [...c.color_sources, ...ch.color_sources.filter((x) => !c.color_sources.includes(x))];
+    const preset = Object.entries(ch.presets).find(([, list]) => list.join() === c.color_sources.join())?.[0] || "custom";
+    const sourceRows = sources
+      .map((src) => {
+        const on = c.color_sources.includes(src);
+        const idx = c.color_sources.indexOf(src);
+        return `<span class="order-item"><label class="show-rule"><input type="checkbox" class="check" data-zsrc="${esc(src)}" ${on ? "checked" : ""}> ${esc(LS_SOURCES[src] || src)}</label>${on && idx > 0 ? `<button type="button" class="chip-btn" data-zsrc-up="${esc(src)}" aria-label="Try ${esc(LS_SOURCES[src] || src)} sooner">↑</button>` : ""}</span>`;
+      })
+      .join("");
+    const media = ch.media_types
+      .map((m) => `<label class="show-rule"><input type="checkbox" class="check" data-zmedia="${esc(m)}" ${(c.media_types || []).includes(m) ? "checked" : ""}> ${esc(LS_MEDIA[m] || m)}</label>`)
+      .join("");
+    const defaultHex = rgbHex(c.default_color);
+    const isNew = !c.zone_id;
+    return `<form id="zone-form" class="zone editing" novalidate>
+      <div class="field"><label for="zf-name">Name</label>
+        <input id="zf-name" type="text" data-zf="name" maxlength="60" placeholder="${esc(this._ls.defaults.name)}" value="${esc(c.name)}"></div>
+      <div class="field"><label>Lights</label>
+        <small>Lights that can't show color just follow the brightness.</small>
+        ${this._entityChecklist({ domain: "light", picked: lights, filter: e.lightFilter, attr: "data-zlight", filterAttr: "data-zlight-filter", empty: "No lights in Home Assistant yet." })}
+        ${order}
+      </div>
+      <div class="field"><label>What to follow</label>
+        <small>The lights color for whichever of these is playing.</small></div>
+      ${tv.tv_player ? toggle("use_tv_player", "This TV", "What the TV itself is playing.") : ""}
+      ${tv.apple_tv ? toggle("use_apple_tv", "The Apple TV", "The Apple TV plugged into this TV.") : ""}
+      <div class="field"><label>Other players</label>
+        <small>Add a player that shows what's on, like a Music Assistant or Plex player.</small>
+        ${this._entityChecklist({ domain: "media_player", picked: c.extra_players || [], filter: e.playerFilter, attr: "data-zplayer", filterAttr: "data-zplayer-filter", exclude: [tv.tv_player, tv.apple_tv].filter(Boolean), empty: "No other media players." })}
+      </div>
+      ${toggle("require_tv_on", "Only while the TV is on", "Turn off to color the lights for another player even when the TV is off.")}
+      ${number("brightness_pct", "Brightness", 1, 100, 1, "%")}
+      ${number("transition", "Fade", 0, 30, 0.5, "seconds")}
+      <div class="field"><label for="zf-preset">Where colors come from</label>
+        <select id="zf-preset" data-zpreset>${opts([...Object.keys(ch.presets), ...(preset === "custom" ? ["custom"] : [])], LS_PRESETS, preset)}</select>
+        <div class="order">${sourceRows}</div>
+        <small>Tried in this order. The default color is used if nothing else works.</small></div>
+      <div class="field"><label for="zf-default">Default color</label>
+        <span><input id="zf-default" type="color" data-zf="default_color" data-ztype="rgb" value="${esc(defaultHex)}"></span></div>
+      ${select("color_mode", "Colors", ch.color_modes, LS_COLOR_MODES)}
+      ${c.color_mode === "palette" ? `${select("palette_size", "Colors in the palette", ch.palette_sizes, {})}${select("palette_strategy", "How colors are spread", ch.palette_strategies, LS_STRATEGIES)}` : ""}
+      ${select("pause_behavior", "When playback pauses", ch.idle_behaviors, LS_IDLE)}
+      ${select("stop_behavior", "When playback stops", ch.idle_behaviors, LS_IDLE)}
+      ${number("restore_delay", "Wait before putting the lights back", 0, 300, 1, "seconds", "Gives you a moment to start the next episode.")}
+      <div class="field"><label>Only for</label>
+        <small>Leave all unchecked to color for everything.</small>
+        <div class="show-rules">${media}</div></div>
+      <details class="more">
+        <summary>More settings</summary>
+        <div class="more-body">
+          ${select("extraction_method", "Artwork color", ch.extraction_methods, LS_EXTRACTION)}
+          ${number("min_saturation", "Skip colors greyer than", 0, 100, 1, "% saturation")}
+          ${number("saturation_boost", "Make colors richer by", 1, 3, 0.1, "×")}
+          ${number("min_brightness", "Lowest color brightness", 0, 100, 1, "%")}
+          ${number("dark_threshold", "Ignore pixels darker than", 0, 255, 1, "of 255")}
+          ${number("light_threshold", "Ignore pixels lighter than", 0, 255, 1, "of 255")}
+          ${toggle("skip_achromatic", "Skip black, white and grey", "Uses the next color source when the artwork has no real color.")}
+          ${toggle("metadata_artwork", "Look up artwork online", "Uses TMDB or Trakt from Shared settings when the player doesn't show artwork or a genre.")}
+          ${toggle("fuzzy_title_match", "Match titles loosely", `So "The Matrix (1999)" uses the color saved for "The Matrix".`)}
+          ${select("unsupported_lights", "Lights that can't show color", ch.unsupported_lights, LS_UNSUPPORTED)}
+          ${toggle("expand_groups", "Color each light in a group", "Treats a light group as the lights inside it.")}
+          ${toggle("persist_snapshot", "Remember how the lights were across restarts")}
+        </div>
+      </details>
+      <div class="form-actions">
+        <button type="submit" class="btn primary" ${this._busyZone ? "disabled" : ""}>${this._busyZone ? "Saving…" : isNew ? "Add light zone" : "Save light zone"}</button>
+        <button type="button" class="btn" data-zone-cancel>Cancel</button>
+      </div>
+    </form>`;
+  }
+
+  _zoneField(el) {
+    const c = this._zoneEdit?.cfg;
+    if (!c) return false;
+    const key = el.dataset.zf;
+    const type = el.dataset.ztype;
+    if (type === "bool") c[key] = el.checked;
+    else if (type === "rgb") c[key] = hexRgb(el.value);
+    else c[key] = el.value;
+    return key === "color_mode";
+  }
+
+  async _saveZone() {
+    const e = this._zoneEdit;
+    const c = e.cfg;
+    if (!c.lights?.length) return this._showError("Pick at least one light for this zone.");
+    const zone = {};
+    for (const key of ["name", "enabled", "use_tv_player", "use_apple_tv", "extra_players", "require_tv_on", "unsupported_lights",
+      "expand_groups", "default_color", "color_sources", "fuzzy_title_match", "media_types", "extraction_method", "skip_achromatic",
+      "pause_behavior", "stop_behavior", "persist_snapshot", "color_mode", "palette_strategy", "metadata_artwork", "lights"]) {
+      if (c[key] !== undefined) zone[key] = c[key];
+    }
+    zone.name = (zone.name || "").trim();
+    for (const [key, label, min, max, whole] of LS_NUMBERS) {
+      if (c[key] === undefined) continue;
+      const n = Number(c[key]);
+      if (c[key] === "" || Number.isNaN(n) || n < min || n > max || (whole && !Number.isInteger(n))) {
+        return this._showError(`${label} needs ${whole ? "a whole number" : "a number"} from ${min} to ${max}.`);
+      }
+      zone[key] = n;
+    }
+    if (c.zone_id) zone.zone_id = c.zone_id;
+    this._busyZone = true;
+    this._error = null;
+    this._render();
+    try {
+      await this._ws({ type: "tv_mgmt/light_sync/zone/save", entry_id: e.entry_id, zone });
+      this._zoneEdit = null;
+      this._zoneNote = c.zone_id ? "Light zone saved" : "Light zone added";
+      await this._loadLightSync({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyZone = false;
+    this._render();
+  }
+
+  async _zoneRequest(msg, note) {
+    this._error = null;
+    this._zoneNote = "";
+    try {
+      const res = await this._ws({ entry_id: this._selected, ...msg });
+      this._zoneNote = typeof note === "function" ? note(res) : note;
+      await this._loadLightSync({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._render();
+  }
+
+  _renderLightSettings() {
+    const s = this._ls.settings;
+    if (!this._lsDraft) this._lsDraft = { providers: [...s.metadata_providers], tmdb: "", trakt: "" };
+    const d = this._lsDraft;
+    const ch = this._ls.choices;
+    const names = { tmdb: "TMDB", trakt: "Trakt" };
+    const providers = ch.metadata_providers
+      .map((p) => `<label class="show-rule"><input type="checkbox" class="check" data-ls-provider="${esc(p)}" ${d.providers.includes(p) ? "checked" : ""}> ${esc(names[p] || p)}</label>`)
+      .join("");
+    const key = (id, label, set, hint) => `<div class="field"><label for="ls-${id}">${label}</label>
+        <div class="message-row">
+          <input id="ls-${id}" type="password" data-ls-key="${id}" autocomplete="off" placeholder="${set ? "Saved. Type a new one to replace it." : "Not set"}" value="${esc(d[id])}">
+          ${set ? `<button type="button" class="btn" data-ls-forget="${id}">Remove</button>` : ""}
+        </div>
+        <small>${hint}</small></div>`;
+    const cache = this._ls.cache || {};
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <form id="ls-settings" novalidate>
+        <div class="field"><label>Shared settings</label>
+          <small>Used by every TV. When a player doesn't show artwork or a genre, light sync can look the title up online.</small></div>
+        <div class="field"><label>Look titles up on</label>
+          <div class="show-rules">${providers}</div>
+          ${d.providers.length > 1 ? `<span><button type="button" class="chip-btn" data-ls-swap>Ask ${esc(names[d.providers[1]])} first</button></span>` : ""}
+          <small>${d.providers.length ? `Asked in this order: ${esc(d.providers.map((p) => names[p] || p).join(", then "))}.` : "Not looking anything up."}</small></div>
+        ${key("tmdb", "TMDB API key", s.tmdb_key_set, "From themoviedb.org, under Settings, API. Either the short key or the long read access token works.")}
+        ${key("trakt", "Trakt client ID", s.trakt_key_set, "From trakt.tv, under Settings, Your API apps.")}
+        <div class="form-actions">
+          <button type="submit" class="btn primary" ${this._busyLs ? "disabled" : ""}>${this._busyLs ? "Checking…" : "Save shared settings"}</button>
+          ${this._lsNote ? `<span class="saved" role="status">${esc(this._lsNote)}</span>` : ""}
+        </div>
+        <div class="field"><label>Artwork colors</label>
+          <small>${esc(cache.size || 0)} artwork color${cache.size === 1 ? "" : "s"} remembered, so the same poster isn't worked out twice.</small>
+          <span><button type="button" class="btn" data-ls-clear-cache>Forget artwork colors</button></span></div>
+      </form>
+    </div></section>`;
+  }
+
+  async _saveLightSettings(extra = {}) {
+    const d = this._lsDraft;
+    const msg = { type: "tv_mgmt/light_sync/settings/set", metadata_providers: d.providers, ...extra };
+    if (!("tmdb_api_key" in extra) && d.tmdb.trim()) msg.tmdb_api_key = d.tmdb.trim();
+    if (!("trakt_client_id" in extra) && d.trakt.trim()) msg.trakt_client_id = d.trakt.trim();
+    this._busyLs = true;
+    this._error = null;
+    this._lsNote = "";
+    this._render();
+    try {
+      await this._ws(msg);
+      this._lsDraft = null;
+      this._lsNote = "Shared settings saved";
+      await this._loadLightSync({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyLs = false;
+    this._render();
+  }
+
+  _renderTitleColors() {
+    if (!this._titleDraft) this._titleDraft = { title: "", color: "#ff9329" };
+    const d = this._titleDraft;
+    const rows = (this._ls.titles || [])
+      .map((t) => `<div class="title-row"><span class="swatch" style="background:${esc(t.hex)}"></span><span>${esc(t.title)}</span><span class="muted">${esc(t.hex)}</span>
+          <button type="button" class="btn" data-title-remove="${esc(t.title)}" aria-label="Forget the color for ${esc(t.title)}">${icon("delete")}</button></div>`)
+      .join("");
+    return `<section class="card" style="margin-top:20px"><div class="card-body">
+      <form id="ls-title" novalidate>
+        <div class="field"><label>Title colors</label>
+          <small>A color that's always used for a movie or show, on every TV. "Keep this color" on a zone adds the one showing now.</small></div>
+        ${rows ? `<div class="titles">${rows}</div>` : `<p class="muted">No title colors yet.</p>`}
+        <div class="message-row">
+          <input type="text" data-title-new placeholder="Movie or show, e.g. The Matrix" value="${esc(d.title)}" autocomplete="off" aria-label="Title">
+          <input type="color" data-title-color value="${esc(d.color)}" aria-label="Color">
+          <button type="submit" class="btn">Add</button>
+        </div>
+        ${this._titleNote ? `<span class="saved" role="status">${esc(this._titleNote)}</span>` : ""}
+      </form>
+    </div></section>`;
+  }
+
+  async _saveTitleColor() {
+    const d = this._titleDraft;
+    const title = d.title.trim();
+    if (!title) return this._showError("Type the movie or show's name.");
+    this._error = null;
+    try {
+      await this._ws({ type: "tv_mgmt/light_sync/titles/set", title, rgb_color: hexRgb(d.color) });
+      this._titleNote = `Saved a color for ${title}`;
+      this._titleDraft = null;
+      await this._loadLightSync({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._render();
+  }
+
+  // Button presses on the Lights tab. Returns true when handled.
+  _onLightsClick(el) {
+    const d = el.dataset;
+    const tv = this._lsTv();
+    if (d.zoneAdd !== undefined && tv) {
+      this._startZoneEdit(tv, null);
+      return true;
+    }
+    if (d.zoneEdit && tv) {
+      this._startZoneEdit(tv, d.zoneEdit);
+      return true;
+    }
+    if (d.zoneCancel !== undefined) {
+      this._zoneEdit = null;
+      this._error = null;
+      this._render();
+      return true;
+    }
+    if (d.zoneRemove) {
+      const name = tv?.zones.find((z) => z.config.zone_id === d.zoneRemove)?.config.name || "this zone";
+      if (!window.confirm(`Remove ${name}? Its lights go back to how they were.`)) return true;
+      this._zoneRequest({ type: "tv_mgmt/light_sync/zone/remove", zone_id: d.zoneRemove }, "Light zone removed");
+      return true;
+    }
+    if (d.zoneAct) {
+      this._zoneRequest({ type: "tv_mgmt/light_sync/zone/action", zone_id: d.zone, action: d.zoneAct }, (res) =>
+        d.zoneAct === "resync" ? (res.error ? res.error : "Looked again") : "Color kept for this title");
+      return true;
+    }
+    if (d.zlightUp && this._zoneEdit) {
+      const list = this._zoneEdit.cfg.lights;
+      const i = list.indexOf(d.zlightUp);
+      if (i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]];
+      this._render();
+      return true;
+    }
+    if (d.zsrcUp && this._zoneEdit) {
+      const list = this._zoneEdit.cfg.color_sources;
+      const i = list.indexOf(d.zsrcUp);
+      if (i > 0) [list[i - 1], list[i]] = [list[i], list[i - 1]];
+      this._render();
+      return true;
+    }
+    if (d.lsSwap !== undefined && this._lsDraft) {
+      this._lsDraft.providers.reverse();
+      this._lsNote = "";
+      this._render();
+      return true;
+    }
+    if (d.lsForget && this._lsDraft) {
+      const field = d.lsForget === "tmdb" ? "tmdb_api_key" : "trakt_client_id";
+      this._saveLightSettings({ [field]: "" });
+      return true;
+    }
+    if (d.lsClearCache !== undefined) {
+      this._callService("tv_mgmt", "clear_artwork_cache", { resync: true }).then(() => {
+        this._lsNote = this._error ? "" : "Artwork colors forgotten";
+        this._loadLightSync({ quiet: true });
+        this._render();
+      });
+      return true;
+    }
+    if (d.titleRemove) {
+      this._error = null;
+      this._ws({ type: "tv_mgmt/light_sync/titles/remove", title: d.titleRemove })
+        .then(() => {
+          this._titleNote = `Forgot the color for ${d.titleRemove}`;
+          return this._loadLightSync({ quiet: true });
+        })
+        .catch((err) => (this._error = this._errorText(err)))
+        .finally(() => this._render());
+      return true;
+    }
+    return false;
+  }
+
+  // Checkboxes and selects on the Lights tab. Returns true when handled.
+  _onLightsChange(input) {
+    const d = input.dataset;
+    const e = this._zoneEdit;
+    if (d.zoneEnable) {
+      const z = this._lsTv()?.zones.find((x) => x.config.zone_id === d.zoneEnable);
+      if (z) {
+        const enabled = input.checked;
+        this._zoneRequest(
+          { type: "tv_mgmt/light_sync/zone/save", zone: { zone_id: d.zoneEnable, lights: z.config.lights, enabled } },
+          enabled ? `${z.config.name} on` : `${z.config.name} off`,
+        );
+      }
+      return true;
+    }
+    if (e && d.zf !== undefined) {
+      if (this._zoneField(input)) this._render();
+      return true;
+    }
+    if (e && (d.zlight !== undefined || d.zplayer !== undefined)) {
+      const key = d.zlight !== undefined ? "lights" : "extra_players";
+      const eid = d.zlight ?? d.zplayer;
+      const list = (e.cfg[key] = (e.cfg[key] || []).filter((x) => x !== eid));
+      if (input.checked) list.push(eid);
+      if (key === "lights" && e.cfg.color_mode === "palette") this._render();
+      return true;
+    }
+    if (e && d.zmedia !== undefined) {
+      const list = (e.cfg.media_types = (e.cfg.media_types || []).filter((x) => x !== d.zmedia));
+      if (input.checked) list.push(d.zmedia);
+      return true;
+    }
+    if (e && d.zsrc !== undefined) {
+      const list = (e.cfg.color_sources = e.cfg.color_sources.filter((x) => x !== d.zsrc));
+      if (input.checked) list.push(d.zsrc);
+      this._render();
+      return true;
+    }
+    if (e && d.zpreset !== undefined) {
+      const preset = this._ls.choices.presets[input.value];
+      if (preset) e.cfg.color_sources = [...preset];
+      this._render();
+      return true;
+    }
+    if (this._lsDraft && d.lsProvider !== undefined) {
+      const list = (this._lsDraft.providers = this._lsDraft.providers.filter((x) => x !== d.lsProvider));
+      if (input.checked) list.push(d.lsProvider);
+      this._lsNote = "";
+      this._render();
+      return true;
+    }
+    return false;
+  }
+
+  // Typing on the Lights tab. Returns true when handled.
+  _onLightsInput(t) {
+    const d = t.dataset;
+    const e = this._zoneEdit;
+    if (e && (d.zlightFilter !== undefined || d.zplayerFilter !== undefined)) {
+      const attr = d.zlightFilter !== undefined ? "data-zlight-filter" : "data-zplayer-filter";
+      e[d.zlightFilter !== undefined ? "lightFilter" : "playerFilter"] = t.value;
+      clearTimeout(this._zoneFilterTimer);
+      this._zoneFilterTimer = setTimeout(() => {
+        this._render();
+        const box = this.shadowRoot.querySelector(`[${attr}]`);
+        if (box) { box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+      }, 250);
+      return true;
+    }
+    if (e && d.zf !== undefined && t.tagName === "INPUT" && t.type !== "checkbox") {
+      this._zoneField(t);
+      return true;
+    }
+    if (this._lsDraft && d.lsKey) {
+      this._lsDraft[d.lsKey] = t.value;
+      this._lsNote = "";
+      return true;
+    }
+    if (this._titleDraft && d.titleNew !== undefined) {
+      this._titleDraft.title = t.value;
+      this._titleNote = "";
+      return true;
+    }
+    if (this._titleDraft && d.titleColor !== undefined) {
+      this._titleDraft.color = t.value;
+      return true;
+    }
+    return false;
+  }
+
   // ---- events ------------------------------------------------------------------------
 
   _onClick(ev) {
     const el = ev.target.closest("button");
     if (!el) return;
 
+    if (this._tab === "lights" && this._onLightsClick(el)) return;
     if (el.dataset.homeExtra) {
       this._homeExtra(Number(el.dataset.homeExtra));
       return;
@@ -2085,6 +2695,16 @@ class TvMgmtPanel extends HTMLElement {
         this._accessDraft = null;
         this._accessNote = "";
       }
+      if (this._tab === "lights") {
+        this._zoneEdit = null;
+        this._zoneNote = "";
+        this._lsNote = "";
+        this._titleNote = "";
+        this._lsDraft = null;
+        this._lightsDraft = null;
+        this._lightsNote = "";
+        if (this._ls) this._loadLightSync({ quiet: true });
+      }
       this._error = null;
       this._savedNote = "";
       this._render();
@@ -2098,6 +2718,8 @@ class TvMgmtPanel extends HTMLElement {
       this._namesDraft = null;
       this._lightsDraft = null;
       this._lightsNote = "";
+      this._zoneEdit = null;
+      this._zoneNote = "";
       this._appsDraft = null;
       this._appsNote = "";
       this._savedNote = "";
@@ -2193,6 +2815,7 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (this._tab === "lights" && this._onLightsChange(input)) return;
     if (input.dataset.light !== undefined && this._lightsDraft) {
       if (input.checked) this._lightsDraft.picked.add(input.dataset.light);
       else this._lightsDraft.picked.delete(input.dataset.light);
@@ -2249,10 +2872,11 @@ class TvMgmtPanel extends HTMLElement {
   // Someone is typing in a text or number field on the dashboard.
   _typing() {
     const el = this.shadowRoot.activeElement;
-    return !!el && el.tagName === "INPUT" && ["text", "number"].includes(el.type);
+    return !!el && el.tagName === "INPUT" && ["text", "number", "password"].includes(el.type);
   }
 
   _onInput(ev) {
+    if (this._tab === "lights" && this._onLightsInput(ev.target)) return;
     if (ev.target.dataset.lightFilter !== undefined && this._lightsDraft) {
       this._lightsDraft.filter = ev.target.value;
       clearTimeout(this._lightFilterTimer);
@@ -2357,6 +2981,21 @@ class TvMgmtPanel extends HTMLElement {
     if (ev.target.id === "lights") {
       ev.preventDefault();
       await this._saveLights();
+      return;
+    }
+    if (ev.target.id === "zone-form") {
+      ev.preventDefault();
+      await this._saveZone();
+      return;
+    }
+    if (ev.target.id === "ls-settings") {
+      ev.preventDefault();
+      await this._saveLightSettings();
+      return;
+    }
+    if (ev.target.id === "ls-title") {
+      ev.preventDefault();
+      await this._saveTitleColor();
       return;
     }
     if (ev.target.id === "names") {

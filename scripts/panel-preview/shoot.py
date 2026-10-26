@@ -27,7 +27,7 @@ class _QuietHandler(SimpleHTTPRequestHandler):
     def log_message(self, *args) -> None:
         pass
 
-TABS = ["dashboard", "activity", "analytics", "limits", "access"]
+TABS = ["dashboard", "activity", "analytics", "limits", "lights", "access"]
 SIZES = {"phone": (390, 900), "desktop": (1440, 1000)}
 
 

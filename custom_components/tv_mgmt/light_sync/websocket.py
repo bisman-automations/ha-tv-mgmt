@@ -381,7 +381,7 @@ async def ws_titles_set(hass: HomeAssistant, connection, msg) -> None:
 async def ws_titles_remove(hass: HomeAssistant, connection, msg) -> None:
     """Forget a title's colour."""
     if not await hass.data[DATA_LIGHT_SYNC].titles.async_remove(msg["title"]):
-        connection.send_error(msg["id"], "not_found", "No colour is saved for that title")
+        connection.send_error(msg["id"], "not_found", "No color is saved for that title")
         return
     connection.send_result(msg["id"])
 

@@ -197,7 +197,7 @@ MEDIA_TYPE_OPTIONS: Final[list[str]] = [
 # --------------------------------------------------------------------------- #
 # Defaults
 # --------------------------------------------------------------------------- #
-DEFAULT_NAME: Final = "TV lights"
+DEFAULT_NAME: Final = "Lights"
 DEFAULT_BRIGHTNESS_PCT: Final = 60
 DEFAULT_TRANSITION: Final = 2.0
 DEFAULT_DEFAULT_COLOR: Final[list[int]] = [255, 147, 41]  # warm "candle" amber

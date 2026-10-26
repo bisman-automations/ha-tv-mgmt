@@ -124,6 +124,42 @@ const states = {
     media_series_title: "Harbor Tales", media_season: "2", media_episode: "4", media_duration: 1560, media_position: 642,
     media_position_updated_at: new OrigDate(FIXED - 20000).toISOString(), entity_picture: ART, supported_features: 23997 } },
 };
+// Light sync (sample).
+const LIGHT_DEFAULTS = { name: "Lights", enabled: true, lights: [], use_tv_player: true, use_apple_tv: true, extra_players: [], require_tv_on: true,
+  brightness_pct: 60, transition: 2, unsupported_lights: "brightness_only", expand_groups: true, default_color: [255, 147, 41],
+  color_sources: ["title_mapping", "poster", "genre", "default"], fuzzy_title_match: true, media_types: [], extraction_method: "vibrant",
+  min_saturation: 35, saturation_boost: 1.3, min_brightness: 25, dark_threshold: 30, light_threshold: 230, skip_achromatic: true,
+  pause_behavior: "leave", stop_behavior: "restore", restore_delay: 5, persist_snapshot: true, color_mode: "single", palette_size: 3,
+  palette_strategy: "spread", metadata_artwork: true };
+const lightTvs = {
+  fam: { tv_player: "media_player.family_room_tv", apple_tv: "media_player.living_room_apple_tv", zones: [
+    { config: { ...LIGHT_DEFAULTS, zone_id: "a1", name: "Behind the TV", lights: ["light.tv_backlight", "light.reading_lamp"], color_mode: "palette" },
+      status: { enabled: true, syncing: true, held: null, color: "#6a3fd1", source: "poster", title: "Harbor Tales", player: "media_player.living_room_apple_tv",
+        palette: ["#6a3fd1", "#ff9a5a", "#ffe08a"], lights: ["light.tv_backlight", "light.reading_lamp"], failed_lights: {}, last_error: null,
+        pending: null, save_title: "Harbor Tales", outcome: "applied", players: ["media_player.family_room_tv", "media_player.living_room_apple_tv"], name: "Behind the TV" }, entities: {} },
+  ] },
+  bed: { tv_player: "media_player.playroom_tv", apple_tv: null, zones: [
+    { config: { ...LIGHT_DEFAULTS, zone_id: "b1", name: "Ceiling", lights: ["light.ceiling"] },
+      status: { enabled: true, syncing: false, held: "tv_off", color: null, source: "none", title: null, player: null, palette: [], lights: ["light.ceiling"],
+        failed_lights: {}, last_error: null, pending: null, save_title: null, outcome: null, players: ["media_player.playroom_tv"], name: "Ceiling" }, entities: {} },
+  ] },
+};
+let lightSettings = { metadata_providers: ["tmdb"], tmdb_key_set: true, trakt_key_set: false };
+let lightTitles = [
+  { title: "Garden Friends", key: "garden friends", rgb_color: [76, 175, 80], hex: "#4caf50", updated: "2026-10-20T18:00:00" },
+  { title: "Moon Over the Meadow", key: "moon over the meadow", rgb_color: [63, 81, 181], hex: "#3f51b5", updated: "2026-10-21T18:00:00" },
+];
+const lightSync = () => ({
+  tvs: profiles.map((x) => ({ entry_id: x.entry_id, name: x.name, tv_lights: x.tv_lights || [], ...(lightTvs[x.entry_id] || { zones: [] }) })),
+  settings: lightSettings, titles: lightTitles, cache: { size: 14, max_size: 256, hits: 30, misses: 14 },
+  defaults: LIGHT_DEFAULTS, max_zones: 8,
+  choices: { color_sources: ["title_mapping", "poster", "genre", "default"],
+    presets: { balanced: ["title_mapping", "poster", "genre", "default"], artwork_first: ["poster", "title_mapping", "genre", "default"],
+      genre_first: ["title_mapping", "genre", "poster", "default"], titles_only: ["title_mapping", "default"], artwork_only: ["poster", "default"], genre_only: ["genre", "default"] },
+    media_types: ["movie", "tvshow", "episode", "video", "channel", "music", "podcast", "game", "app"],
+    extraction_methods: ["dominant", "vibrant", "average"], idle_behaviors: ["restore", "turn_off", "default_color", "leave"],
+    unsupported_lights: ["brightness_only", "skip"], color_modes: ["single", "palette"], palette_strategies: ["spread", "dominant_first", "mirrored"],
+    palette_sizes: [3, 4, 5], metadata_providers: ["tmdb", "trakt"] } });
 // Whole-home limits (sample).
 let home = { daily_minutes: 240, weekly_minutes: 1200, week_start: "monday", warn_minutes: 10, action: "turn_off",
   notify: ["notify.mobile_app_parent_phone"], excluded: [], active: true, today_seconds: 3.4 * 3600, week_seconds: 15.2 * 3600,
@@ -169,6 +205,19 @@ window.hass = {
         { id: "k1", name: "Kid One", is_admin: false, is_owner: false },
         { id: "k2", name: "Kid Two", is_admin: false, is_owner: false } ] };
       case "tv_mgmt/message": window.lastMessage = msg; return { sent: ["apple_tv", "screen"].filter(k => msg[k]) };
+      case "tv_mgmt/light_sync/get": return lightSync();
+      case "tv_mgmt/light_sync/zone/save": window.lastZone = msg; {
+        const tv = lightTvs[msg.entry_id];
+        const at = tv.zones.findIndex((z) => z.config.zone_id === msg.zone.zone_id);
+        const config = { ...LIGHT_DEFAULTS, ...(at >= 0 ? tv.zones[at].config : {}), ...msg.zone, zone_id: msg.zone.zone_id || "z" + Date.now().toString(36) };
+        config.name = config.name || "Lights";
+        if (at >= 0) tv.zones[at] = { ...tv.zones[at], config }; else tv.zones.push({ config, status: null, entities: {} });
+        return { zone: config }; }
+      case "tv_mgmt/light_sync/zone/remove": lightTvs[msg.entry_id].zones = lightTvs[msg.entry_id].zones.filter((z) => z.config.zone_id !== msg.zone_id); return null;
+      case "tv_mgmt/light_sync/zone/action": window.lastZoneAction = msg; return msg.action === "resync" ? { outcome: "applied", error: null } : { title: "harbor tales" };
+      case "tv_mgmt/light_sync/settings/set": window.lastLightSettings = msg; lightSettings = { metadata_providers: msg.metadata_providers, tmdb_key_set: msg.tmdb_api_key === undefined ? lightSettings.tmdb_key_set : !!msg.tmdb_api_key, trakt_key_set: msg.trakt_client_id === undefined ? lightSettings.trakt_key_set : !!msg.trakt_client_id }; return { settings: lightSettings };
+      case "tv_mgmt/light_sync/titles/set": lightTitles.push({ title: msg.title, key: msg.title.toLowerCase(), rgb_color: msg.rgb_color, hex: "#" + msg.rgb_color.map((n) => n.toString(16).padStart(2, "0")).join(""), updated: nowIso }); return { key: msg.title.toLowerCase() };
+      case "tv_mgmt/light_sync/titles/remove": lightTitles = lightTitles.filter((t) => t.title !== msg.title); return null;
       case "tv_mgmt/lights/set": window.lastLights = msg; profiles[0].tv_lights = msg.lights; return { lights: msg.lights };
       case "tv_mgmt/remote": window.lastRemote = msg; return { key: msg.key };
       case "tv_mgmt/action": window.lastAction = msg; return { profile: profiles.find(p => p.entry_id === msg.entry_id) };
