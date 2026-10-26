@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-26
+
+### Added
+
+- **Light sync.** Lights behind or around the TV take their color from what's playing, and go back to how they were when it stops. Set it up in the sidebar app's new **Lights** tab.
+  - Add up to 8 light zones per TV, each a group of lights that change together.
+  - The color comes from a color you saved for the title, the artwork, the genre, or your default color, in the order you choose. One color for every light, or a palette spread across them.
+  - A zone follows the TV and its Apple TV, and any other player you add, like a Music Assistant player.
+  - It follows TV Mgmt's rules: nothing is colored while the TV is off or blocked, and when a blocked app is stopped the lights go back straight away.
+  - When the TV turns off, its TV lights turn off and stay off. When it turns on, zones wait for the TV lights before remembering how the lights are.
+  - **Shared settings** for every TV: TMDB and Trakt keys to look up artwork and genres when a player has none, and your title colors.
+  - Each zone is a device with switch, sensor, number, select and button entities, and there are services to work colors out again, manage title colors and clear the artwork colors.
+
+### Changed
+
+- **TV lights** moved from **Limits** to the new **Lights** tab. They still work the same, and can still be picked under **Configure → TV lights**. Changing them no longer reloads the TV.
+
 ## [1.14.1] - 2026-10-24
 
 ### Fixed
@@ -346,7 +363,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...HEAD
+[1.15.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...v1.14.0
 [1.13.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.12.0...v1.13.0

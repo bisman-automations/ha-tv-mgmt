@@ -13,6 +13,7 @@ Smart TVs have no real way to say "only the Apple TV." Kids flip to the built-in
 - **Limits screen time.** It counts how long the TV is on each day. When the limit is reached, the TV is turned off, and it stays off if someone turns it back on.
 - **Keeps quiet windows.** The TV stays off during bedtime, school hours, or whatever windows you set.
 - **Limits the whole home.** A daily or weekly limit for all the TVs together, so screen time adds up across the house. See [Whole-home limits](#whole-home-limits).
+- **Colors the lights to match what's on.** Lights behind or around the TV take their color from the movie or show playing, and go back to how they were when it stops. See [Lights](#lights).
 - **Manages the Apple TV too.** Link the Apple TV plugged into the TV to see time per app, block apps (or allow only a few), and give apps their own daily limits.
 - **Leaves parents in charge.** You can grant extra time, block now, pause the rules, or use **adult mode** to lift everything for a movie night.
 
@@ -97,6 +98,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
 - **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
 - **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches.
 - **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
+- **Lights.** Each TV's [TV lights and light zones](#lights), plus the settings every TV shares: the TMDB and Trakt keys and the colors you saved for titles.
 
 Remote buttons appear only when the TV's integration can press them:
 
@@ -134,11 +136,56 @@ How it works:
 
 The `tv_mgmt_home_limit` event fires with each message, for automations.
 
-## TV lights
+## Lights
+
+Everything about lights is in the sidebar app's **Lights** tab. Pick the TV at the top.
+
+### TV lights
 
 Pick lights that go with the TV, such as a light behind it. They turn on when the TV turns on, and off when it turns off, including when TV Mgmt turns it off. They don't turn on while the TV is blocked, so they don't flash on and off.
 
-Pick them in the sidebar app under **Limits → TV lights**, or under **Configure → TV lights**.
+You can also pick them under **Configure → TV lights**.
+
+### Light sync
+
+A light zone is a group of lights that change color together with what's playing, like a strip behind the TV or the lamps in the room. A TV can have up to 8 zones. Add one with **Add a light zone**, pick its lights, and save. It starts working straight away.
+
+1. When something starts playing, the zone remembers how its lights are, then colors them.
+2. The color comes from, in the order you choose: a color you saved for that title, the artwork, the genre, and finally your default color.
+3. When playback pauses or stops, the lights go back to how they were (or turn off, show the default color, or stay as they are, if you prefer).
+
+What a zone follows:
+
+- **This TV** and **the Apple TV** plugged into it. Turn either off for a zone.
+- **Other players**, like a Music Assistant or Plex player that shows what's on the TV.
+
+It works with TV Mgmt's rules:
+
+- Nothing is colored while the TV is off or blocked. Turn off **Only while the TV is on** for a zone that should follow another player even when the TV is off.
+- When the TV turns off, its TV lights turn off too, and a zone doesn't put them back on later.
+- When the TV turns on, a zone waits for the TV lights to come on before remembering how the lights are.
+- When TV Mgmt stops a blocked app or show, the lights go back straight away, and aren't colored again for a moment while the Apple TV catches up.
+
+The zone shows what it's doing: the colors, the title and where the color came from. **Look again** works the color out again, and **Keep this color for …** saves the color showing now for that title, on every TV.
+
+**More settings** fine-tune the artwork colors (the most vivid, the most common, or the average color, and how grey, dark or light a color may be), a palette spread across the lights instead of one color, which kinds of media to color for, and what happens to lights that can't show color.
+
+**Shared settings** apply to every TV:
+
+- **TMDB and Trakt.** When a player doesn't show artwork or a genre, light sync can look the title up. Add a TMDB API key (free at themoviedb.org) or a Trakt client ID. Keys are checked when you save, and they aren't shown again. If a key stops working, Home Assistant shows a repair.
+- **Title colors.** A color always used for a movie or show, such as green for *The Matrix*. Titles match loosely, so "The Matrix (1999)" uses it too.
+- **Artwork colors.** Colors worked out from artwork are remembered, so the same poster isn't worked out twice. **Forget artwork colors** clears them.
+
+Each zone is a device named like **TV Mgmt — Family Room TV · Lights**, linked to the TV's TV Mgmt device, with these entities:
+
+| Entity | What it does |
+| --- | --- |
+| **Light sync** (switch) | Turns the zone on or off. Turning it off does the same as when playback stops. |
+| **Coloring lights** (binary sensor) | On while the zone is coloring the lights. The `held_reason` attribute says why it isn't: `tv_off`, `blocked` or `stopped`. |
+| **Current color** and **Color source** (sensors) | The color showing and where it came from. |
+| **Brightness** and **Transition** (numbers) | How bright the colored lights are, and how long a color change takes, in seconds. |
+| **Where colors come from**, **Artwork color**, **Color mode** and **How colors are spread** (selects) | The same choices as in the sidebar app. |
+| **Look again** and **Keep this color for this title** (buttons) | The same as in the sidebar app. |
 
 ## Who can use TV Mgmt
 
@@ -279,6 +326,16 @@ All services take the profile (`profile_id`) to act on.
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
 | `tv_mgmt.send_message` | Send a message to the TV: full screen on the Apple TV with AirPlay (`apple_tv`), on the TV screen (`screen`), or spoken (`speak`). |
 
+Light sync services:
+
+| Service | What it does |
+| --- | --- |
+| `tv_mgmt.resync_lights` | Work the colors out again. Pick a TV (`profile_id`), and a zone by name (`zone`), or leave both out for every zone. |
+| `tv_mgmt.set_title_color` | Always use a color for a movie or show (`title`, `rgb_color`). |
+| `tv_mgmt.remove_title_color` | Forget a title's color. |
+| `tv_mgmt.list_title_colors` | Returns every saved title color. |
+| `tv_mgmt.clear_artwork_cache` | Forget the colors worked out from artwork (`include_metadata` also forgets TMDB and Trakt lookups). `resync` works the colors out again afterwards. |
+
 ```yaml
 action: tv_mgmt.grant_extension
 data:
@@ -378,7 +435,7 @@ automation:
 
 ## Development
 
-Tests cover the enforcement rules, quiet-window parsing, and the integration running inside Home Assistant: setup, the config and options flows, the input lock, screen-time enforcement, services, and upgrading from 0.1.
+Tests cover the enforcement rules, quiet-window parsing, and the integration running inside Home Assistant: setup, the config and options flows, the input lock, screen-time enforcement, light sync, services, and upgrading from 0.1.
 
 ```bash
 pip install -r requirements_test.txt

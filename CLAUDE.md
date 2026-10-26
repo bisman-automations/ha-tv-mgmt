@@ -19,12 +19,13 @@ The sidebar app is the product. Every setting should be manageable there, not on
 | `announce.py`, `messages.py` | Warnings and dashboard messages: text to speech, notify (TV screen), and AirPlay videos made with ffmpeg. |
 | `remote_keys.py` | Maps remote buttons to each TV integration's service. |
 | `home_limits.py` | `HomeLimits`: the whole home's limits, one for all TVs (stored in `tv_mgmt.home`, not in any config entry). Adds up each counted TV's time, gives each TV the home's time left (`decide(home_remaining=...)`), sends the messages, and makes every TV re-decide when the home's time runs out. |
+| `light_sync/` | Light sync, ported from Movie Light Sync. `LightSync` (one per TV, in `__init__.py`) owns the TV's `LightZone`s (`controller.py`, one per zone). Zone settings and the shared settings (TMDB/Trakt) live in the `tv_mgmt.light_sync` Store, never in options, so saving a zone never reloads the TV. `color.py`, `metadata.py`, `storage.py` (title colors, artwork cache), `entities.py` (zone entities on a zone device linked to the TV's), `services.py`, `websocket.py` (`tv_mgmt/light_sync/*`). TV Mgmt's rules (TV off, blocked, a stopped app) hold a zone through `held_reason`. |
 | `storage.py` | `ProfileState` (today's counters and controls) and the activity log, each in its own `Store`. |
 | `websocket.py` | The sidebar app's API (`tv_mgmt/*` commands). |
 | `frontend/tv-mgmt-panel.js` | The sidebar app: one plain web component, **no build step**. |
 | `panel.py`, `access.py` | Sidebar registration, and who may use it (admins plus parents an admin picks). |
 | `config_flow.py` | Adds a TV. The options flow has sections: input lock, screen time, Apple TV, warnings, TV lights, Apple TV Mgmt sync. |
-| `entity.py`, `sensor.py`, `switch.py`, `select.py` | Entities, all on one service device per TV. |
+| `entity.py`, `sensor.py`, `switch.py`, `select.py`, `binary_sensor.py`, `number.py`, `button.py` | Entities. The TV's are on one service device per TV; each light zone has its own device. |
 | `scripts/panel-preview/` | A page that fakes Home Assistant with sample TVs, and `shoot.py`, which screenshots every tab. |
 
 ## Rules that keep it working
@@ -33,7 +34,7 @@ The sidebar app is the product. Every setting should be manageable there, not on
   - Device linking has two paths, chosen by `hasattr(registry, "async_get_devices")`. From 2026.8, TV Mgmt's device carries the TV's and the Apple TV's identifiers, so they show as linked devices. Older versions use `via_device` and add the entry to the TV's device.
   - On 2026.8+ never pass `via_device`, even as `None` (deprecated, removed in 2027.8), and never read `DeviceEntry.config_entries`.
   - `DeviceInfo` is a dataclass from 2026.11: build it with keyword arguments, never as a dict.
-  - Never pair the update listener with reloading methods in a config flow (`async_update_reload_and_abort`, `_abort_if_unique_id_configured(updates=...)`): that's an error from 2026.12. The update listener reloads the entry when options change; the sidebar app saves settings by updating options.
+  - Never pair the update listener with reloading methods in a config flow (`async_update_reload_and_abort`, `_abort_if_unique_id_configured(updates=...)`): that's an error from 2026.12. The update listener reloads the entry when options change, except when only TV lights changed (applied live); the sidebar app saves settings by updating options. Light zones aren't options at all.
 - **State listeners must be `@callback`.** A plain function or lambda passed to `async_track_state_change_event` runs in a worker thread.
 - **Config flow sections are `vol.Required` with no default.** An optional section with a default is submitted as that default, dropping what the form showed.
 - **Never set a `NumberSelector` unit to `None`**; leave the key out instead.
