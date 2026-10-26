@@ -1,12 +1,19 @@
 from datetime import date, datetime, timedelta, timezone
 
 from tv_mgmt_pure.activity import (
+    ADULT_EXPIRED,
+    EV_ADULT_MODE,
+    EV_APP,
     EV_INPUT,
     EV_INPUT_BLOCKED,
+    EV_MEDIA,
     EV_TV_OFF,
     EV_TV_ON,
     KEEP_EVENT_DAYS,
     ActivityLog,
+    hide_adult_detail,
+    overlap_seconds,
+    subtract_periods,
     summarize,
 )
 
@@ -122,3 +129,93 @@ def test_daily_apps_and_top_apps():
     summary = summarize(log.daily_series(date(2026, 10, 8), 2))
     assert summary["top_apps"] == [{"app": "disney", "seconds": 1200}, {"app": "yt", "seconds": 600}]
     assert summary["apps_stopped"] == 2
+
+
+# ---- adult mode (1.16.0) -------------------------------------------------------------
+
+def _periods(log, now, day=8):
+    return [(p["start"][11:16], p["end"][11:16], p["live"])
+            for p in log.adult_periods(at(0, day=day), at(0, day=day + 1), now)]
+
+
+def test_adult_periods_from_on_and_off():
+    log = ActivityLog()
+    log.add(at(20), EV_ADULT_MODE, on=True, minutes=120)
+    log.add(at(20, 45), EV_ADULT_MODE, on=False)
+    log.add(at(21), EV_ADULT_MODE, on=True, minutes=30)
+    log.add(at(21, 30), EV_ADULT_MODE, on=False, reason=ADULT_EXPIRED)
+    assert _periods(log, at(23)) == [("20:00", "20:45", False), ("21:00", "21:30", False)]
+
+
+def test_adult_period_turned_on_again_extends_it():
+    log = ActivityLog()
+    log.add(at(20), EV_ADULT_MODE, on=True, minutes=30)
+    log.add(at(20, 20), EV_ADULT_MODE, on=True, minutes=30)
+    assert _periods(log, at(23)) == [("20:00", "20:50", False)]
+
+
+def test_adult_period_before_expiry_was_logged():
+    """Before 1.16.0 running out wasn't logged: it ends `minutes` after it was turned on."""
+    log = ActivityLog()
+    log.add(at(20), EV_ADULT_MODE, on=True, minutes=60)
+    log.add(at(22), EV_TV_OFF)
+    assert _periods(log, at(23)) == [("20:00", "21:00", False)]
+
+
+def test_adult_period_live_and_clipped_to_the_day():
+    log = ActivityLog()
+    log.add(at(23), EV_ADULT_MODE, on=True, minutes=120)
+    assert _periods(log, at(23, 30)) == [("23:00", "23:30", True)]
+    # Seen the next day, after it ran out: the part after midnight.
+    assert _periods(log, at(3, day=9), day=9) == [("00:00", "01:00", False)]
+
+
+def test_hide_adult_detail_keeps_everything_else():
+    log = ActivityLog()
+    log.add(at(20), EV_APP, app="a", name="A")
+    log.add(at(20, 10), EV_ADULT_MODE, on=True, minutes=60)
+    log.add(at(20, 10), EV_APP, app="b", name="B")
+    log.add(at(20, 20), EV_MEDIA, title="Hidden")
+    log.add(at(20, 30), EV_INPUT, source="HDMI 1")
+    log.add(at(20, 40), EV_ADULT_MODE, on=False)
+    log.add(at(20, 40), EV_APP, app="b", name="B")
+    periods = log.adult_periods(at(0), at(0, day=9), at(23))
+    kept = hide_adult_detail(log.events, periods)
+    assert [(e["t"][11:16], e["type"]) for e in kept] == [
+        ("20:00", "app"), ("20:10", "adult_mode"), ("20:30", "input"), ("20:40", "adult_mode"), ("20:40", "app"),
+    ]
+
+
+def test_subtract_and_overlap():
+    seg = {"start": at(19).isoformat(), "end": at(22).isoformat(), "seconds": 3 * 3600,
+           "live": True, "name": "A"}
+    periods = [{"start": at(20).isoformat(), "end": at(20, 30).isoformat()},
+               {"start": at(21, 45).isoformat(), "end": at(22).isoformat()}]
+    pieces = subtract_periods([seg], periods)
+    assert [(p["start"][11:16], p["end"][11:16], p["seconds"], p["live"]) for p in pieces] == [
+        ("19:00", "20:00", 3600, False), ("20:30", "21:45", 4500, False),
+    ]
+    assert all(p["name"] == "A" for p in pieces)
+    assert overlap_seconds([seg], periods) == 45 * 60
+    assert subtract_periods([seg], []) == [seg]
+
+
+def test_adult_totals_in_days_and_summary():
+    log = ActivityLog()
+    log.daily["2026-10-06"] = {"used_seconds": 600, "budget_minutes": 0, "extension_minutes": 0, "blocked": 0}
+    log.record_day(date(2026, 10, 7), used_seconds=3600, budget_minutes=60, extension_minutes=0,
+                   blocked=0, adult_seconds=1800)
+    log.record_day(date(2026, 10, 8), used_seconds=3600, budget_minutes=60, extension_minutes=0,
+                   blocked=0, adult_seconds=1200, adult_counted_seconds=1200)
+    assert log.daily["2026-10-07"]["adult_seconds"] == 1800
+    assert "adult_counted_seconds" not in log.daily["2026-10-07"]
+    series = log.daily_series(date(2026, 10, 8), 3)
+    assert [(d["adult_tracked"], d["adult_seconds"], d["adult_counted_seconds"]) for d in series] == [
+        (False, 0, 0), (True, 1800, 0), (True, 1200, 1200),
+    ]
+    summary = summarize(series)
+    assert summary["adult_seconds"] == 3000 and summary["adult_counted_seconds"] == 1200
+    assert summary["adult_untracked_days"] == 1
+    # Over the limit is screen time only: adult time is in used_seconds just when it counted.
+    assert summary["days_over_limit"] == 2
+    assert summary["total_seconds"] == 600 + 3600 + 3600

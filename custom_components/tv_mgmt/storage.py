@@ -31,6 +31,11 @@ class ProfileState:
     blocked_switches: int = 0
     last_blocked_source: str | None = None
     last_blocked_at: str | None = None
+    # Time the TV was on in adult mode today, and how much of it counted toward
+    # the limits (all of it with "Count adult mode time toward limits" on, none
+    # with it off). used_seconds includes the counted part only.
+    adult_seconds: int = 0
+    adult_counted_seconds: int = 0
 
     # Streaming box (Apple TV)
     app_seconds: dict[str, int] = field(default_factory=dict)  # today, by app ID
@@ -47,6 +52,8 @@ class ProfileState:
         self.used_seconds = 0
         self.extension_minutes = 0
         self.blocked_switches = 0
+        self.adult_seconds = 0
+        self.adult_counted_seconds = 0
         self.force_block = False
         self.app_seconds = {}
         self.media_seconds = {}

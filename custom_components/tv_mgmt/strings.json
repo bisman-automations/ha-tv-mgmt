@@ -38,13 +38,15 @@
               "daily_budget": "Daily screen time",
               "warn_minutes": "Warn before time runs out",
               "quiet_windows": "Quiet windows",
-              "adult_mode_duration": "Adult mode lasts"
+              "adult_mode_duration": "Adult mode lasts",
+              "adult_mode_counts": "Count adult mode time toward limits"
             },
             "data_description": {
               "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
-              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
+              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
+              "adult_mode_counts": "Off: time in adult mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
             }
           },
           "apple_tv": {
@@ -156,13 +158,15 @@
               "daily_budget": "Daily screen time",
               "warn_minutes": "Warn before time runs out",
               "quiet_windows": "Quiet windows",
-              "adult_mode_duration": "Adult mode lasts"
+              "adult_mode_duration": "Adult mode lasts",
+              "adult_mode_counts": "Count adult mode time toward limits"
             },
             "data_description": {
               "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
-              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off."
+              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
+              "adult_mode_counts": "Off: time in adult mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
             }
           },
           "apple_tv": {
@@ -308,6 +312,9 @@
       },
       "time_used_today": {
         "name": "Time used today"
+      },
+      "adult_mode_time_today": {
+        "name": "Adult mode time today"
       },
       "time_remaining_today": {
         "name": "Time remaining today"

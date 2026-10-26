@@ -17,6 +17,7 @@ from .announce import screen_targets
 from .backends import TVBackend, create_backend
 from .const import (
     APPLE_TV_DOMAIN,
+    CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
     CONF_APPLE_TV_INPUT,
@@ -39,6 +40,7 @@ from .const import (
     CONF_STREAMING_PLAYER,
     CONF_TARGET_SOURCE,
     CONF_WARN_MINUTES,
+    DEFAULT_ADULT_MODE_COUNTS,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_ENFORCE_ON_POWER_ON,
@@ -181,6 +183,10 @@ def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
                 CONF_ADULT_MODE_DURATION,
                 default=d.get(CONF_ADULT_MODE_DURATION, DEFAULT_ADULT_MODE_DURATION),
             ): _number(5, 720, "min"),
+            vol.Required(
+                CONF_ADULT_MODE_COUNTS,
+                default=bool(d.get(CONF_ADULT_MODE_COUNTS, DEFAULT_ADULT_MODE_COUNTS)),
+            ): selector.BooleanSelector(),
         }
     )
 

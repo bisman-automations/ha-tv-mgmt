@@ -25,6 +25,7 @@ from .announce import (
 from .apps import ACTION_HOME, APP_MODE_BLOCK, AppRules
 from .backends import TVBackend
 from .const import (
+    CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
     CONF_ALLOWED_SOURCES,
     CONF_ENFORCE_ON_POWER_ON,
@@ -52,6 +53,7 @@ from .const import (
     ANNOUNCE_GRACE,
     CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
+    DEFAULT_ADULT_MODE_COUNTS,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_SLEEP_ON_BLOCK,
@@ -129,9 +131,13 @@ _ANNOUNCE_OPTIONS = frozenset({
 LIVE_OPTIONS = frozenset({
     *_INPUT_LOCK_OPTIONS, *_APP_RULE_OPTIONS, *_ANNOUNCE_OPTIONS,
     CONF_INPUT_NAMES, CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_QUIET_WINDOWS,
-    CONF_ADULT_MODE_DURATION, CONF_SLEEP_ON_BLOCK, CONF_WAKE_WITH_TV,
+    CONF_ADULT_MODE_DURATION, CONF_ADULT_MODE_COUNTS, CONF_SLEEP_ON_BLOCK, CONF_WAKE_WITH_TV,
     CONF_MODE_SYNC_ENTITY, CONF_TV_LIGHTS,
 })
+
+# _logged_app when the next app must be logged even if it's the one logged last:
+# after adult mode, which didn't log the apps opened in it.
+_RELOG = object()
 
 
 class TVManager:
@@ -187,7 +193,7 @@ class TVManager:
         self._off_announced = False
         self._turn_off_attempts = 0
 
-        self._logged_app: str | None = None
+        self._logged_app: str | None | object = None
         self._box_was_on: bool | None = None
         self._tv_was_on: bool | None = None
         self._logged_media: tuple | None = None
@@ -266,6 +272,7 @@ class TVManager:
         if not changed <= LIVE_OPTIONS:
             return False
         self._count_usage()  # time so far counts under the old limits
+        was_private = self._adult_private()
         # In place: the input lock reads the same dict, so its settings
         # (allowed inputs, target, delay, tries) apply from here on.
         self.options.clear()
@@ -285,6 +292,9 @@ class TVManager:
             self.mode_sync = self._make_mode_sync()
             if self.mode_sync:
                 self.mode_sync.async_start()  # adopts the linked mode, as at start
+        if was_private and not self._adult_private():
+            # Adult mode time counts from now on, so its apps are logged again.
+            self._relog_app()
         if self.box and changed & _APP_RULE_OPTIONS:
             self.box.set_rules(
                 self._app_rules(),
@@ -334,6 +344,15 @@ class TVManager:
     def adult_mode_active(self) -> bool:
         until = self.state.adult_mode_until_dt
         return until is not None and until > dt_util.utcnow()
+
+    @property
+    def adult_mode_counts(self) -> bool:
+        """Does time in adult mode count toward the limits ("Count adult mode time toward limits")?"""
+        return bool(self.options.get(CONF_ADULT_MODE_COUNTS, DEFAULT_ADULT_MODE_COUNTS))
+
+    def _adult_private(self) -> bool:
+        """Adult mode is on and its time doesn't count: log no apps or titles for it."""
+        return self.adult_mode_active and not self.adult_mode_counts
 
     def name_for(self, raw: str | None) -> str | None:
         """Display name for an input (the raw value if it has none)."""
@@ -628,6 +647,8 @@ class TVManager:
     def _log_app(self) -> None:
         if not self.box:
             return
+        if self._adult_private():
+            return  # which apps were used in adult mode isn't kept
         app_id, name = self.box.app_id, self.box.app_name
         if app_id and name and self.state.known_apps.get(app_id) != name:
             self.state.known_apps[app_id] = name
@@ -646,6 +667,9 @@ class TVManager:
         if key is None or key == self._logged_media:
             return
         self._logged_media = key
+        if self._adult_private():
+            # Not logged, and not logged later either: it counts as seen.
+            return
         show = show_of(media)
         app_name = self.box.app_name
         if show and app_name and self.state.media_apps.get(show) != app_name:
@@ -702,7 +726,13 @@ class TVManager:
 
     @callback
     def _count_usage(self) -> None:
-        """Add the time since the last count if the TV was on."""
+        """Add the time since the last count if the TV was on.
+
+        The time is split at midnight, so it books to the right day, and where
+        adult mode ran out, so only the part before counts as adult mode.
+        Turning adult mode on or off counts first, so that switch always falls
+        between two counts.
+        """
         now = dt_util.utcnow()
         last, self._last_tick = self._last_tick, now
         local_now = dt_util.as_local(now)
@@ -716,21 +746,40 @@ class TVManager:
             if timedelta(0) < elapsed <= MAX_TICK_GAP:
                 # Split at midnight so viewing books to the right day.
                 midnight = dt_util.start_of_local_day(local_now)
-                local_last = dt_util.as_local(last)
-                if local_last < midnight:
-                    self._credit(int((midnight - local_last).total_seconds()), tv_on, app, show)
+                if last < midnight:
+                    self._credit_span(last, midnight, tv_on, app, show)
                     self._rollover_if_needed(local_now)
-                    elapsed = local_now - midnight
-                self._credit(int(elapsed.total_seconds()), tv_on, app, show)
+                    last = midnight
+                self._credit_span(last, now, tv_on, app, show)
                 self.store.schedule_save()
 
         self._rollover_if_needed(local_now)
+        self._end_expired_adult_mode()
 
-        if self.state.adult_mode_until and not self.adult_mode_active:
-            self.state.adult_mode_until = None
-            self.store.schedule_save()
+    def _credit_span(
+        self, start: datetime, end: datetime, tv_on: bool, app: str | None, show: str | None
+    ) -> None:
+        """Credit [start, end): the part before adult mode ran out as adult mode."""
+        until = self.state.adult_mode_until_dt
+        if until is not None and start < until:
+            adult_end = min(end, until)
+            self._credit(int((adult_end - start).total_seconds()), tv_on, app, show, adult=True)
+            start = adult_end
+        if end > start:
+            self._credit(int((end - start).total_seconds()), tv_on, app, show)
 
-    def _credit(self, seconds: int, tv_on: bool, app: str | None, show: str | None = None) -> None:
+    def _credit(
+        self, seconds: int, tv_on: bool, app: str | None, show: str | None = None, *, adult: bool = False
+    ) -> None:
+        if adult:
+            if tv_on:
+                self.state.adult_seconds += seconds
+            if not self.adult_mode_counts:
+                # Only its own total: no limit time, and no app or title time
+                # (so it's not in per-app limits, Analytics or the sensors).
+                return
+            if tv_on:
+                self.state.adult_counted_seconds += seconds
         if tv_on:
             self.state.used_seconds += seconds
         if app:
@@ -964,15 +1013,39 @@ class TVManager:
 
     @callback
     def set_adult_mode(self, enabled: bool, minutes: int | None = None) -> None:
+        # Book the time up to now to the mode it was watched in.
+        self._count_usage()
         if enabled:
             duration = minutes or self.adult_mode_duration
             self.state.adult_mode_until = (dt_util.utcnow() + timedelta(minutes=duration)).isoformat()
             self._log(act.EV_ADULT_MODE, on=True, minutes=duration)
         else:
+            was_private = self._adult_private()
             if self.adult_mode_active:
                 self._log(act.EV_ADULT_MODE, on=False)
             self.state.adult_mode_until = None
+            if was_private:
+                self._relog_app()
         self._changed()
+
+    @callback
+    def _end_expired_adult_mode(self) -> None:
+        """Adult mode ran out: log when (not when it was noticed) and clear it."""
+        until = self.state.adult_mode_until_dt
+        if until is None or until > dt_util.utcnow():
+            return
+        self.state.adult_mode_until = None
+        self.store.schedule_save()
+        self.activity.add(until, act.EV_ADULT_MODE, on=False, reason=act.ADULT_EXPIRED)
+        self.activity_store.schedule_save()
+        if not self.adult_mode_counts:
+            self._relog_app()
+
+    @callback
+    def _relog_app(self) -> None:
+        """Log the open app again: adult mode didn't log the apps opened in it."""
+        self._logged_app = _RELOG
+        self._log_app()
 
     @callback
     def grant_extension(self, minutes: int) -> None:
@@ -1045,5 +1118,7 @@ class TVManager:
             apps=self.state.app_seconds,
             apps_stopped=self.state.apps_stopped,
             media=self.state.media_seconds,
+            adult_seconds=self.state.adult_seconds,
+            adult_counted_seconds=self.state.adult_counted_seconds,
         ):
             self.activity_store.schedule_save()

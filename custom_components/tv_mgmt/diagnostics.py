@@ -63,6 +63,12 @@ def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend
             "paused_reason": manager.guard.paused_reason,
         },
         "quiet_windows": [w.format() for w in manager.quiet_windows],
+        "adult_mode": {
+            "active": manager.adult_mode_active,
+            "counts_toward_limits": manager.adult_mode_counts,
+            "seconds_today": manager.state.adult_seconds,
+            "counted_seconds_today": manager.state.adult_counted_seconds,
+        },
         "home": (home.summary() if (home := get_home(hass)) else None),
         "mode_sync": (
             {"entity_id": manager.mode_sync.entity_id, "linked_mode": manager.mode_sync.linked_mode}

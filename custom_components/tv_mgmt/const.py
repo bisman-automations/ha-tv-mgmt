@@ -32,11 +32,15 @@ CONF_DAILY_BUDGET = "daily_budget"  # minutes, 0 = unlimited
 CONF_WARN_MINUTES = "warn_minutes"
 CONF_QUIET_WINDOWS = "quiet_windows"
 CONF_ADULT_MODE_DURATION = "adult_mode_duration"  # minutes
+# Does time watched in adult mode count toward the TV's and the home's limits?
+# Off: it goes only to its own total (adult_seconds), with no app or title detail.
+CONF_ADULT_MODE_COUNTS = "adult_mode_counts"
 
 DEFAULT_DAILY_BUDGET = 0
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_QUIET_WINDOWS = ""
 DEFAULT_ADULT_MODE_DURATION = 120
+DEFAULT_ADULT_MODE_COUNTS = False
 
 # Apple TV (streaming box) linked to this TV
 CONF_STREAMING_PLAYER = "streaming_player"

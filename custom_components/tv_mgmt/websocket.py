@@ -22,8 +22,9 @@ from homeassistant.util import dt as dt_util
 from .access import get_access
 from .home import ACTION_TURN_OFF as HOME_ACTION_TURN_OFF, ACTIONS as HOME_ACTIONS, WEEK_STARTS, HomeSettings
 from .home_limits import get_home, notify_targets
-from .activity import summarize
+from .activity import hide_adult_detail, overlap_seconds, subtract_periods, summarize
 from .const import (
+    CONF_ADULT_MODE_COUNTS,
     CONF_ADULT_MODE_DURATION,
     CONF_APP_ACTION,
     CONF_APP_LIMITS,
@@ -157,6 +158,9 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "force_block": state.force_block,
         "adult_mode_until": until.isoformat() if until else None,
         "adult_mode_duration": manager.adult_mode_duration,
+        "adult_mode_counts": manager.adult_mode_counts,
+        # Time on in adult mode today. Part of used_seconds only when it counts.
+        "adult_seconds": state.adult_seconds,
         "used_seconds": state.used_seconds,
         "budget_minutes": manager.daily_budget,
         "extension_minutes": state.extension_minutes,
@@ -282,7 +286,9 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
     now = dt_util.utcnow()
     log = manager.activity
     segments = log.viewing_segments(start, end, now)
-    app_segments = log.app_segments(start, end, now)
+    # Adult mode shows as its own stretches, without the apps or titles in it.
+    adult = log.adult_periods(start, end, now)
+    app_segments = subtract_periods(log.app_segments(start, end, now), adult)
     record = log.daily.get(day.isoformat())
     connection.send_result(
         msg["id"],
@@ -291,10 +297,13 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
             "date": day.isoformat(),
             "today": dt_util.now().date().isoformat(),
             "first_date": log.first_day,
-            "events": list(reversed(log.events_between(start, end))),
+            "events": list(reversed(hide_adult_detail(log.events_between(start, end), adult))),
             "segments": segments,
             "viewing_seconds": sum(s["seconds"] for s in segments),
             "app_segments": app_segments,
+            "adult_periods": adult,
+            # The part of viewing_seconds in adult mode.
+            "adult_viewing_seconds": overlap_seconds(segments, adult),
             "totals": record,
         },
     )
@@ -355,6 +364,7 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
             CONF_WARN_MINUTES: manager.warn_minutes,
             CONF_QUIET_WINDOWS: manager.options.get(CONF_QUIET_WINDOWS, DEFAULT_QUIET_WINDOWS),
             CONF_ADULT_MODE_DURATION: manager.adult_mode_duration,
+            CONF_ADULT_MODE_COUNTS: manager.adult_mode_counts,
         },
     )
 
@@ -370,6 +380,7 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional(CONF_WARN_MINUTES): vol.All(int, vol.Range(min=0, max=60)),
         vol.Optional(CONF_QUIET_WINDOWS): str,
         vol.Optional(CONF_ADULT_MODE_DURATION): vol.All(int, vol.Range(min=5, max=720)),
+        vol.Optional(CONF_ADULT_MODE_COUNTS): bool,
     }
 )
 @require_access
@@ -379,7 +390,7 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
         return
     changes: dict[str, Any] = {
         key: msg[key]
-        for key in (CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_ADULT_MODE_DURATION)
+        for key in (CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_ADULT_MODE_DURATION, CONF_ADULT_MODE_COUNTS)
         if key in msg
     }
     if CONF_QUIET_WINDOWS in msg:

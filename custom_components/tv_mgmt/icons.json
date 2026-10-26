@@ -58,6 +58,9 @@
       "time_used_today": {
         "default": "mdi:timer-sand"
       },
+      "adult_mode_time_today": {
+        "default": "mdi:account-clock"
+      },
       "time_remaining_today": {
         "default": "mdi:timer-outline"
       },

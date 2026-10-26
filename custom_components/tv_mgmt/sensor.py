@@ -125,6 +125,16 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         value_fn=lambda m: _minutes(m.state.used_seconds),
     ),
     TVMgmtSensorDescription(
+        # Time on in adult mode today, counted toward the limits or not.
+        key="adult_mode_time_today",
+        device_class=SensorDeviceClass.DURATION,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        native_unit_of_measurement=UnitOfTime.MINUTES,
+        suggested_display_precision=0,
+        value_fn=lambda m: _minutes(m.state.adult_seconds),
+        attrs_fn=lambda m: {"counts_toward_limits": m.adult_mode_counts},
+    ),
+    TVMgmtSensorDescription(
         key="time_remaining_today",
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.MEASUREMENT,
