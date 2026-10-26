@@ -40,6 +40,8 @@ The sidebar app is the product. Every setting should be manageable there, not on
 - **Never set a `NumberSelector` unit to `None`**; leave the key out instead.
 - **Stored data must stay backward compatible.** New `ProfileState` fields need defaults, since unknown keys are dropped on load.
 - **Access checks:** every websocket command uses `@require_access`, admin-only ones (access settings) use `require_admin`, and entity actions and services call `async_ensure_allowed`. Automations (no user) are always allowed.
+- **Adult mode shows totals only.** Its time goes in `adult_seconds` (and `used_seconds` only when the TV counts it). Never surface apps or titles from adult mode time: activity and analytics hide them with `hide_adult_detail`, and when it doesn't count they aren't recorded. Credit usage (`_count_usage`) before adult mode turns on, off or runs out.
+- **TV lights belong to TV Mgmt only while they follow the TV.** With `tv_lights_follow` off, light sync treats them like any other light. Lights turned off by hand are held off (runtime only) until the TV next turns on or off: zones leave them out and drop them from their snapshot.
 - **Register static paths in `async_setup`**, not lazily: the web server may not accept new routes later.
 - **Panel:**
   - Escape everything with `esc()`. Wrap every `localStorage` use in try/catch.

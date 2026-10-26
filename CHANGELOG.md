@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.16.0] - 2026-10-26
+
+### Added
+
+- **Adult mode time is kept on its own**, so you can see how much it's used.
+  - By default it doesn't count toward the TV's daily time, the home's daily or weekly time, or any app's limit. **Count adult mode time toward limits**, per TV under **Limits** or **Configure → Screen time**, makes it count. It applies straight away.
+  - Only totals are shown: a new **Adult mode time today** sensor, adult mode shaded on the Activity strip with the day's total, and its own part of each bar and total in Analytics, left out of the days the limit was reached. Which apps and titles were watched isn't shown, and isn't recorded at all when it doesn't count.
+  - It resets at midnight, a day's total is kept with the other daily totals, and it survives restarts. Days before 1.16.0 show none.
+  - Diagnostics include it.
+- **Turn off TV lights**, a button under the TV lights in the **Lights** tab, a button entity and the `tv_mgmt.turn_off_tv_lights` action. The lights turn off straight away, and a light sync zone using them leaves them off until the TV next turns on or off. Any light that doesn't respond is named, and it's in the activity log.
+- **Turn on and off with the TV**, a toggle under the TV lights, the **TV lights follow the TV** switch and a setting under **Configure → TV lights**. Turn it off and TV Mgmt leaves the TV lights alone, and light sync treats them like its other lights. It applies straight away.
+
+### Fixed
+
+- Turning adult mode on or off, or it running out, now counts the time up to that moment the right way. Up to 30 seconds could be counted as the other.
+- When adult mode runs out, the activity log shows it ended at the time it ran out.
+
 ## [1.15.1] - 2026-10-26
 
 ### Changed
@@ -372,7 +389,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...HEAD
+[1.16.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...v1.16.0
 [1.15.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...v1.14.1

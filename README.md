@@ -100,9 +100,9 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
   - controls to add or take away time (15, 30 or 60 minutes, or any number you type), block now, change the mode, and turn the input lock or adult mode on and off
   - a remote for the TV: power, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
   - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
-- **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
-- **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches.
-- **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows and adult mode length. Saving applies them right away.
+- **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour and [adult mode](#adult-mode) shaded. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
+- **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches. Adult mode time is its own part of each day's bar, with its own total.
+- **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows, adult mode length, and whether adult mode time counts toward the limits. Saving applies them right away.
 - **Lights.** Each TV's [TV lights and light zones](#lights), plus the settings every TV shares: the TMDB and Trakt keys and the colors you saved for titles.
 
 Remote buttons appear only when the TV's integration can press them:
@@ -138,8 +138,20 @@ How it works:
 - **Messages:** you're told once when time is running low and once when it's up, for each day or week.
 - **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time given today also counts toward this week.
 - Paused and adult mode on a TV lift the home's limit for that TV, like its own rules.
+- Adult mode time doesn't use up the home's time unless that TV counts it. See [Adult mode](#adult-mode).
 
 The `tv_mgmt_home_limit` event fires with each message, for automations.
+
+## Adult mode
+
+Adult mode lifts every rule on a TV for a set time (2 hours by default), for a movie night. Turn it on from the dashboard or the **Adult mode** switch. It turns itself off when the time is up.
+
+Its time is kept on its own, so you can see how much it's used:
+
+- **It doesn't count toward the limits** by default: not the TV's daily time, the home's daily or weekly time, or any app's. Turn on **Count adult mode time toward limits** under **Limits** (or **Configure → Screen time**) if it should. That applies straight away.
+- **Only totals are shown.** The **Adult mode time today** sensor, the Activity strip and Analytics show how long it was on, but not which apps or titles were watched. When it doesn't count, they aren't recorded at all. When it counts, the apps' time is still counted for their limits, but not shown.
+- Time while the TV is on counts, paused or not, as with the rest of screen time.
+- It resets at midnight, and a day's total is kept with the other daily totals. Adult mode is tracked from TV Mgmt 1.16.0; earlier days show none.
 
 ## Lights
 
@@ -150,6 +162,11 @@ Everything about lights is in the sidebar app's **Lights** tab. Pick the TV at t
 Pick lights that go with the TV, such as a light behind it. They turn on when the TV turns on, and off when it turns off, including when TV Mgmt turns it off. They don't turn on while the TV is blocked, so they don't flash on and off.
 
 You can also pick them under **Configure → TV lights**.
+
+Under the picked lights:
+
+- **Turn on and off with the TV.** Turn it off and TV Mgmt leaves the lights alone. A light sync zone using them then treats them like its other lights, and puts them back how they were. It's also the **TV lights follow the TV** switch.
+- **Turn off now** turns them off straight away. A light sync zone using them leaves them off until the TV next turns on or off. It's also the **Turn off TV lights** button and the `tv_mgmt.turn_off_tv_lights` action. Any light that doesn't respond is named.
 
 ### Light sync
 
@@ -316,8 +333,11 @@ It has these entities:
 | **Extra time today** (sensor) | Minutes granted (or taken) today. |
 | **Current input** (sensor) | What the TV is showing, using your [input names](#naming-inputs), and whether it's allowed. Shows `TV off` when the TV is off. The `source` attribute has the value the TV reports. |
 | **Blocked switches today** (sensor) | How many times someone tried another input, and the last one tried. |
+| **Adult mode time today** (sensor) | How long adult mode was on today. `counts_toward_limits` says whether it's in **Time used today**. See [Adult mode](#adult-mode). |
+| **TV lights follow the TV** (switch) | Whether the [TV lights](#tv-lights) turn on and off with the TV. Unavailable without TV lights. |
+| **Turn off TV lights** (button) | Turns the TV lights off now. Unavailable without TV lights. |
 
-Counters, extra time and manual blocks reset at midnight. Mode, input lock and adult mode survive restarts.
+Counters, adult mode time, extra time and manual blocks reset at midnight. Mode, input lock and adult mode survive restarts.
 
 ## Services
 
@@ -330,6 +350,7 @@ All services take the profile (`profile_id`) to act on.
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
 | `tv_mgmt.send_message` | Send a message to the TV: full screen on the Apple TV with AirPlay (`apple_tv`), on the TV screen (`screen`), or spoken (`speak`). |
+| `tv_mgmt.turn_off_tv_lights` | Turn the [TV lights](#tv-lights) off now. Can return the lights and any that didn't respond. |
 
 Light sync services:
 
@@ -419,6 +440,14 @@ automation:
 | Warn before time runs out | 5 min | When `tv_mgmt_warning` fires. |
 | Quiet windows | none | Times the TV stays off, e.g. `20:30-07:00 Bedtime, 08:00-15:00 School`. |
 | Adult mode lasts | 120 min | How long adult mode lifts the rules. |
+| Count adult mode time toward limits | off | Whether adult mode time uses up the TV's, the home's and the apps' time. |
+
+**TV lights**
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| TV lights | none | Lights that go with the TV. See [TV lights](#tv-lights). |
+| Turn on and off with the TV | on | Off: TV Mgmt leaves these lights alone. |
 
 **Apple TV**
 
