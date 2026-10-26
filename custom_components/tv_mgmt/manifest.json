@@ -18,6 +18,7 @@
   "config_flow": true,
   "dependencies": [
     "http",
+    "light",
     "media_player",
     "websocket_api"
   ],
@@ -26,5 +27,5 @@
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/bisman-automations/ha-tv-mgmt/issues",
   "requirements": [],
-  "version": "1.14.1"
+  "version": "1.15.0"
 }

@@ -90,6 +90,10 @@ def async_register(hass: HomeAssistant) -> None:
         ws_home_extension,
     ):
         websocket_api.async_register_command(hass, command)
+    from .light_sync.websocket import COMMANDS as LIGHT_SYNC_COMMANDS
+
+    for command in LIGHT_SYNC_COMMANDS:
+        websocket_api.async_register_command(hass, command)
 
 
 # ---- helpers -------------------------------------------------------------------

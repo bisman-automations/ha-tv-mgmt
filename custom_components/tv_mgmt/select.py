@@ -1,4 +1,4 @@
-"""Mode select: enforced / monitor only / paused."""
+"""Selects: the mode (enforced / monitor only / paused) and light sync zone settings."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import TVMgmtConfigEntry
 from .entity import TVMgmtEntity
+from .light_sync.entities import FACTORIES
 from .state import MODES
 
 
@@ -17,6 +18,8 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     async_add_entities([ModeSelect(entry.runtime_data)])
+    if (light_sync := entry.runtime_data.light_sync) is not None:
+        light_sync.register_platform(FACTORIES["select"], async_add_entities)
 
 
 class ModeSelect(TVMgmtEntity, SelectEntity):

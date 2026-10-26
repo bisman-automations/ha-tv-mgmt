@@ -62,3 +62,52 @@ send_message:
       default: false
       selector:
         boolean:
+
+set_title_color:
+  fields:
+    title:
+      required: true
+      example: "The Lego Movie"
+      selector:
+        text:
+    rgb_color:
+      required: true
+      example: [255, 120, 0]
+      selector:
+        color_rgb:
+
+remove_title_color:
+  fields:
+    title:
+      required: true
+      example: "The Lego Movie"
+      selector:
+        text:
+
+list_title_colors:
+
+resync_lights:
+  fields:
+    profile_id:
+      required: false
+      selector:
+        config_entry:
+          integration: tv_mgmt
+    zone:
+      required: false
+      example: "TV lights"
+      selector:
+        text:
+
+clear_artwork_cache:
+  fields:
+    resync:
+      required: false
+      default: false
+      selector:
+        boolean:
+    include_metadata:
+      required: false
+      default: false
+      selector:
+        boolean:

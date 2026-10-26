@@ -1,4 +1,4 @@
-"""Switches: input lock and adult mode."""
+"""Switches: input lock, adult mode, and each light sync zone's on/off."""
 
 from __future__ import annotations
 
@@ -10,6 +10,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import TVMgmtConfigEntry
 from .entity import TVMgmtEntity
+from .light_sync.entities import FACTORIES
 
 
 async def async_setup_entry(
@@ -19,6 +20,8 @@ async def async_setup_entry(
 ) -> None:
     manager = entry.runtime_data
     async_add_entities([InputLockSwitch(manager), AdultModeSwitch(manager)])
+    if (light_sync := entry.runtime_data.light_sync) is not None:
+        light_sync.register_platform(FACTORIES["switch"], async_add_entities)
 
 
 class InputLockSwitch(TVMgmtEntity, SwitchEntity):

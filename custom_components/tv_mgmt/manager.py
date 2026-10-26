@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.media_player import DOMAIN as MEDIA_PLAYER_DOMAIN
 from homeassistant.config_entries import ConfigEntry
@@ -82,6 +82,9 @@ from .state import (
 )
 from .storage import ActivityStore, ProfileState, ProfileStore
 from .streaming import StreamingBox
+
+if TYPE_CHECKING:
+    from .light_sync import LightSync
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -189,6 +192,10 @@ class TVManager:
         self._last_turn_off: datetime | None = None
         self._unsubs: list[CALLBACK_TYPE] = []
         self._unsub_turn_off: CALLBACK_TYPE | None = None
+        # Light sync zones (set up by the integration after start).
+        self.light_sync: LightSync | None = None
+        # (title, data) the entry was loaded with; set by the integration.
+        self.loaded_as: tuple[str, dict[str, Any]] | None = None
 
         try:
             self.quiet_windows: list[QuietWindow] = parse_windows(
@@ -282,6 +289,10 @@ class TVManager:
                 if name not in named:
                     apps[name] = name
         return apps
+
+    def is_blocking(self) -> bool:
+        """TV Mgmt is keeping the TV off right now (blocked and enforced)."""
+        return self.decision.state == STATE_ENFORCING and self._enforcing_actions()
 
     def _enforcing_actions(self) -> bool:
         """Act on rules (enforced) vs. only report them (monitor only)."""
@@ -378,6 +389,9 @@ class TVManager:
             self._wake_apple_tv()
             self._switch_lights(True)
         elif turned_off:
+            if self.light_sync:
+                # Before the lights go off: their pending restore is dropped.
+                self.light_sync.tv_turned_off()
             self._switch_lights(False)
         self._enforce_power()
         self.notify()
@@ -411,8 +425,11 @@ class TVManager:
         lights = self.tv_lights
         if not lights:
             return
-        if on and self.decision.state == STATE_ENFORCING and self._enforcing_actions():
+        if on and self.is_blocking():
             return  # TV Mgmt is about to turn the TV back off; don't flash the lights.
+        if on and self.light_sync:
+            # Light sync waits for them before saving their state.
+            self.light_sync.tv_lights_turned_on()
         self.hass.async_create_task(
             self.hass.services.async_call(
                 "light", "turn_on" if on else "turn_off", {ATTR_ENTITY_ID: lights}, blocking=False
@@ -504,6 +521,8 @@ class TVManager:
                 "acted": acted,
             },
         )
+        if acted and self.light_sync:
+            self.light_sync.media_blocked()
         self.notify()
 
     @callback
@@ -891,6 +910,8 @@ class TVManager:
         self._record_today()
         async_dispatcher_send(self.hass, SIGNAL_UPDATED.format(self.entry.entry_id))
         async_dispatcher_send(self.hass, SIGNAL_ANY_UPDATED, self.entry.entry_id)
+        if self.light_sync:
+            self.light_sync.handle_profile_update()
 
     # ---- activity log -------------------------------------------------------------------
 

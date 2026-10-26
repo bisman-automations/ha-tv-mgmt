@@ -25,6 +25,7 @@ from .const import (
     CONF_MEDIA_PLAYER,
     CONF_REVERT_DELAY,
     CONF_TARGET_SOURCE,
+    CONF_TV_LIGHTS,
     DOMAIN,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
@@ -34,9 +35,16 @@ from .const import (
     SERVICE_SEND_MESSAGE,
     SERVICE_UNBLOCK,
 )
-from .manager import TVManager
+from .manager import TVManager, flatten_options
 
-PLATFORMS: list[Platform] = [Platform.SELECT, Platform.SENSOR, Platform.SWITCH]
+PLATFORMS: list[Platform] = [
+    Platform.BINARY_SENSOR,
+    Platform.BUTTON,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SENSOR,
+    Platform.SWITCH,
+]
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
@@ -65,7 +73,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from .home_limits import async_get_home
 
     await async_get_home(hass)
+    from .light_sync import async_setup_light_sync
+    from .light_sync.services import async_setup_services as async_setup_light_services
+
+    await async_setup_light_sync(hass)
     _register_services(hass)
+    async_setup_light_services(hass)
     websocket.async_register(hass)
     await async_register_panel(hass)
     # Serve message videos for the Apple TV; registered up front, while the web
@@ -115,8 +128,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bo
     await manager.async_start()
     entry.runtime_data = manager
     _link_devices(hass, entry, manager)
+    # What a change to the entry is compared with (see the update listener).
+    manager.loaded_as = (entry.title, dict(entry.data))
+
+    from .light_sync import LightSync
+
+    light_sync = LightSync(hass, manager)
+    await light_sync.async_setup()
+    manager.light_sync = light_sync
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    light_sync.async_start()
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     return True
 
@@ -180,9 +202,14 @@ def _link_shared_devices(
     # Upgrading split the TV's device that 1.3 to 1.9 added TV Mgmt to into one
     # device per integration. TV Mgmt's copies hold the TV's identifiers, which
     # would clash with linking, and nothing uses them, so they go.
+    zone_prefix = f"{entry.entry_id}_zone_"
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        if device.id != own.id:
-            registry.async_remove_device(device.id)
+        if device.id == own.id or any(
+            domain == DOMAIN and ident.startswith(zone_prefix)
+            for domain, ident in device.identifiers
+        ):
+            continue  # TV Mgmt's own devices: the profile and its light sync zones
+        registry.async_remove_device(device.id)
     registry.async_update_device(
         own.id, new_identifiers={own_id, *shared}, via_device_id=None
     )
@@ -216,18 +243,49 @@ def _link_by_config_entry(
 async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bool:
     unloaded = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
-        await entry.runtime_data.async_stop()
+        manager = entry.runtime_data
+        if manager.light_sync is not None:
+            await manager.light_sync.async_stop()
+            manager.light_sync = None
+        await manager.async_stop()
     return unloaded
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
+    from .light_sync.controller import async_remove_zone_snapshots
+    from .light_sync.storage import DATA_LIGHT_SYNC
     from .storage import ActivityStore, ProfileStore
 
     await ProfileStore(hass, entry.entry_id).async_remove()
     await ActivityStore(hass, entry.entry_id).async_remove()
+    if (light_data := hass.data.get(DATA_LIGHT_SYNC)) is not None:
+        zones = light_data.config.zones_for(entry.entry_id)
+        # Give the lights back, then forget the TV's zones.
+        await async_remove_zone_snapshots(hass, entry.entry_id, zones)
+        await light_data.config.async_remove_entry(entry.entry_id)
+
+
+# Options that apply without reloading the TV.
+_LIVE_OPTIONS = frozenset({CONF_TV_LIGHTS})
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
+    manager = entry.runtime_data
+    new = flatten_options(dict(entry.options))
+    changed = {
+        key for key in set(new) | set(manager.options) if new.get(key) != manager.options.get(key)
+    }
+    if (
+        changed
+        and changed <= _LIVE_OPTIONS
+        and getattr(manager, "loaded_as", None) == (entry.title, dict(entry.data))
+    ):
+        # Only the TV's lights changed (from the Lights tab): no reload, so
+        # the TV's state and light sync carry on.
+        for key in changed:
+            manager.options[key] = new.get(key)
+        manager.notify()
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 

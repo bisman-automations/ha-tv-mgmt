@@ -7,6 +7,22 @@
           "monitor_only": "mdi:eye",
           "paused": "mdi:pause-circle"
         }
+      },
+      "color_source_preset": {
+        "default": "mdi:format-list-numbered"
+      },
+      "extraction_method": {
+        "default": "mdi:eyedropper-variant"
+      },
+      "color_mode": {
+        "default": "mdi:palette",
+        "state": {
+          "single": "mdi:circle",
+          "palette": "mdi:palette-swatch-variant"
+        }
+      },
+      "palette_strategy": {
+        "default": "mdi:led-strip-variant"
       }
     },
     "switch": {
@@ -20,6 +36,12 @@
         "default": "mdi:account-tie",
         "state": {
           "off": "mdi:account-child"
+        }
+      },
+      "sync_enabled": {
+        "default": "mdi:movie-open-play",
+        "state": {
+          "off": "mdi:movie-open-off"
         }
       }
     },
@@ -53,6 +75,43 @@
       },
       "app_time_today": {
         "default": "mdi:apps"
+      },
+      "current_color": {
+        "default": "mdi:palette"
+      },
+      "color_source": {
+        "default": "mdi:source-branch",
+        "state": {
+          "title_mapping": "mdi:format-title",
+          "poster": "mdi:image-filter-vintage",
+          "genre": "mdi:drama-masks",
+          "default": "mdi:lightbulb-on-outline",
+          "none": "mdi:lightbulb-off-outline"
+        }
+      }
+    },
+    "binary_sensor": {
+      "syncing": {
+        "default": "mdi:television-ambient-light",
+        "state": {
+          "off": "mdi:television"
+        }
+      }
+    },
+    "button": {
+      "save_title_color": {
+        "default": "mdi:content-save-cog"
+      },
+      "resync": {
+        "default": "mdi:sync"
+      }
+    },
+    "number": {
+      "brightness_pct": {
+        "default": "mdi:brightness-6"
+      },
+      "transition": {
+        "default": "mdi:transition"
       }
     }
   },
@@ -68,6 +127,21 @@
     },
     "reset_usage": {
       "service": "mdi:restore"
+    },
+    "set_title_color": {
+      "service": "mdi:palette-swatch"
+    },
+    "remove_title_color": {
+      "service": "mdi:palette-swatch-outline"
+    },
+    "list_title_colors": {
+      "service": "mdi:format-list-bulleted"
+    },
+    "resync_lights": {
+      "service": "mdi:sync"
+    },
+    "clear_artwork_cache": {
+      "service": "mdi:cached"
     }
   }
 }

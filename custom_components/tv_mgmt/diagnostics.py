@@ -16,6 +16,15 @@ from .home_limits import get_home
 # Picture URLs carry an access token that works until Home Assistant restarts,
 # and notify and speaker targets are often named after people.
 TO_REDACT = {
+    # Light sync: TMDB / Trakt keys (and the request headers that carry them).
+    "tmdb_api_key",
+    "trakt_client_id",
+    "api_key",
+    "trakt-api-key",
+    "Authorization",
+    "applied_signature",
+    "access_token",
+    "token",
     "entity_picture",
     "entity_picture_local",
     "media_image_url",
@@ -77,4 +86,34 @@ def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend
             else None
         ),
         "tv_entity_state": tv_state.as_dict() if tv_state else None,
+        "light_sync": _light_sync(hass, manager),
+    }
+
+
+def _light_sync(hass: HomeAssistant, manager) -> dict[str, Any] | None:
+    from .light_sync.storage import DATA_LIGHT_SYNC
+
+    data = hass.data.get(DATA_LIGHT_SYNC)
+    if data is None or manager.light_sync is None:
+        return None
+
+    def _state(entity_id: str) -> dict[str, Any] | None:
+        state = hass.states.get(entity_id)
+        return {"state": state.state, "attributes": dict(state.attributes)} if state else None
+
+    return {
+        "settings": data.config.settings,
+        "zones": [
+            {
+                **zone.as_diagnostics(),
+                "player_states": {e: _state(e) for e in zone.media_players},
+                "light_states": {e: _state(e) for e in zone.configured_lights},
+            }
+            for zone in manager.light_sync.zones.values()
+        ],
+        "title_mappings": len(data.titles),
+        "cache": data.cache.stats(),
+        "metadata": (
+            data.metadata_service.as_diagnostics() if data.metadata_service else None
+        ),
     }

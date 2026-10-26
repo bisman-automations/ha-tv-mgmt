@@ -1,4 +1,4 @@
-"""Sensors: screen time, enforcement state, current input, blocked switches."""
+"""Sensors: screen time, enforcement state, current input, blocked switches, light sync colours."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import TVMgmtConfigEntry
 from .entity import TVMgmtEntity
+from .light_sync.entities import FACTORIES
 from .manager import TVManager
 from .media import describe, show_of
 from .state import STATES
@@ -170,6 +171,8 @@ async def async_setup_entry(
     manager = entry.runtime_data
     descriptions = SENSORS + (APPLE_TV_SENSORS if manager.box else ())
     async_add_entities(TVMgmtSensor(manager, description) for description in descriptions)
+    if (light_sync := entry.runtime_data.light_sync) is not None:
+        light_sync.register_platform(FACTORIES["sensor"], async_add_entities)
 
 
 class TVMgmtSensor(TVMgmtEntity, SensorEntity):

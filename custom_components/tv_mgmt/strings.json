@@ -248,6 +248,40 @@
           "monitor_only": "Monitor only",
           "paused": "Paused"
         }
+      },
+      "color_source_preset": {
+        "name": "Where colors come from",
+        "state": {
+          "balanced": "Titles, artwork, genre",
+          "artwork_first": "Artwork, titles, genre",
+          "genre_first": "Titles, genre, artwork",
+          "titles_only": "Saved titles only",
+          "artwork_only": "Artwork only",
+          "genre_only": "Genre only"
+        }
+      },
+      "extraction_method": {
+        "name": "Artwork color",
+        "state": {
+          "vibrant": "Most vivid",
+          "dominant": "Most common",
+          "average": "Average"
+        }
+      },
+      "color_mode": {
+        "name": "Color mode",
+        "state": {
+          "single": "One color",
+          "palette": "Several colors"
+        }
+      },
+      "palette_strategy": {
+        "name": "How colors are spread",
+        "state": {
+          "spread": "Spread across the lights",
+          "dominant_first": "Main color on the first light",
+          "mirrored": "Mirrored, both ends match"
+        }
       }
     },
     "switch": {
@@ -256,6 +290,9 @@
       },
       "adult_mode": {
         "name": "Adult mode"
+      },
+      "sync_enabled": {
+        "name": "Light sync"
       }
     },
     "sensor": {
@@ -289,6 +326,127 @@
       },
       "app_time_today": {
         "name": "App time today"
+      },
+      "current_color": {
+        "name": "Current color",
+        "state_attributes": {
+          "rgb_color": {
+            "name": "RGB color"
+          },
+          "hs_color": {
+            "name": "HS color"
+          },
+          "source": {
+            "name": "Source"
+          },
+          "media_title": {
+            "name": "Media title"
+          },
+          "search_title": {
+            "name": "Search title"
+          },
+          "media_player": {
+            "name": "Media player"
+          },
+          "entity_picture": {
+            "name": "Artwork"
+          },
+          "genre": {
+            "name": "Genre"
+          },
+          "matched_title": {
+            "name": "Matched title"
+          },
+          "last_applied": {
+            "name": "Last applied"
+          },
+          "metadata_provider": {
+            "name": "Metadata provider"
+          },
+          "color_mode": {
+            "name": "Color mode",
+            "state": {
+              "single": "One color",
+              "palette": "Several colors"
+            }
+          },
+          "palette": {
+            "name": "Palette"
+          },
+          "palette_hex": {
+            "name": "Palette (hex)"
+          },
+          "light_colors": {
+            "name": "Light colors"
+          }
+        }
+      },
+      "color_source": {
+        "name": "Color source",
+        "state": {
+          "title_mapping": "Saved title color",
+          "poster": "Artwork",
+          "genre": "Genre",
+          "default": "Default color",
+          "none": "None"
+        }
+      }
+    },
+    "binary_sensor": {
+      "syncing": {
+        "name": "Coloring lights",
+        "state_attributes": {
+          "media_player": {
+            "name": "Media player"
+          },
+          "lights": {
+            "name": "Lights"
+          },
+          "pending_action": {
+            "name": "Pending action"
+          },
+          "last_error": {
+            "name": "Last error"
+          },
+          "failed_lights": {
+            "name": "Failed lights"
+          },
+          "light_errors": {
+            "name": "Light errors"
+          },
+          "last_outcome": {
+            "name": "Last outcome",
+            "state": {
+              "ok": "OK",
+              "partial": "Partial (some lights failed)",
+              "failed": "Failed"
+            }
+          },
+          "held_reason": {
+            "name": "Held back",
+            "state": {
+              "tv_off": "TV is off",
+              "blocked": "TV is blocked",
+              "stopped": "Blocked app or show was stopped"
+            }
+          }
+        }
+      }
+    },
+    "button": {
+      "save_title_color": {
+        "name": "Keep this color for this title"
+      },
+      "resync": {
+        "name": "Look again"
+      }
+    },
+    "number": {
+      "brightness_pct": {
+        "name": "Brightness"
+      },
+      "transition": {
+        "name": "Transition"
       }
     }
   },
@@ -362,6 +520,62 @@
           "description": "Say it on the speakers picked under Warnings on the TV."
         }
       }
+    },
+    "set_title_color": {
+      "name": "Set a title's color",
+      "description": "Always use this color for a movie or show, on every TV. Capitals, accents, a leading \"The\" and a year in brackets don't matter.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The movie or show."
+        },
+        "rgb_color": {
+          "name": "Color",
+          "description": "The color the lights turn when it plays."
+        }
+      }
+    },
+    "remove_title_color": {
+      "name": "Remove a title's color",
+      "description": "Forget the color saved for a movie or show.",
+      "fields": {
+        "title": {
+          "name": "Title",
+          "description": "The movie or show."
+        }
+      }
+    },
+    "list_title_colors": {
+      "name": "List title colors",
+      "description": "Returns every movie and show with a saved color."
+    },
+    "resync_lights": {
+      "name": "Recolor the lights",
+      "description": "Look at what's playing again and set the lights' color now.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "Only this TV. Leave empty for every TV."
+        },
+        "zone": {
+          "name": "Light zone",
+          "description": "Only this light zone, by name. Leave empty for all of the TV's zones."
+        }
+      }
+    },
+    "clear_artwork_cache": {
+      "name": "Clear the artwork colors",
+      "description": "Forget the colors worked out from artwork, so they're worked out again, for example after changing how artwork colors are picked.",
+      "fields": {
+        "resync": {
+          "name": "Recolor afterwards",
+          "description": "Set every zone's lights again after clearing."
+        },
+        "include_metadata": {
+          "name": "Include TMDB and Trakt",
+          "description": "Also forget the genres looked up on TMDB and Trakt."
+        }
+      }
     }
   },
   "exceptions": {
@@ -376,6 +590,21 @@
     },
     "not_allowed": {
       "message": "You don't have access to TV Mgmt. An admin can give you access in the TV Mgmt sidebar app, under Access."
+    },
+    "zone_not_found": {
+      "message": "No light zone called {zone}."
+    },
+    "invalid_title": {
+      "message": "\"{title}\" can't be used as a title."
+    },
+    "title_not_found": {
+      "message": "No color is saved for \"{title}\"."
+    },
+    "nothing_to_save": {
+      "message": "Nothing is coloring the lights right now, so there's no color to keep."
+    },
+    "resync_failed": {
+      "message": "No light could be set: {error}"
     }
   },
   "selector": {
@@ -390,6 +619,12 @@
         "home": "Go back to the Apple TV home screen",
         "sleep": "Put the Apple TV to sleep"
       }
+    }
+  },
+  "issues": {
+    "metadata_auth_failed": {
+      "title": "{provider} didn't accept its key",
+      "description": "TV Mgmt couldn't look up genres on {provider} because it didn't accept the key. Light sync carries on without {provider}. Enter a new key in the TV Mgmt sidebar app, under Lights → Shared settings."
     }
   }
 }
