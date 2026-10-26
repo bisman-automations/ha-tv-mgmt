@@ -585,7 +585,7 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
 .message-box > .label { font-size: 14px; color: var(--secondary-text-color); }
 .message-form { display: grid; gap: 10px; max-width: none; }
 .message-row { display: flex; gap: 8px; }
-.message-row input { flex: 1; min-width: 0; }
+.message-row input { flex: 1; min-width: 0; width: 0; }
 .message-row input[type="color"] { flex: none; }
 .presets { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip-btn { font-size: 13px; padding: 4px 10px; border-radius: 14px; border: 1px solid var(--divider-color);
@@ -618,9 +618,13 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
 }
 .zone { display: grid; gap: 8px; padding: 14px 0; border-top: 1px solid var(--divider-color); }
 .zone.editing { gap: 16px; }
-.zone-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.zone-spacer { flex: 1; }
-.zone-now { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
+.zone-head { display: flex; align-items: flex-start; gap: 12px; }
+.zone-head > .switch { margin-top: 1px; }
+.zone-title { flex: 1; min-width: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; }
+.zone-title strong { min-width: 0; overflow-wrap: anywhere; }
+.zone-now { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+.zone-now > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.swatches { display: inline-flex; gap: 6px; flex: none; }
 .zone-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .swatch { display: inline-block; flex: none; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--divider-color); }
 .tone-bad-text { color: var(--tm-bad); }
@@ -628,6 +632,7 @@ input[type="checkbox"].check, input[type="radio"] { width: 18px; height: 18px; a
 .order-item { display: inline-flex; align-items: center; gap: 6px; }
 .titles { display: grid; gap: 6px; }
 .title-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 10px; align-items: center; font-size: 14px; }
+.title-row > span:nth-child(2) { overflow-wrap: anywhere; }
 .more summary { cursor: pointer; font-size: 14px; font-weight: 500; }
 .more-body { display: grid; gap: 16px; margin-top: 14px; }
 select { font: inherit; font-size: 15px; padding: 9px 10px; border-radius: 8px; min-height: 42px; max-width: 100%;
@@ -2218,7 +2223,7 @@ class TvMgmtPanel extends HTMLElement {
     const colors = s?.syncing ? (s.palette?.length > 1 ? s.palette : s.color ? [s.color] : []) : [];
     const swatches = colors.map((hex) => `<span class="swatch" style="background:${esc(hex)}" title="${esc(hex)}"></span>`).join("");
     const now = s?.syncing && s.title
-      ? `<div class="zone-now">${swatches}<span>${esc(s.title)}</span><span class="muted">· ${esc(LS_SOURCES[s.source] || s.source)}</span></div>`
+      ? `<div class="zone-now"><span class="swatches">${swatches}</span><span>${esc(s.title)} <span class="muted">· ${esc(LS_SOURCES[s.source] || s.source)}</span></span></div>`
       : "";
     const failed = s && Object.keys(s.failed_lights || {}).length
       ? `<small class="tone-bad-text">Couldn't reach: ${esc(Object.keys(s.failed_lights).map(nameOf).join(", "))}</small>`
@@ -2232,8 +2237,7 @@ class TvMgmtPanel extends HTMLElement {
     const id = esc(c.zone_id);
     return `<div class="zone">
       <div class="zone-head">
-        <strong>${esc(c.name)}</strong>${chip}
-        <span class="zone-spacer"></span>
+        <div class="zone-title"><strong>${esc(c.name)}</strong>${chip}</div>
         <label class="switch" title="Light sync on or off"><input type="checkbox" data-zone-enable="${id}" aria-label="Light sync for ${esc(c.name)}" ${c.enabled ? "checked" : ""}><span></span></label>
       </div>
       ${now}
