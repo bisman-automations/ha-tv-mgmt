@@ -26,11 +26,14 @@ def auto_enable_custom_integrations(enable_custom_integrations):
 async def calls(hass):
     """Record TV service calls.
 
-    Load media_player first so its real services don't replace the mocks.
+    Load media_player and light first so their real services don't replace
+    the mocks.
     """
     from homeassistant.setup import async_setup_component
 
     assert await async_setup_component(hass, "media_player", {})
+    # TV Mgmt depends on light (light sync); load it first for the same reason.
+    assert await async_setup_component(hass, "light", {})
     return {
         "select_source": async_mock_service(hass, "media_player", "select_source"),
         "turn_off": async_mock_service(hass, "media_player", "turn_off"),
