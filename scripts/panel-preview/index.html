@@ -35,16 +35,18 @@ const profiles = [
   { entry_id: "fam", name: "Family Room TV", tv_entity_id: "media_player.family_room_tv", adapter: "generic", is_on: true,
     current_input: "com.tcl.tv", input_allowed: true, allowed_inputs: ["com.tcl.tv"], target_input: "HDMI 2", input_lock: true,
     lock_paused_reason: null, state: "warning", reason: "budget", quiet_window: null, remaining_seconds: 4*60, mode: "enforced",
-    force_block: false, adult_mode_until: null, adult_mode_duration: 120, used_seconds: 101*60, budget_minutes: 90,
+    force_block: false, adult_mode_until: null, adult_mode_duration: 120, adult_mode_counts: false, adult_seconds: 47*60, used_seconds: 101*60, budget_minutes: 90,
     extension_minutes: 15, warn_minutes: 5, blocked_switches: 3, last_blocked_input: "com.google.android.youtube.tv", last_blocked_at: t(18, 12),
     mode_sync_entity: "select.apple_tv_mgmt_family_room_mode", quiet_windows: ["20:30-07:00 Bedtime"],
     input_names: {"com.tcl.tv": "Apple TV", "HDMI 2": "HDMI 2", "com.google.android.apps.tv.launcherx": "Google TV home", "com.google.android.youtube.tv": "YouTube"},
     custom_input_names: {"com.tcl.tv": "Apple TV"},
     tv_lights: ["light.tv_backlight"],
+    tv_lights_follow: true,
+    tv_lights_held_off: false,
     message_targets: { apple_tv: true, screen: true, speak: false },
     message_presets: ["Dinner is ready", "Time to get ready for bed", "Come to the kitchen, please", "Time to turn off the TV", "Five more minutes"],
     remote_keys: ["power","volume_up","volume_down","mute","up","down","left","right","select","back","home"],
-    entities: ["select:mode","switch:input_lock","switch:adult_mode","sensor:enforcement_state","sensor:time_used_today","sensor:time_remaining_today","sensor:extra_time_today","sensor:current_input","sensor:blocked_switches_today","sensor:current_app","sensor:app_time_today"].map(x => { const [d,k] = x.split(":"); return { entity_id: `${d}.tv_mgmt_family_room_tv_${k}`, key: k }; }),
+    entities: ["select:mode","switch:input_lock","switch:adult_mode","sensor:enforcement_state","sensor:time_used_today","sensor:adult_mode_time_today","sensor:time_remaining_today","sensor:extra_time_today","sensor:current_input","sensor:blocked_switches_today","sensor:current_app","sensor:app_time_today"].map(x => { const [d,k] = x.split(":"); return { entity_id: `${d}.tv_mgmt_family_room_tv_${k}`, key: k }; }),
     apple_tv: { remote_keys: ["power","volume_up","volume_down","up","down","left","right","select","back","home"], entity_id: "media_player.living_room_apple_tv", remote_entity: "remote.living_room_apple_tv", available: true, is_on: true,
       app_id: "com.disney.disneyplus", app_name: "Disney+", stop_reason: null, has_remote: true,
       apps_today: [
@@ -63,7 +65,7 @@ const profiles = [
   { entry_id: "bed", name: "Playroom TV", tv_entity_id: "media_player.playroom_tv", adapter: "android_tv_remote", is_on: false,
     current_input: null, input_allowed: null, allowed_inputs: ["com.google.android.tv.hdmi2"], target_input: "HDMI 2", input_lock: true,
     lock_paused_reason: null, state: "enforcing", reason: "budget", quiet_window: null, remaining_seconds: 0, mode: "enforced",
-    force_block: false, adult_mode_until: null, adult_mode_duration: 120, used_seconds: 62*60, budget_minutes: 60,
+    force_block: false, adult_mode_until: null, adult_mode_duration: 120, adult_mode_counts: false, adult_seconds: 0, used_seconds: 62*60, budget_minutes: 60,
     extension_minutes: 0, warn_minutes: 5, blocked_switches: 0, last_blocked_input: null, last_blocked_at: null,
     mode_sync_entity: null, quiet_windows: [], remote_keys: ["power","volume_up","volume_down","mute","up","down","left","right","select","back","home"], entities: [] },
 ];
@@ -86,8 +88,14 @@ const events = [
   { t: t(15, 0), type: "tv_on", source: "Apple TV" },
   { t: t(7, 30), type: "mode", mode: "enforced", synced: true },
   { t: t(7, 0), type: "enforcement", state: "ok", reason: null },
+  // A parent watching the morning news in adult mode (not counted).
+  { t: t(6, 58), type: "tv_off" },
+  { t: t(6, 57), type: "adult_mode", on: false },
+  { t: t(6, 10), type: "adult_mode", on: true, minutes: 120 },
+  { t: t(6, 9), type: "tv_on", source: "com.tcl.tv" },
 ];
 const segments = [
+  { start: t(6,9), end: t(6,58), seconds: 49*60, source: "com.tcl.tv", live: false },
   { start: t(15,0), end: t(15,51), seconds: 51*60, source: "com.tcl.tv", live: false },
   { start: t(15,51), end: t(15,53), seconds: 120, source: "Live TV", live: false },
   { start: t(15,53), end: t(16,30), seconds: 37*60, source: "com.tcl.tv", live: false },
@@ -102,7 +110,11 @@ function series(n) {
     const recorded = i < 24;
     const weekend = [0, 6].includes(d.getDay());
     const used = recorded ? Math.round((weekend ? 120 : 70) + 40 * Math.sin(i * 1.7)) * 60 : 0;
-    out.push({ date: d.toISOString().slice(0,10), used_seconds: used, budget_minutes: recorded ? 90 : 0, extension_minutes: recorded && i % 5 === 0 ? 15 : 0, blocked: recorded ? (i * 7) % 4 : 0, recorded });
+    // Adult mode is tracked from 1.16.0, installed 5 days ago in this sample.
+    const adultTracked = recorded && i < 5;
+    const adult = adultTracked ? ({ 0: 47, 1: 105, 3: 52 }[i] || 0) * 60 : 0;
+    out.push({ date: d.toISOString().slice(0,10), used_seconds: used, budget_minutes: recorded ? 90 : 0, extension_minutes: recorded && i % 5 === 0 ? 15 : 0, blocked: recorded ? (i * 7) % 4 : 0,
+      adult_seconds: adult, adult_counted_seconds: 0, adult_tracked: adultTracked, recorded });
   }
   return out;
 }
@@ -110,7 +122,8 @@ function summarize(days) {
   const rec = days.filter(d => d.recorded); const total = rec.reduce((a, d) => a + d.used_seconds, 0);
   return { total_seconds: total, average_seconds: rec.length ? Math.round(total / rec.length) : 0, active_days: rec.filter(d=>d.used_seconds).length,
     days_over_limit: rec.filter(d => d.budget_minutes && d.used_seconds >= (d.budget_minutes + d.extension_minutes) * 60).length,
-    blocked: rec.reduce((a, d) => a + d.blocked, 0), recorded_days: rec.length };
+    blocked: rec.reduce((a, d) => a + d.blocked, 0), recorded_days: rec.length,
+    adult_seconds: rec.reduce((a, d) => a + d.adult_seconds, 0), adult_counted_seconds: 0, adult_untracked_days: rec.filter(d => !d.adult_tracked).length };
 }
 const ART = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a5a"/><stop offset="1" stop-color="#6a3fd1"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><circle cx="70" cy="32" r="14" fill="#ffe08a"/><path d="M0 78 L28 52 L48 68 L66 50 L100 80 L100 100 L0 100Z" fill="#2b1d55"/></svg>');
 const states = {
@@ -186,10 +199,11 @@ window.hass = {
         { start: t(15,40), end: t(15,54), seconds: 14*60, app: "com.pbskids.video", name: "PBS KIDS Video", live: false },
         { start: t(17,10), end: t(17,39), seconds: 29*60, app: "com.disney.disneyplus", name: "Disney+", live: false },
         { start: t(19,2), end: t(19,40), seconds: 38*60, app: "com.disney.disneyplus", name: "Disney+", live: true },
-      ], entry_id: msg.entry_id, date: msg.date || today, today, first_date: "2026-09-15", events, segments, viewing_seconds: segments.reduce((a, s) => a + s.seconds, 0), totals: { used_seconds: 101*60, budget_minutes: 90, extension_minutes: 15, blocked: 3 } };
+      ], entry_id: msg.entry_id, date: msg.date || today, today, first_date: "2026-09-15", events, segments, viewing_seconds: segments.reduce((a, s) => a + s.seconds, 0),
+        adult_periods: [{ start: t(6,10), end: t(6,57), seconds: 47*60, live: false }], adult_viewing_seconds: 47*60, totals: { used_seconds: 101*60, budget_minutes: 90, extension_minutes: 15, blocked: 3 } };
       case "tv_mgmt/analytics": { const days = series(msg.days); const sum = summarize(days); sum.apps_stopped = 9; sum.top_media = [{show:"Harbor Tales",app:"Disney+",seconds:4.1*3600},{show:"Garden Friends",app:"PBS KIDS Video",seconds:2.2*3600},{show:"Moon Over the Meadow",app:"Disney+",seconds:1.6*3600},{show:"Tiny Builders",app:"YouTube",seconds:0.7*3600}]; sum.top_apps = [{app:"d",name:"Disney+",seconds:6.5*3600},{app:"y",name:"YouTube",seconds:3.2*3600},{app:"p",name:"PBS KIDS Video",seconds:1.4*3600},{app:"n",name:"Netflix",seconds:0.6*3600}];
         return { profiles: [{ entry_id: msg.entry_id, name: "Family Room TV", days, summary: sum, has_apple_tv: msg.entry_id === "fam" }], days: msg.days }; }
-      case "tv_mgmt/limits/get": return { daily_budget: 90, warn_minutes: 5, quiet_windows: "20:30-07:00 Bedtime, 08:00-15:00 School", adult_mode_duration: 120 };
+      case "tv_mgmt/limits/get": return { daily_budget: 90, warn_minutes: 5, quiet_windows: "20:30-07:00 Bedtime, 08:00-15:00 School", adult_mode_duration: 120, adult_mode_counts: false };
       case "tv_mgmt/limits/set": window.lastSaved = msg; return { saved: msg };
       case "tv_mgmt/input_names/set": window.lastNames = msg; return { saved: msg.names };
       case "tv_mgmt/apple_tv/set": window.lastAppleTv = msg; if (msg.blocked_shows) profiles[0].apple_tv.rules.blocked_shows = msg.blocked_shows; return { saved: msg };
@@ -218,7 +232,19 @@ window.hass = {
       case "tv_mgmt/light_sync/settings/set": window.lastLightSettings = msg; lightSettings = { metadata_providers: msg.metadata_providers, tmdb_key_set: msg.tmdb_api_key === undefined ? lightSettings.tmdb_key_set : !!msg.tmdb_api_key, trakt_key_set: msg.trakt_client_id === undefined ? lightSettings.trakt_key_set : !!msg.trakt_client_id }; return { settings: lightSettings };
       case "tv_mgmt/light_sync/titles/set": lightTitles.push({ title: msg.title, key: msg.title.toLowerCase(), rgb_color: msg.rgb_color, hex: "#" + msg.rgb_color.map((n) => n.toString(16).padStart(2, "0")).join(""), updated: nowIso }); return { key: msg.title.toLowerCase() };
       case "tv_mgmt/light_sync/titles/remove": lightTitles = lightTitles.filter((t) => t.title !== msg.title); return null;
-      case "tv_mgmt/lights/set": window.lastLights = msg; profiles[0].tv_lights = msg.lights; return { lights: msg.lights };
+      case "tv_mgmt/lights/set": {
+        window.lastLights = msg;
+        const p = profiles.find((x) => x.entry_id === msg.entry_id) || profiles[0];
+        if (msg.lights) p.tv_lights = msg.lights;
+        if (msg.follow !== undefined) p.tv_lights_follow = msg.follow;
+        return { lights: p.tv_lights, follow: p.tv_lights_follow };
+      }
+      case "tv_mgmt/lights/off": {
+        window.lastLightsOff = msg;
+        const p = profiles.find((x) => x.entry_id === msg.entry_id) || profiles[0];
+        p.tv_lights_held_off = true;
+        return { lights: p.tv_lights, failed: {}, profile: p };
+      }
       case "tv_mgmt/remote": window.lastRemote = msg; return { key: msg.key };
       case "tv_mgmt/action": window.lastAction = msg; return { profile: profiles.find(p => p.entry_id === msg.entry_id) };
     }

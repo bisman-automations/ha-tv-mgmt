@@ -150,7 +150,7 @@ function describeEvent(e, p) {
     case "input_lock":
       return { icon: "lock", text: e.on ? "Input lock turned on" : "Input lock turned off" };
     case "adult_mode":
-      return { icon: "adult", text: e.on ? `Adult mode on for ${e.minutes} min` : "Adult mode turned off" };
+      return { icon: "adult", text: e.on ? `Adult mode on for ${e.minutes} min` : e.reason === "expired" ? "Adult mode ended" : "Adult mode turned off" };
     case "extension":
       return { icon: "plus", text: e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away` };
     case "home_extension":
@@ -161,6 +161,8 @@ function describeEvent(e, p) {
       return { icon: "shield", text: "Unblocked" };
     case "reset":
       return { icon: "clock", text: "Today's time reset" };
+    case "tv_lights_off":
+      return { icon: "power-off", tone: e.failed ? "warn" : undefined, text: e.failed ? `TV lights turned off (${e.failed} didn't answer)` : "TV lights turned off" };
     case "message": {
       const where = { apple_tv: "the Apple TV", screen: "the TV screen", speak: "the speakers" };
       const to = (e.sent || []).map((k) => where[k] || k).join(" and ");
@@ -231,11 +233,14 @@ const ENTITY_LABELS = {
   enforcement_state: "Enforcement state",
   current_input: "Current input",
   time_used_today: "Time used today",
+  adult_mode_time_today: "Adult mode time today",
   time_remaining_today: "Time remaining today",
   extra_time_today: "Extra time today",
   blocked_switches_today: "Blocked switches today",
   current_app: "Current app",
   app_time_today: "App time today",
+  tv_lights_follow: "TV lights follow the TV",
+  turn_off_tv_lights: "Turn off TV lights",
 };
 const ENTITY_ORDER = Object.keys(ENTITY_LABELS);
 
@@ -279,6 +284,8 @@ const STYLES = `
   --tm-warn: var(--warning-color, #ffa600);
   --tm-bad: var(--error-color, #db4437);
   --tm-info: var(--info-color, #039be5);
+  /* Adult mode, in the Activity strips and Analytics chart. */
+  --tm-adult: #8e6cc9;
   --tm-radius: var(--ha-card-border-radius, 12px);
   --tm-screen: #12161c;
   --tm-screen-text: #f3f6fa;
@@ -456,6 +463,12 @@ main.wide { max-width: 1760px; }
 .tape .seg-bar { position: absolute; top: 0; bottom: 0; background: var(--primary-color); min-width: 2px; }
 .tape .seg-bar.not-allowed { background: var(--tm-warn); min-width: 4px; z-index: 1; }
 .tape .seg-bar.live { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.25) 6px 12px); }
+/* Adult mode: shaded over both strips, which show no app for it. */
+.tape .adult-band { position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--tm-adult) 55%, transparent) 0 5px, color-mix(in srgb, var(--tm-adult) 30%, transparent) 5px 10px);
+  border-left: 2px solid var(--tm-adult); border-right: 2px solid var(--tm-adult); }
+.legend i.adult { background: var(--tm-adult); }
+.chart .day-bar.adult { fill: var(--tm-adult); }
 .tape .now-line { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--primary-text-color); opacity: .6; }
 .hours { position: relative; height: 18px; font-size: 12px; color: var(--secondary-text-color); margin-top: 4px; }
 .hours span { position: absolute; transform: translateX(-50%); }
@@ -497,6 +510,8 @@ input[type="number"] { width: 140px; }
 .window input[type="text"] { min-width: 0; }
 .window .btn { padding: 6px; }
 .form-actions { display: flex; gap: 12px; align-items: center; }
+.tv-lights-now { display: grid; gap: 10px; padding-top: 16px; margin-top: 16px; border-top: 1px solid var(--divider-color); }
+.tv-lights-now > small { font-size: 13px; }
 .names { display: grid; gap: 10px; }
 .name-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: center; }
 .name-row .raw { font-size: 14px; color: var(--secondary-text-color); overflow-wrap: anywhere; }
@@ -1148,6 +1163,7 @@ class TvMgmtPanel extends HTMLElement {
           <dl class="facts">
             <dt>Extra time today</dt><dd>${p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min` : "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
+            ${p.adult_seconds ? `<dt>Adult mode today</dt><dd>${duration(p.adult_seconds)}${p.adult_mode_counts ? "" : `<span class="muted"> · not counted</span>`}</dd>` : ""}
             <dt>Last tried</dt><dd>${lastBlocked}</dd>
             <dt>Allowed</dt><dd>${esc((p.allowed_inputs || []).map((raw) => nameOf(p, raw)).join(", ") || "Not set")}</dd>
             ${(p.tv_lights || []).length ? `<dt>TV lights</dt><dd>${esc(p.tv_lights.map((e) => this._hass?.states?.[e]?.attributes?.friendly_name || e).join(", "))}</dd>` : ""}
@@ -1598,6 +1614,16 @@ class TvMgmtPanel extends HTMLElement {
         return `<div class="${cls}" style="left:${left}%;width:${width}%" title="${esc(nameOf(profile, s.source) ?? "Unknown")}: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
       })
       .join("");
+    // Adult mode: shaded over both strips. The app strip and the log leave out
+    // what was open then (the server drops it), so only the stretch shows.
+    const adult = a.adult_periods || [];
+    const adultBands = adult
+      .map((s) => {
+        const left = pos(s.start);
+        const width = Math.max(0.3, pos(s.end) - left);
+        return `<div class="adult-band" style="left:${left}%;width:${width}%" title="Adult mode: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
+      })
+      .join("");
     const isToday = a.date === a.today;
     const nowLine = isToday ? `<div class="now-line" style="left:${pos(new Date().toISOString())}%"></div>` : "";
     const hours = [0, 6, 12, 18]
@@ -1609,7 +1635,7 @@ class TvMgmtPanel extends HTMLElement {
     const legend = Object.entries(bySource)
       .sort((x, y) => y[1] - x[1])
       .map(([src, secs]) => `<span><i class="${allowed.size && !allowed.has(src) ? "not-allowed" : ""}"></i>${esc(nameOf(profile, src))}: ${duration(secs)}</span>`)
-      .join("");
+      .join("") + (adult.length ? `<span><i class="adult"></i>Adult mode: ${duration(a.adult_viewing_seconds || 0)}</span>` : "");
 
     const events = a.events.length
       ? `<ul class="log">${a.events
@@ -1623,19 +1649,19 @@ class TvMgmtPanel extends HTMLElement {
     return `
       ${this._activityToolbar(a)}
       <section class="card"><div class="card-body">
-        <div class="time-line"><span><strong>${duration(a.viewing_seconds)}</strong> <span class="muted">on screen</span></span>
+        <div class="time-line"><span><strong>${duration(a.viewing_seconds)}</strong> <span class="muted">on screen${a.adult_viewing_seconds ? `, ${duration(a.adult_viewing_seconds)} in adult mode` : ""}</span></span>
           ${a.totals ? `<span class="muted">${a.totals.blocked} blocked switch${a.totals.blocked === 1 ? "" : "es"}</span>` : ""}</div>
         <div>
-          <div class="tape" role="img" aria-label="When the TV was on, by input">${bars}${nowLine}</div>
+          <div class="tape" role="img" aria-label="When the TV was on, by input">${bars}${adultBands}${nowLine}</div>
           <div class="hours">${hours}</div>
           ${legend ? `<div class="legend">${legend}</div>` : ""}
-          ${profile?.apple_tv ? this._appTape(a, pos, nowLine) : ""}
+          ${profile?.apple_tv ? this._appTape(a, pos, nowLine, adultBands) : ""}
         </div>
       </div></section>
       <section class="card" style="margin-top:20px"><div class="card-body">${events}</div></section>`;
   }
 
-  _appTape(a, pos, nowLine) {
+  _appTape(a, pos, nowLine, adultBands = "") {
     const segs = a.app_segments || [];
     const byApp = {};
     for (const s of segs) byApp[s.name ?? s.app] = (byApp[s.name ?? s.app] || 0) + s.seconds;
@@ -1655,7 +1681,7 @@ class TvMgmtPanel extends HTMLElement {
       .map(([name, secs]) => `<span><i style="background:${colour[name]}"></i>${esc(name)}: ${duration(secs)}</span>`)
       .join("");
     return `<div class="tape-label">${icon("box")} Apple TV apps</div>
-      <div class="tape apps-tape" role="img" aria-label="When apps were open on the Apple TV">${bars}${nowLine}</div>
+      <div class="tape apps-tape" role="img" aria-label="When apps were open on the Apple TV">${bars}${adultBands}${nowLine}</div>
       ${legend ? `<div class="legend">${legend}</div>` : `<p class="muted">No apps opened on the Apple TV this day.</p>`}`;
   }
 
@@ -1694,17 +1720,35 @@ class TvMgmtPanel extends HTMLElement {
         <div class="card stat"><b>${s.days_over_limit}</b><span>Days the limit was reached</span></div>
         <div class="card stat"><b>${s.blocked}</b><span>Blocked input switches</span></div>
         ${data.has_apple_tv ? `<div class="card stat"><b>${s.apps_stopped ?? 0}</b><span>Apple TV apps stopped</span></div>` : ""}
+        <div class="card stat"><b>${duration(s.adult_seconds || 0)}</b><span>Adult mode${this._adultCountNote(s)}</span></div>
       </div>`;
-    const note = s.recorded_days < data.days.length
-      ? `<p class="muted">TV Mgmt has ${s.recorded_days} day${s.recorded_days === 1 ? "" : "s"} of history so far. Days before that show as empty.</p>`
+    const notes = [];
+    if (s.recorded_days < data.days.length) {
+      notes.push(`TV Mgmt has ${s.recorded_days} day${s.recorded_days === 1 ? "" : "s"} of history so far. Days before that show as empty.`);
+    }
+    if (s.adult_untracked_days) {
+      notes.push("Adult mode is tracked from TV Mgmt 1.16.0. Before that, its time is part of the screen time.");
+    }
+    const note = notes.map((n) => `<p class="muted">${esc(n)}</p>`).join("");
+    const legend = s.adult_seconds
+      ? `<div class="legend"><span><i></i>Screen time</span><span><i class="adult"></i>Adult mode</span></div>`
       : "";
     return `${this._analyticsToolbar()}${stats}
       <section class="card"><div class="card-body">
         <div><strong>Screen time per day</strong><div class="muted">The dashed line is the daily limit, including extra time.</div></div>
         ${this._chart(data.days)}
+        ${legend}
         ${note}
       </div></section>
       ${data.has_apple_tv ? this._topApps(s.top_apps || []) + this._topMedia(s.top_media || []) : ""}`;
+  }
+
+  // How the Adult mode total relates to the limits, for its stat card.
+  _adultCountNote(s) {
+    if (!s.adult_seconds) return "";
+    if (!s.adult_counted_seconds) return ", not counted";
+    if (s.adult_counted_seconds >= s.adult_seconds) return ", counted";
+    return `, ${duration(s.adult_counted_seconds)} counted`;
   }
 
   _topApps(apps) {
@@ -1741,9 +1785,16 @@ class TvMgmtPanel extends HTMLElement {
     const main = this.shadowRoot.getElementById("main");
     const W = Math.max(280, Math.min(1060, (main?.clientWidth || 720) - 64));
     const H = 220, padL = 40, padB = 26, padT = 10, padR = 8;
+    // Each bar: screen time that wasn't adult mode, with adult mode stacked on
+    // top in its own colour. used_seconds holds only the adult time that
+    // counted, so the rest is added on. A day is over its limit by
+    // used_seconds alone: adult time that didn't count can't reach it.
+    const adult = days.map((d) => minutes(d.adult_seconds || 0));
     const values = days.map((d) => minutes(d.used_seconds));
+    const own = days.map((d) => minutes(Math.max(0, d.used_seconds - (d.adult_counted_seconds || 0))));
+    const totals = own.map((v, i) => v + adult[i]);
     const limits = days.map((d) => (d.budget_minutes ? d.budget_minutes + d.extension_minutes : 0));
-    const max = Math.max(60, ...values, ...limits);
+    const max = Math.max(60, ...totals, ...limits);
     const step = max > 300 ? 120 : max > 120 ? 60 : 30;
     const top = Math.ceil(max / step) * step;
     const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -1756,11 +1807,13 @@ class TvMgmtPanel extends HTMLElement {
     }
     const bars = days
       .map((d, i) => {
-        const v = values[i];
-        const over = limits[i] && v >= limits[i];
-        const h = Math.max(v ? 2 : 0, (v / top) * plotH);
+        const over = limits[i] && values[i] >= limits[i];
+        const h = Math.max(own[i] ? 2 : 0, (own[i] / top) * plotH);
+        const ah = adult[i] ? Math.max(2, (adult[i] / top) * plotH) : 0;
         const x = padL + i * bw + bw * 0.15;
-        return `<rect class="day-bar${over ? " over" : ""}" x="${x}" y="${padT + plotH - h}" width="${bw * 0.7}" height="${h}" rx="2"><title>${d.date}: ${duration(d.used_seconds)}${limits[i] ? ` of ${duration(limits[i] * 60)}` : ""}</title></rect>`;
+        const title = `${d.date}: ${duration(d.used_seconds)}${limits[i] ? ` of ${duration(limits[i] * 60)}` : ""}${d.adult_seconds ? `, adult mode ${duration(d.adult_seconds)}${d.adult_counted_seconds ? "" : " (not counted)"}` : ""}`;
+        return `<rect class="day-bar${over ? " over" : ""}" x="${x}" y="${padT + plotH - h}" width="${bw * 0.7}" height="${h}" rx="2"><title>${esc(title)}</title></rect>`
+          + (ah ? `<rect class="day-bar adult" x="${x}" y="${padT + plotH - h - ah}" width="${bw * 0.7}" height="${ah}" rx="2"><title>${esc(title)}</title></rect>` : "");
       })
       .join("");
     let limitPath = "";
@@ -1923,6 +1976,10 @@ class TvMgmtPanel extends HTMLElement {
             <label for="adult_mode_duration">Adult mode lasts</label>
             <span><input id="adult_mode_duration" type="number" min="5" max="720" step="5" value="${d.adult_mode_duration}"> <span class="muted">minutes</span></span>
           </div>
+          <div class="field">
+            <label class="toggle"><span>Count adult mode time toward limits<small>When off, time in adult mode doesn't use up this TV's or the home's time, or any app's. Activity and Analytics show it as its own total.</small></span>
+              <span class="switch"><input type="checkbox" id="adult_mode_counts" ${d.adult_mode_counts ? "checked" : ""}><span></span></span></label>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn primary" ${this._busy ? "disabled" : ""}>${this._busy ? "Saving…" : "Save limits"}</button>
             ${this._savedNote ? `<span class="saved" role="status">${esc(this._savedNote)}</span>` : ""}
@@ -2077,6 +2134,19 @@ class TvMgmtPanel extends HTMLElement {
     const rows = shown
       .map((eid, i) => `<label class="show-rule"><input type="checkbox" class="check" data-light="${esc(eid)}" ${d.picked.has(eid) ? "checked" : ""}> ${esc(nameOfLight(eid))}</label>`)
       .join("");
+    // Below the picker: turn them off now, and whether they follow the TV.
+    // Both apply at once (no Save), and only once lights are saved for this TV.
+    const saved = p.tv_lights || [];
+    const busy = this._busyLightsNow;
+    const now = saved.length ? `<div class="tv-lights-now">
+        <label class="toggle"><span>Turn on and off with the TV<small>Off: TV Mgmt leaves these lights alone.</small></span>
+          <span class="switch"><input type="checkbox" id="tv_lights_follow" data-lights-follow ${p.tv_lights_follow !== false ? "checked" : ""} ${busy ? "disabled" : ""}><span></span></span></label>
+        <div class="form-actions">
+          <button type="button" class="btn" data-lights-off ${busy ? "disabled" : ""}>${busy === "off" ? "Turning off…" : "Turn off now"}</button>
+          ${this._lightsNowNote ? `<span class="saved" role="status">${esc(this._lightsNowNote)}</span>` : ""}
+        </div>
+        <small class="muted">${p.tv_lights_held_off ? "Turned off. They stay off until the TV next turns on or off." : "Turned off here, they stay off until the TV next turns on or off, even during light sync."}</small>
+      </div>` : "";
     return `<section class="card" style="margin-top:20px"><div class="card-body">
       <form id="lights" novalidate>
         <div class="field">
@@ -2090,7 +2160,46 @@ class TvMgmtPanel extends HTMLElement {
           ${this._lightsNote ? `<span class="saved" role="status">${esc(this._lightsNote)}</span>` : ""}
         </div>
       </form>
+      ${now}
     </div></section>`;
+  }
+
+  async _turnOffLights() {
+    this._busyLightsNow = "off";
+    this._lightsNowNote = "";
+    this._error = null;
+    this._render();
+    try {
+      const res = await this._ws({ type: "tv_mgmt/lights/off", entry_id: this._selected });
+      const failed = Object.keys(res.failed || {});
+      const states = this._hass?.states || {};
+      if (failed.length) {
+        this._error = `Didn't turn off: ${failed.map((e) => states[e]?.attributes?.friendly_name || e).join(", ")}`;
+      } else {
+        this._lightsNowNote = "TV lights off";
+      }
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyLightsNow = false;
+    this._render();
+  }
+
+  async _setLightsFollow(follow) {
+    this._busyLightsNow = "follow";
+    this._lightsNowNote = "";
+    this._error = null;
+    this._render();
+    try {
+      await this._ws({ type: "tv_mgmt/lights/set", entry_id: this._selected, follow });
+      this._lightsNowNote = follow ? "They follow the TV" : "TV Mgmt leaves them alone";
+      await this._loadProfiles({ quiet: true });
+    } catch (err) {
+      this._error = this._errorText(err);
+    }
+    this._busyLightsNow = false;
+    this._render();
   }
 
   async _saveLights() {
@@ -2526,6 +2635,10 @@ class TvMgmtPanel extends HTMLElement {
   _onLightsClick(el) {
     const d = el.dataset;
     const tv = this._lsTv();
+    if (d.lightsOff !== undefined) {
+      this._turnOffLights();
+      return true;
+    }
     if (d.zoneAdd !== undefined && tv) {
       this._startZoneEdit(tv, null);
       return true;
@@ -2602,6 +2715,10 @@ class TvMgmtPanel extends HTMLElement {
   _onLightsChange(input) {
     const d = input.dataset;
     const e = this._zoneEdit;
+    if (d.lightsFollow !== undefined) {
+      this._setLightsFollow(input.checked);
+      return true;
+    }
     if (d.zoneEnable) {
       const z = this._lsTv()?.zones.find((x) => x.config.zone_id === d.zoneEnable);
       if (z) {
@@ -2717,6 +2834,7 @@ class TvMgmtPanel extends HTMLElement {
         this._lsDraft = null;
         this._lightsDraft = null;
         this._lightsNote = "";
+        this._lightsNowNote = "";
         if (this._ls) this._loadLightSync({ quiet: true });
       }
       this._error = null;
@@ -2732,6 +2850,7 @@ class TvMgmtPanel extends HTMLElement {
       this._namesDraft = null;
       this._lightsDraft = null;
       this._lightsNote = "";
+      this._lightsNowNote = "";
       this._zoneEdit = null;
       this._zoneNote = "";
       this._appsDraft = null;
@@ -2949,6 +3068,8 @@ class TvMgmtPanel extends HTMLElement {
       const el = root.getElementById(key);
       if (el) d[key] = el.value;
     }
+    const counts = root.getElementById("adult_mode_counts");
+    if (counts) d.adult_mode_counts = counts.checked;
     root.querySelectorAll("[data-win]").forEach((el) => {
       d.windows[Number(el.dataset.win)][el.dataset.key] = el.value;
     });
@@ -3048,9 +3169,10 @@ class TvMgmtPanel extends HTMLElement {
     this._error = null;
     this._render();
     try {
-      await this._ws({ type: "tv_mgmt/limits/set", entry_id: this._selected, ...numbers, quiet_windows: quiet });
+      const adult_mode_counts = !!d.adult_mode_counts;
+      await this._ws({ type: "tv_mgmt/limits/set", entry_id: this._selected, ...numbers, quiet_windows: quiet, adult_mode_counts });
       this._savedNote = "Limits saved";
-      this._limits = { ...numbers, quiet_windows: quiet };
+      this._limits = { ...numbers, quiet_windows: quiet, adult_mode_counts };
     } catch (err) {
       this._error = this._errorText(err);
     }

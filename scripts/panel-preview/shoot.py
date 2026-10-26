@@ -42,6 +42,9 @@ DOC_SHOTS = {
     "dashboard": "light", "activity": "light", "analytics": "light",
     "limits": "dark", "lights": "dark", "access": "dark",
 }
+# Where a tab's screenshot ends, when it isn't the top of the page: Limits shows
+# the TV's own limits (below the whole home's), down to adult mode.
+DOC_SCROLL = {"limits": "form#limits"}
 
 
 def _docs(browser, base: str, errors: list[str]) -> None:
@@ -58,6 +61,12 @@ def _docs(browser, base: str, errors: list[str]) -> None:
         panel = page.locator("tv-mgmt-panel")
         panel.locator(f"nav button[data-tab='{tab}']").click()
         page.wait_for_timeout(800)
+        if target := DOC_SCROLL.get(tab):
+            # Down to the end of it (its Save button), just above the bottom edge.
+            panel.locator(target).evaluate(
+                "el => window.scrollBy(0, el.getBoundingClientRect().bottom - window.innerHeight + 2)"
+            )
+            page.wait_for_timeout(300)
         width = page.evaluate("document.documentElement.scrollWidth")
         nav = page.evaluate(
             "(() => { const n = document.querySelector('tv-mgmt-panel').shadowRoot.querySelector('nav');"
