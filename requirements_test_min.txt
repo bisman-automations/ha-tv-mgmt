@@ -1,5 +1,5 @@
-# The oldest Home Assistant TV Mgmt supports (hacs.json says 2026.3.0).
-# pytest-homeassistant-custom-component 0.13.317 is Home Assistant 2026.3.1:
-# the test harness has no release for 2026.3.0 itself. It needs Python 3.14,
-# like every Home Assistant from 2026.3.
-pytest-homeassistant-custom-component==0.13.317
+# The oldest Home Assistant this integration supports (hacs.json: 2026.3.0).
+# pytest-homeassistant-custom-component 0.13.320 is Home Assistant 2026.3.4,
+# the newest harness release of 2026.3. It needs Python 3.14 (python-min in
+# .github/workflows/test.yml). Raise this together with hacs.json; see CLAUDE.md.
+pytest-homeassistant-custom-component==0.13.320
