@@ -154,7 +154,12 @@ class LightSync(ZoneLink):
         return self.manager.box.entity_id if self.manager.box else None
 
     def tv_lights(self) -> list[str]:
-        return self.manager.tv_lights
+        # Only TV Mgmt's while they follow the TV; otherwise they're like any
+        # other light (restored to how they were).
+        return self.manager.tv_lights if self.manager.tv_lights_follow else []
+
+    def held_off_lights(self) -> list[str]:
+        return self.manager.tv_lights if self.manager.tv_lights_held_off else []
 
     def tv_is_on(self) -> bool | None:
         return self.manager.backend.is_on
@@ -303,6 +308,18 @@ class LightSync(ZoneLink):
     def tv_lights_turned_on(self) -> None:
         """TV Mgmt just asked for the TV's lights to turn on."""
         self._lights_on_at = time.monotonic()
+
+    async def async_release_tv_lights(self) -> None:
+        """The TV lights are being turned off by hand: every zone lets go of them."""
+        self._lights_on_at = None
+        for zone in list(self.zones.values()):
+            await zone.async_release_tv_lights()
+
+    @callback
+    def tv_lights_hold_changed(self) -> None:
+        """The TV lights are TV Mgmt's, or held off, or not, now: look again."""
+        for zone in self.zones.values():
+            zone.async_schedule_reapply()
 
     @callback
     def tv_turned_off(self) -> None:

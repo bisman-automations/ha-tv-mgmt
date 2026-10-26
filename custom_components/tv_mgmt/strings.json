@@ -78,10 +78,12 @@
             "name": "TV lights",
             "description": "Lights that turn on when the TV turns on, and off when it turns off, such as a light behind the TV.",
             "data": {
-              "tv_lights": "Lights"
+              "tv_lights": "Lights",
+              "tv_lights_follow": "Turn on and off with the TV"
             },
             "data_description": {
-              "tv_lights": "They don't turn on while the TV is blocked."
+              "tv_lights": "They don't turn on while the TV is blocked.",
+              "tv_lights_follow": "Off: TV Mgmt leaves these lights alone. You can still turn them off from the Lights tab or the \"Turn off TV lights\" button."
             }
           },
           "announcements": {
@@ -198,10 +200,12 @@
             "name": "TV lights",
             "description": "Lights that turn on when the TV turns on, and off when it turns off, such as a light behind the TV.",
             "data": {
-              "tv_lights": "Lights"
+              "tv_lights": "Lights",
+              "tv_lights_follow": "Turn on and off with the TV"
             },
             "data_description": {
-              "tv_lights": "They don't turn on while the TV is blocked."
+              "tv_lights": "They don't turn on while the TV is blocked.",
+              "tv_lights_follow": "Off: TV Mgmt leaves these lights alone. You can still turn them off from the Lights tab or the \"Turn off TV lights\" button."
             }
           },
           "announcements": {
@@ -297,6 +301,9 @@
       },
       "sync_enabled": {
         "name": "Light sync"
+      },
+      "tv_lights_follow": {
+        "name": "TV lights follow the TV"
       }
     },
     "sensor": {
@@ -446,6 +453,9 @@
       },
       "resync": {
         "name": "Look again"
+      },
+      "turn_off_tv_lights": {
+        "name": "Turn off TV lights"
       }
     },
     "number": {
@@ -581,6 +591,16 @@
         "include_metadata": {
           "name": "Include TMDB and Trakt",
           "description": "Also forget the genres looked up on TMDB and Trakt."
+        }
+      }
+    },
+    "turn_off_tv_lights": {
+      "name": "Turn off TV lights",
+      "description": "Turn this TV's lights off now. A light sync zone using them leaves them off until the TV next turns on or off.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
         }
       }
     }

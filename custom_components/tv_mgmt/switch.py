@@ -1,4 +1,4 @@
-"""Switches: input lock, adult mode, and each light sync zone's on/off."""
+"""Switches: input lock, adult mode, TV lights follow the TV, and each light sync zone's on/off."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     manager = entry.runtime_data
-    async_add_entities([InputLockSwitch(manager), AdultModeSwitch(manager)])
+    async_add_entities([InputLockSwitch(manager), AdultModeSwitch(manager), TVLightsFollowSwitch(manager)])
     if (light_sync := entry.runtime_data.light_sync) is not None:
         light_sync.register_platform(FACTORIES["switch"], async_add_entities)
 
@@ -74,3 +74,30 @@ class AdultModeSwitch(TVMgmtEntity, SwitchEntity):
     async def async_turn_off(self, **kwargs: Any) -> None:
         await self._ensure_allowed()
         self.manager.set_adult_mode(False)
+
+
+class TVLightsFollowSwitch(TVMgmtEntity, SwitchEntity):
+    """The TV lights turn on with the TV and off with it. Saved with the TV's settings."""
+
+    def __init__(self, manager) -> None:
+        super().__init__(manager, "tv_lights_follow")
+
+    @property
+    def available(self) -> bool:
+        return bool(self.manager.tv_lights)
+
+    @property
+    def is_on(self) -> bool:
+        return self.manager.tv_lights_follow
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {"lights": self.manager.tv_lights, "held_off": self.manager.tv_lights_held_off}
+
+    async def async_turn_on(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
+        self.manager.set_tv_lights_follow(True)
+
+    async def async_turn_off(self, **kwargs: Any) -> None:
+        await self._ensure_allowed()
+        self.manager.set_tv_lights_follow(False)

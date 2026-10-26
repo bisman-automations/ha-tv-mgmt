@@ -41,6 +41,7 @@ from .const import (
     CONF_TARGET_SOURCE,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_COUNTS,
+    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_ENFORCE_ON_POWER_ON,
@@ -59,6 +60,7 @@ from .const import (
     SECTION_ANNOUNCE,
     SECTION_LIGHTS,
     CONF_TV_LIGHTS,
+    CONF_TV_LIGHTS_FOLLOW,
     CONF_ANNOUNCE_AIRPLAY,
     CONF_ANNOUNCE_PLAYERS,
     CONF_ANNOUNCE_SCREEN,
@@ -197,6 +199,10 @@ def _lights_schema(d: Mapping[str, Any]) -> vol.Schema:
             vol.Optional(
                 CONF_TV_LIGHTS, description={"suggested_value": list(d.get(CONF_TV_LIGHTS) or [])}
             ): selector.EntitySelector(selector.EntitySelectorConfig(domain="light", multiple=True)),
+            vol.Required(
+                CONF_TV_LIGHTS_FOLLOW,
+                default=bool(d.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)),
+            ): selector.BooleanSelector(),
         }
     )
 
@@ -454,7 +460,10 @@ def _process(
         SECTION_LIGHTS: {
             CONF_TV_LIGHTS: list(
                 dict.fromkeys(user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS) or [])
-            )
+            ),
+            CONF_TV_LIGHTS_FOLLOW: bool(
+                user_input.get(SECTION_LIGHTS, {}).get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)
+            ),
         },
         SECTION_SYNC: sync,
     }

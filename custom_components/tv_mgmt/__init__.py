@@ -6,7 +6,7 @@ import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse, SupportsResponse, callback
 from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -32,6 +32,7 @@ from .const import (
     SERVICE_GRANT_EXTENSION,
     SERVICE_RESET_USAGE,
     SERVICE_SEND_MESSAGE,
+    SERVICE_TURN_OFF_TV_LIGHTS,
     SERVICE_UNBLOCK,
 )
 from .manager import TVManager
@@ -334,3 +335,13 @@ def _register_services(hass: HomeAssistant) -> None:
         await manager.async_send_message(call.data["message"], **wanted)
 
     hass.services.async_register(DOMAIN, SERVICE_SEND_MESSAGE, send_message, MESSAGE_SCHEMA)
+
+    async def turn_off_tv_lights(call: ServiceCall) -> ServiceResponse:
+        await async_ensure_allowed(hass, call.context)
+        result = await _manager(hass, call).async_turn_off_tv_lights()
+        return result if call.return_response else None
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_TURN_OFF_TV_LIGHTS, turn_off_tv_lights, PROFILE_SCHEMA,
+        supports_response=SupportsResponse.OPTIONAL,
+    )

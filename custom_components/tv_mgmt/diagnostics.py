@@ -69,6 +69,11 @@ def _diagnostics(hass: HomeAssistant, entry: TVMgmtConfigEntry, manager, backend
             "seconds_today": manager.state.adult_seconds,
             "counted_seconds_today": manager.state.adult_counted_seconds,
         },
+        "tv_lights": {
+            "count": len(manager.tv_lights),
+            "follow_tv": manager.tv_lights_follow,
+            "held_off": manager.tv_lights_held_off,
+        },
         "home": (home.summary() if (home := get_home(hass)) else None),
         "mode_sync": (
             {"entity_id": manager.mode_sync.entity_id, "linked_mode": manager.mode_sync.linked_mode}

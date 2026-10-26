@@ -38,10 +38,12 @@ from .const import (
     CONF_WAKE_WITH_TV,
     CONF_WARN_MINUTES,
     DEFAULT_QUIET_WINDOWS,
+    DEFAULT_TV_LIGHTS_FOLLOW,
     DOMAIN,
     SECTION_APPLE_TV,
     SECTION_LIGHTS,
     CONF_TV_LIGHTS,
+    CONF_TV_LIGHTS_FOLLOW,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
     SIGNAL_ANY_UPDATED,
@@ -79,6 +81,7 @@ def async_register(hass: HomeAssistant) -> None:
         ws_input_names_set,
         ws_apple_tv_set,
         ws_lights_set,
+        ws_lights_off,
         ws_action,
         ws_remote,
         ws_message,
@@ -178,6 +181,9 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "message_targets": manager.message_targets(),
         "message_presets": MESSAGE_PRESETS,
         "tv_lights": manager.tv_lights,
+        "tv_lights_follow": manager.tv_lights_follow,
+        # Turned off from here or the button; light sync leaves them off for now.
+        "tv_lights_held_off": manager.tv_lights_held_off,
         "apple_tv": apple_tv_summary(manager),
     }
 
@@ -434,21 +440,49 @@ def ws_input_names_set(hass: HomeAssistant, connection, msg) -> None:
     {
         vol.Required("type"): f"{DOMAIN}/lights/set",
         vol.Required("entry_id"): str,
-        vol.Required("lights"): [vol.All(str, vol.Match(r"^light\.[a-z0-9_]+$"))],
+        vol.Optional("lights"): [vol.All(str, vol.Match(r"^light\.[a-z0-9_]+$"))],
+        vol.Optional("follow"): bool,
     }
 )
 @require_access
 @callback
 def ws_lights_set(hass: HomeAssistant, connection, msg) -> None:
-    """Pick the lights that go on and off with this TV."""
+    """Pick the lights that go on and off with this TV, and whether they do."""
     if (manager := _manager(hass, connection, msg)) is None:
         return
-    lights = list(dict.fromkeys(msg["lights"]))
+    changes: dict[str, Any] = {}
+    if "lights" in msg:
+        changes[CONF_TV_LIGHTS] = list(dict.fromkeys(msg["lights"]))
+    if "follow" in msg:
+        changes[CONF_TV_LIGHTS_FOLLOW] = msg["follow"]
     entry = manager.entry
     options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
-    options[SECTION_LIGHTS] = {CONF_TV_LIGHTS: lights}
-    hass.config_entries.async_update_entry(entry, options=options)
-    connection.send_result(msg["id"], {"lights": lights})
+    section = options.setdefault(SECTION_LIGHTS, {})
+    section.update(changes)
+    hass.config_entries.async_update_entry(entry, options=options)  # applied live, no reload
+    connection.send_result(
+        msg["id"],
+        {
+            "lights": list(section.get(CONF_TV_LIGHTS) or []),
+            "follow": bool(section.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW)),
+        },
+    )
+
+
+@websocket_api.websocket_command(
+    {
+        vol.Required("type"): f"{DOMAIN}/lights/off",
+        vol.Required("entry_id"): str,
+    }
+)
+@require_access
+@websocket_api.async_response
+async def ws_lights_off(hass: HomeAssistant, connection, msg) -> None:
+    """Turn the TV lights off now. Reports any light that didn't answer."""
+    if (manager := _manager(hass, connection, msg)) is None:
+        return
+    result = await manager.async_turn_off_tv_lights()
+    connection.send_result(msg["id"], {**result, "profile": profile_summary(manager)})
 
 
 @websocket_api.websocket_command(

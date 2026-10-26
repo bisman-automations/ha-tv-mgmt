@@ -34,6 +34,8 @@ async def test_websocket_access(
         {"type": "tv_mgmt/profiles"},
         {"type": "tv_mgmt/activity", "entry_id": entry.entry_id},
         {"type": "tv_mgmt/action", "entry_id": entry.entry_id, "action": "unblock"},
+        {"type": "tv_mgmt/lights/off", "entry_id": entry.entry_id},
+        {"type": "tv_mgmt/lights/set", "entry_id": entry.entry_id, "follow": False},
         {"type": "tv_mgmt/subscribe"},
         {"type": "tv_mgmt/access/get"},
         {"type": "tv_mgmt/access/set", "user_ids": [hass_read_only_user.id]},

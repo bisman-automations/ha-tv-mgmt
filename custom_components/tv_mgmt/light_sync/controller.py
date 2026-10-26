@@ -245,6 +245,10 @@ class ZoneLink:
         """The TV's own lights, which TV Mgmt turns on and off with the TV."""
         return []
 
+    def held_off_lights(self) -> list[str]:
+        """TV lights turned off by hand: leave them off (don't colour them)."""
+        return []
+
     def tv_is_on(self) -> bool | None:
         """Whether the TV is on (``None`` when it can't tell)."""
         return None
@@ -661,6 +665,12 @@ class LightZone(DataUpdateCoordinator[SyncState]):
         if self._started:
             self._debouncer.async_schedule_call()
 
+    @callback
+    def async_schedule_reapply(self) -> None:
+        """Colour the lights again soon, even if the title hasn't changed."""
+        self._applied_signature = None
+        self.async_schedule_evaluate()
+
     async def async_handle_tv_off(self) -> None:
         """The TV turned off.
 
@@ -693,6 +703,28 @@ class LightZone(DataUpdateCoordinator[SyncState]):
             elif dropped:
                 await self._async_save_snapshot()
             self._state.held_reason = self._held_reason()
+        self.async_set_updated_data(self._state)
+
+    def _held_off(self) -> set[str]:
+        return set(self._expand_lights(self._link.held_off_lights()))
+
+    async def async_release_tv_lights(self) -> None:
+        """TV Mgmt is turning the TV lights off by hand (the panel or the button).
+
+        Their saved state is dropped, so ending the movie doesn't turn them
+        back on, and the zone doesn't colour them while they're held off
+        (``held_off_lights``). The zone's other lights carry on.
+        """
+        if not self._started:
+            return
+        held = self._held_off()
+        async with self._lock:
+            dropped = [e for e in self._snapshot if e in held]
+            for entity_id in dropped:
+                self._snapshot.pop(entity_id)
+            if dropped:
+                LOGGER.debug("%s: TV lights turned off, not restoring %s", self.label, dropped)
+                await self._async_save_snapshot()
         self.async_set_updated_data(self._state)
 
     async def async_handle_media_blocked(self) -> None:
@@ -1001,7 +1033,8 @@ class LightZone(DataUpdateCoordinator[SyncState]):
         failed: dict[str, str] = {}
         try:
             resolved = await self._async_resolve_color(player)
-            lights = self._resolve_lights()
+            held = self._held_off()
+            lights = [e for e in self._resolve_lights() if e not in held]
             await self._async_take_snapshot(lights)
             result = await self._async_apply_color(resolved, lights)
         except LightSyncError as err:
@@ -1635,6 +1668,8 @@ class LightZone(DataUpdateCoordinator[SyncState]):
             behavior,
             session_end,
         )
+        # The TV lights turned off by hand stay off too.
+        exclude = set(exclude) | self._held_off()
         lights = [e for e in self._resolve_lights() if e not in exclude]
         failed: dict[str, str] = {}
         error: str | None = None

@@ -43,6 +43,12 @@
         "state": {
           "off": "mdi:movie-open-off"
         }
+      },
+      "tv_lights_follow": {
+        "default": "mdi:lightbulb-auto",
+        "state": {
+          "off": "mdi:lightbulb-auto-outline"
+        }
       }
     },
     "sensor": {
@@ -107,6 +113,9 @@
       },
       "resync": {
         "default": "mdi:sync"
+      },
+      "turn_off_tv_lights": {
+        "default": "mdi:lightbulb-off"
       }
     },
     "number": {
@@ -145,6 +154,9 @@
     },
     "clear_artwork_cache": {
       "service": "mdi:cached"
+    },
+    "turn_off_tv_lights": {
+      "service": "mdi:lightbulb-off"
     }
   }
 }

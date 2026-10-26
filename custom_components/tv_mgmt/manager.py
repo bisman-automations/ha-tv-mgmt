@@ -50,10 +50,13 @@ from .const import (
     CONF_ANNOUNCE_SCREEN,
     CONF_ANNOUNCE_TTS,
     CONF_TV_LIGHTS,
+    CONF_TV_LIGHTS_FOLLOW,
+    SECTION_LIGHTS,
     ANNOUNCE_GRACE,
     CONF_STREAMING_PLAYER,
     CONF_WARN_MINUTES,
     DEFAULT_ADULT_MODE_COUNTS,
+    DEFAULT_TV_LIGHTS_FOLLOW,
     DEFAULT_ADULT_MODE_DURATION,
     DEFAULT_DAILY_BUDGET,
     DEFAULT_SLEEP_ON_BLOCK,
@@ -132,7 +135,7 @@ LIVE_OPTIONS = frozenset({
     *_INPUT_LOCK_OPTIONS, *_APP_RULE_OPTIONS, *_ANNOUNCE_OPTIONS,
     CONF_INPUT_NAMES, CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_QUIET_WINDOWS,
     CONF_ADULT_MODE_DURATION, CONF_ADULT_MODE_COUNTS, CONF_SLEEP_ON_BLOCK, CONF_WAKE_WITH_TV,
-    CONF_MODE_SYNC_ENTITY, CONF_TV_LIGHTS,
+    CONF_MODE_SYNC_ENTITY, CONF_TV_LIGHTS, CONF_TV_LIGHTS_FOLLOW,
 })
 
 # _logged_app when the next app must be logged even if it's the one logged last:
@@ -196,6 +199,9 @@ class TVManager:
         self._logged_app: str | None | object = None
         self._box_was_on: bool | None = None
         self._tv_was_on: bool | None = None
+        # The TV lights were turned off from the panel or button: light sync
+        # leaves them off until the TV next turns on or off. Not kept over a restart.
+        self._tv_lights_held_off = False
         self._logged_media: tuple | None = None
         self._unsub_follow: CALLBACK_TYPE | None = None
 
@@ -292,6 +298,9 @@ class TVManager:
             self.mode_sync = self._make_mode_sync()
             if self.mode_sync:
                 self.mode_sync.async_start()  # adopts the linked mode, as at start
+        if CONF_TV_LIGHTS_FOLLOW in changed and self.light_sync:
+            # Whether its zones treat the TV lights as TV Mgmt's changed.
+            self.light_sync.tv_lights_hold_changed()
         if was_private and not self._adult_private():
             # Adult mode time counts from now on, so its apps are logged again.
             self._relog_app()
@@ -503,6 +512,10 @@ class TVManager:
         turned_off = self.backend.is_on is False and self._tv_was_on is True
         if self.backend.is_on is not None:
             self._tv_was_on = self.backend.is_on
+        if (turned_on or turned_off) and self._tv_lights_held_off:
+            self._tv_lights_held_off = False  # a new session: light sync may use them again
+            if self.light_sync:
+                self.light_sync.tv_lights_hold_changed()
         if turned_on:
             self._wake_apple_tv()
             self._switch_lights(True)
@@ -538,10 +551,20 @@ class TVManager:
     def tv_lights(self) -> list[str]:
         return [e for e in self.options.get(CONF_TV_LIGHTS) or [] if e]
 
+    @property
+    def tv_lights_follow(self) -> bool:
+        """Whether the TV lights turn on and off with the TV."""
+        return bool(self.options.get(CONF_TV_LIGHTS_FOLLOW, DEFAULT_TV_LIGHTS_FOLLOW))
+
+    @property
+    def tv_lights_held_off(self) -> bool:
+        """Turned off by hand, so light sync leaves them off for now."""
+        return self._tv_lights_held_off and bool(self.tv_lights)
+
     @callback
     def _switch_lights(self, on: bool) -> None:
         lights = self.tv_lights
-        if not lights:
+        if not lights or not self.tv_lights_follow:
             return
         if on and self.is_blocking():
             return  # TV Mgmt is about to turn the TV back off; don't flash the lights.
@@ -553,6 +576,40 @@ class TVManager:
                 "light", "turn_on" if on else "turn_off", {ATTR_ENTITY_ID: lights}, blocking=False
             )
         )
+
+    @callback
+    def set_tv_lights_follow(self, enabled: bool) -> None:
+        """Save whether the TV lights follow the TV. Applied live (LIVE_OPTIONS)."""
+        options = {k: (dict(v) if isinstance(v, dict) else v) for k, v in self.entry.options.items()}
+        options.setdefault(SECTION_LIGHTS, {})[CONF_TV_LIGHTS_FOLLOW] = bool(enabled)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
+
+    async def async_turn_off_tv_lights(self) -> dict[str, Any]:
+        """Turn the TV lights off now, from the panel, the button or the service.
+
+        A light sync zone colouring them forgets how they were (so ending the
+        movie doesn't turn them back on) and leaves them alone until the TV
+        next turns on or off. One call per light, all at once, each with its
+        own timeout: a light that doesn't answer doesn't hold up the others.
+        Returns the lights and {light: reason} for any that failed.
+        """
+        # Imported here: light sync is only loaded with the rest of the TV.
+        from .light_sync.controller import async_call_lights
+
+        lights = self.tv_lights
+        if not lights:
+            return {"lights": [], "failed": {}}
+        self._tv_lights_held_off = True
+        if self.light_sync:
+            await self.light_sync.async_release_tv_lights()
+        failed = await async_call_lights(
+            self.hass, {light: (SERVICE_TURN_OFF, {ATTR_ENTITY_ID: light}) for light in lights}
+        )
+        if failed:
+            _LOGGER.warning("TV Mgmt %s: some TV lights didn't turn off: %s", self.name, failed)
+        self._log(act.EV_TV_LIGHTS_OFF, **({"failed": len(failed)} if failed else {}))
+        self.notify()
+        return {"lights": lights, "failed": failed}
 
     # ---- wake the Apple TV when the TV turns on ------------------------------------------
 

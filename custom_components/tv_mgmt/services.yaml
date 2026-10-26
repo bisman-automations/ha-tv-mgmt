@@ -63,6 +63,14 @@ send_message:
       selector:
         boolean:
 
+turn_off_tv_lights:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+
 set_title_color:
   fields:
     title:

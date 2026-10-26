@@ -14,6 +14,10 @@ SECTION_APPLE_TV = "apple_tv"
 SECTION_ANNOUNCE = "announcements"
 SECTION_LIGHTS = "lights"
 CONF_TV_LIGHTS = "tv_lights"  # [light entity]: on with the TV, off with it
+# bool: the TV lights turn on and off with the TV. Off: TV Mgmt leaves them
+# alone (they can still be turned off from the panel or the button).
+CONF_TV_LIGHTS_FOLLOW = "tv_lights_follow"
+DEFAULT_TV_LIGHTS_FOLLOW = True
 
 # Input lock
 CONF_ALLOWED_SOURCES = "allowed_sources"
@@ -86,6 +90,7 @@ SERVICE_FORCE_BLOCK = "force_block"
 SERVICE_UNBLOCK = "unblock"
 SERVICE_RESET_USAGE = "reset_usage"
 SERVICE_SEND_MESSAGE = "send_message"
+SERVICE_TURN_OFF_TV_LIGHTS = "turn_off_tv_lights"
 ATTR_PROFILE_ID = "profile_id"
 ATTR_MINUTES = "minutes"
 

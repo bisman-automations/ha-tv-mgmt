@@ -370,4 +370,5 @@ async def test_setup_form_has_the_option(hass: HomeAssistant) -> None:
         {"input_lock": LOCK, "screen_time": screen(), "apple_tv": {}, "announcements": {}, "lights": {}, "sync": {}},
     )
     assert result["options"]["screen_time"]["adult_mode_counts"] is False  # off unless chosen
+    assert result["options"]["lights"]["tv_lights_follow"] is True  # also new in 1.16.0
     await hass.async_block_till_done()

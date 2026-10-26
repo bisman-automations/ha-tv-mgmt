@@ -51,12 +51,13 @@ EV_BOX_WAKE = "box_wake"  # TV turned on, TV Mgmt woke the Apple TV
 EV_MESSAGE = "message"  # text, sent (where), by: a parent sent a message to the TV
 EV_MEDIA = "media"  # series, season, episode, title, artist, app, name: started watching
 EV_HOME_EXTENSION = "home_extension"  # minutes, by: extra time for the whole home
+EV_TV_LIGHTS_OFF = "tv_lights_off"  # failed (count, when some didn't): turned off from the panel or button
 
 EVENT_TYPES = [
     EV_TV_ON, EV_TV_OFF, EV_INPUT, EV_INPUT_BLOCKED, EV_ENFORCEMENT, EV_TURNED_OFF,
     EV_MODE, EV_INPUT_LOCK, EV_ADULT_MODE, EV_EXTENSION, EV_BLOCK, EV_UNBLOCK, EV_RESET,
     EV_APP, EV_APP_STOPPED, EV_BOX_SLEEP, EV_FOLLOW, EV_BOX_WAKE, EV_MEDIA, EV_MESSAGE,
-    EV_HOME_EXTENSION,
+    EV_HOME_EXTENSION, EV_TV_LIGHTS_OFF,
 ]
 
 # Events that say which app or title was on. Hidden inside adult mode periods.
