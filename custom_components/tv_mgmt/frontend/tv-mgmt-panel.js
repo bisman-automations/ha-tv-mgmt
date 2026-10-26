@@ -300,7 +300,8 @@ nav button {
   border-bottom: 2px solid transparent; white-space: nowrap; font-size: 14px;
 }
 nav button[aria-selected="true"] { opacity: 1; border-bottom-color: currentColor; }
-@media (max-width: 420px) { nav { gap: 0; padding: 0 4px; } nav button { padding: 12px 10px 10px; } }
+/* Phones: tighter tabs share the width, so all six fit from 375px; narrower, they scroll. */
+@media (max-width: 420px) { nav { gap: 0; padding: 0 4px; } nav button { flex: 1 0 auto; padding: 12px 6px 10px; } }
 nav button:focus-visible, .btn:focus-visible, .seg button:focus-visible, .chip:focus-visible, input:focus-visible {
   outline: 2px solid var(--primary-color); outline-offset: 2px;
 }
@@ -984,6 +985,14 @@ class TvMgmtPanel extends HTMLElement {
     const main = this.shadowRoot.getElementById("main");
     if (!main) return;
     this.shadowRoot.querySelectorAll("nav button").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === this._tab)));
+    if (this._navShown !== this._tab) {
+      // Where the tabs scroll (narrow phones), keep the open one in view.
+      const current = this.shadowRoot.querySelector(`nav button[data-tab="${this._tab}"]`);
+      if (current) {
+        this._navShown = this._tab;
+        current.scrollIntoView({ block: "nearest", inline: "nearest" });
+      }
+    }
 
     let body;
     if (this._tab === "access") {

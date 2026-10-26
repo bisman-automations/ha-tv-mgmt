@@ -63,7 +63,7 @@ pytest -q
 - To try the next Home Assistant before it's released, clone `home-assistant/core`, install its `pyproject.toml` requirements and then the clone with `--no-deps` into the Python 3.14 venv, and run pytest from Python with Home Assistant imported first (it aliases `httpx`): `python -c "import homeassistant, sys, pytest; sys.exit(pytest.main(['tests', '-q']))"`.
 - `tests/test_*.py` cover the pure modules; `tests/ha/` runs inside Home Assistant. `tests/ha/form.py` serializes a form's schema on any Home Assistant version.
 - The message tests need `ffmpeg` on the PATH. CI uses the static build from the `imageio-ffmpeg` package rather than apt, which took up to 15 minutes.
-- For panel changes, run `python scripts/panel-preview/shoot.py <out dir>` (needs Playwright with Chromium) and look at the screenshots. It fails on console errors or sideways scrolling. Add sample data to `scripts/panel-preview/index.html` when a feature needs it.
+- For panel changes, run `python scripts/panel-preview/shoot.py <out dir>` (needs Playwright with Chromium) and look at the screenshots. It fails on console errors or sideways scrolling. `shoot.py --docs` retakes the README screenshots, `docs/images/panel-<tab>.png`, the same way for every tab; rerun it when a tab's look changes. Add sample data to `scripts/panel-preview/index.html` when a feature needs it.
 
 ## Writing
 
