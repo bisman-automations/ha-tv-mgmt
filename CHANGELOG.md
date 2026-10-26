@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.16.2] - 2026-10-26
+
+### Changed
+
+- The README follows the same layout as the other bisman-automations integrations: a button that opens it in HACS, a button that starts setup, and troubleshooting steps for debug logs and diagnostics.
+- Each release now includes `tv_mgmt.zip` for installing without HACS.
+
 ## [1.16.1] - 2026-10-26
 
 ### Added
@@ -405,7 +412,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.2...HEAD
+[1.16.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...v1.16.2
 [1.16.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...v1.16.0
 [1.15.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...v1.15.1
