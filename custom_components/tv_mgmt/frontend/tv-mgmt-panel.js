@@ -830,8 +830,9 @@ class TvMgmtPanel extends HTMLElement {
   async _loadProfiles({ quiet = false } = {}) {
     try {
       const res = await this._ws({ type: "tv_mgmt/profiles" });
-      // Saving settings briefly reloads a TV's profile. If the TV on screen is
-      // missing from a background refresh, keep what we have and look again.
+      // Most settings apply live, but linking another Apple TV or renaming a TV
+      // briefly reloads its profile. If the TV on screen is missing from a
+      // background refresh, keep what we have and look again.
       if (quiet && this._selected && !res.profiles.some((p) => p.entry_id === this._selected)) {
         clearTimeout(this._retryTimer);
         this._retryTimer = setTimeout(() => this._loadProfiles({ quiet: true }), 1500);

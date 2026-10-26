@@ -63,14 +63,12 @@ class StreamingBox:
     ) -> None:
         self.hass = hass
         self.entity_id = entity_id
-        self.rules = rules
-        self.action = action if action in (ACTION_HOME, ACTION_SLEEP) else ACTION_HOME
         self._rules_active = rules_active
         self._should_act = should_act
         self._used_seconds = used_seconds
         self._on_stop = on_stop
         self._on_update = on_update
-        self.blocked_shows = [s for s in blocked_shows or [] if s and s.strip()]
+        self.set_rules(rules, action, blocked_shows)
 
         # The app counted as open: set after usage up to now has been counted.
         self.app_id: str | None = None
@@ -87,6 +85,12 @@ class StreamingBox:
         self._stops: deque[datetime] = deque()
         self._last_sleep: datetime | None = None
         self._last_wake: datetime | None = None
+
+    def set_rules(self, rules: AppRules, action: str, blocked_shows: list[str] | None) -> None:
+        """Use new app and show rules (settings saved). Call evaluate() to act on them."""
+        self.rules = rules
+        self.action = action if action in (ACTION_HOME, ACTION_SLEEP) else ACTION_HOME
+        self.blocked_shows = [s for s in blocked_shows or [] if s and s.strip()]
 
     # ---- what the box reports ---------------------------------------------------
 

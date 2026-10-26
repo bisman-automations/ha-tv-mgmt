@@ -26,6 +26,11 @@ from .apps import ACTION_HOME, APP_MODE_BLOCK, AppRules
 from .backends import TVBackend
 from .const import (
     CONF_ADULT_MODE_DURATION,
+    CONF_ALLOWED_SOURCES,
+    CONF_ENFORCE_ON_POWER_ON,
+    CONF_MAX_ATTEMPTS,
+    CONF_REVERT_DELAY,
+    CONF_TARGET_SOURCE,
     CONF_APP_ACTION,
     CONF_APPLE_TV_INPUT,
     CONF_APP_LIMITS,
@@ -104,6 +109,31 @@ def flatten_options(options: dict[str, Any]) -> dict[str, Any]:
     return flat
 
 
+# Options apply_options() changes in place, by what they feed.
+_INPUT_LOCK_OPTIONS = frozenset({
+    CONF_ALLOWED_SOURCES, CONF_TARGET_SOURCE, CONF_REVERT_DELAY,
+    CONF_ENFORCE_ON_POWER_ON, CONF_MAX_ATTEMPTS, CONF_APPLE_TV_INPUT,
+})
+_APP_RULE_OPTIONS = frozenset({CONF_APP_MODE, CONF_APPS, CONF_APP_LIMITS, CONF_APP_ACTION, CONF_BLOCKED_SHOWS})
+_ANNOUNCE_OPTIONS = frozenset({
+    CONF_ANNOUNCE_TTS, CONF_ANNOUNCE_PLAYERS, CONF_ANNOUNCE_SCREEN, CONF_ANNOUNCE_AIRPLAY,
+})
+# Every option that changes without a reload. The rest are read when needed
+# (limits, warnings, Apple TV sleep and wake, the TV's lights) or rebuilt by
+# apply_options (input names, quiet windows, mode sync).
+#
+# Not here, so it reloads: which Apple TV is linked (streaming_player). That
+# swaps the StreamingBox and its listeners, adds or removes the Apple TV
+# sensors, re-links devices and changes what light sync follows. A changed TV
+# (the entry's data) or name (title) also reloads; the update listener checks.
+LIVE_OPTIONS = frozenset({
+    *_INPUT_LOCK_OPTIONS, *_APP_RULE_OPTIONS, *_ANNOUNCE_OPTIONS,
+    CONF_INPUT_NAMES, CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_QUIET_WINDOWS,
+    CONF_ADULT_MODE_DURATION, CONF_SLEEP_ON_BLOCK, CONF_WAKE_WITH_TV,
+    CONF_MODE_SYNC_ENTITY, CONF_TV_LIGHTS,
+})
+
+
 class TVManager:
     def __init__(
         self, hass: HomeAssistant, entry: ConfigEntry, backend: TVBackend
@@ -129,32 +159,17 @@ class TVManager:
             should_revert=self._enforcing_actions,
             on_block=self._on_input_blocked,
             on_change=self.notify,
-            pinned_source=(
-                self.options.get(CONF_APPLE_TV_INPUT)
-                if self.options.get(CONF_STREAMING_PLAYER)
-                else None
-            ),
+            pinned_source=self._pinned_source(),
         )
 
-        self.mode_sync: ModeSync | None = None
-        if sync_entity := self.options.get(CONF_MODE_SYNC_ENTITY):
-            self.mode_sync = ModeSync(
-                hass,
-                sync_entity,
-                get_mode=lambda: self.state.mode,
-                set_mode=lambda mode: self.set_mode(mode, from_sync=True),
-            )
+        self.mode_sync: ModeSync | None = self._make_mode_sync()
 
         self.box: StreamingBox | None = None
         if box_entity := self.options.get(CONF_STREAMING_PLAYER):
             self.box = StreamingBox(
                 hass,
                 box_entity,
-                AppRules(
-                    mode=self.options.get(CONF_APP_MODE) or APP_MODE_BLOCK,
-                    apps=list(self.options.get(CONF_APPS) or []),
-                    limits=dict(self.options.get(CONF_APP_LIMITS) or {}),
-                ),
+                self._app_rules(),
                 self.options.get(CONF_APP_ACTION) or ACTION_HOME,
                 rules_active=lambda: self.decision.state in (STATE_OK, STATE_WARNING),
                 should_act=self._enforcing_actions,
@@ -163,17 +178,7 @@ class TVManager:
                 on_update=self.notify,
                 blocked_shows=list(self.options.get(CONF_BLOCKED_SHOWS) or []),
             )
-        self.announcer = Announcer(
-            hass,
-            tts_entity=self.options.get(CONF_ANNOUNCE_TTS),
-            players=list(self.options.get(CONF_ANNOUNCE_PLAYERS) or []),
-            screen=self.options.get(CONF_ANNOUNCE_SCREEN),
-            airplay=(
-                self.options.get(CONF_STREAMING_PLAYER)
-                if self.options.get(CONF_ANNOUNCE_AIRPLAY)
-                else None
-            ),
-        )
+        self.announcer = self._make_announcer()
         # While the "turning off" message plays, the Apple TV is left on.
         self._hold_box_until: datetime | None = None
         # One "turning off" announcement per block: repeated only after the TV has
@@ -197,13 +202,107 @@ class TVManager:
         # (title, data) the entry was loaded with; set by the integration.
         self.loaded_as: tuple[str, dict[str, Any]] | None = None
 
+        self.quiet_windows: list[QuietWindow] = self._parse_quiet_windows()
+
+    # ---- built from the options (at start, and again when they change) ------------
+
+    def _pinned_source(self) -> str | None:
+        """The Apple TV's input, when there's an Apple TV."""
+        if self.options.get(CONF_STREAMING_PLAYER):
+            return self.options.get(CONF_APPLE_TV_INPUT)
+        return None
+
+    def _app_rules(self) -> AppRules:
+        return AppRules(
+            mode=self.options.get(CONF_APP_MODE) or APP_MODE_BLOCK,
+            apps=list(self.options.get(CONF_APPS) or []),
+            limits=dict(self.options.get(CONF_APP_LIMITS) or {}),
+        )
+
+    def _make_announcer(self) -> Announcer:
+        return Announcer(
+            self.hass,
+            tts_entity=self.options.get(CONF_ANNOUNCE_TTS),
+            players=list(self.options.get(CONF_ANNOUNCE_PLAYERS) or []),
+            screen=self.options.get(CONF_ANNOUNCE_SCREEN),
+            airplay=(
+                self.options.get(CONF_STREAMING_PLAYER)
+                if self.options.get(CONF_ANNOUNCE_AIRPLAY)
+                else None
+            ),
+        )
+
+    def _make_mode_sync(self) -> ModeSync | None:
+        if not (sync_entity := self.options.get(CONF_MODE_SYNC_ENTITY)):
+            return None
+        return ModeSync(
+            self.hass,
+            sync_entity,
+            get_mode=lambda: self.state.mode,
+            set_mode=lambda mode: self.set_mode(mode, from_sync=True),
+        )
+
+    def _parse_quiet_windows(self) -> list[QuietWindow]:
         try:
-            self.quiet_windows: list[QuietWindow] = parse_windows(
-                self.options.get(CONF_QUIET_WINDOWS, "")
-            )
+            return parse_windows(self.options.get(CONF_QUIET_WINDOWS, ""))
         except ValueError as err:
-            _LOGGER.error("TV Mgmt %s: ignoring bad quiet windows: %s", entry.title, err)
-            self.quiet_windows = []
+            _LOGGER.error("TV Mgmt %s: ignoring bad quiet windows: %s", self.entry.title, err)
+            return []
+
+    @callback
+    def apply_options(self, options: dict[str, Any]) -> bool:
+        """Use changed options without reloading the TV. False if it needs a reload.
+
+        Saving settings in the sidebar app updates the entry's options. Reloading
+        for that would tear down the TV's timers (a pending input switch or
+        turn-off, the Apple TV follow), drop the light sync zones mid-scene and
+        re-create every entity, so whatever can change in place does. Only
+        options outside LIVE_OPTIONS (which Apple TV is linked) need a reload.
+        """
+        new = flatten_options(options)
+        changed = {key for key in set(new) | set(self.options) if new.get(key) != self.options.get(key)}
+        if not changed:
+            return True
+        if not changed <= LIVE_OPTIONS:
+            return False
+        self._count_usage()  # time so far counts under the old limits
+        # In place: the input lock reads the same dict, so its settings
+        # (allowed inputs, target, delay, tries) apply from here on.
+        self.options.clear()
+        self.options.update(new)
+
+        if CONF_INPUT_NAMES in changed:
+            self.input_names = InputNames(self.options.get(CONF_INPUT_NAMES))
+        if CONF_QUIET_WINDOWS in changed:
+            self.quiet_windows = self._parse_quiet_windows()
+        if changed & _ANNOUNCE_OPTIONS:
+            last = self.announcer._last  # keep "don't repeat this message yet"
+            self.announcer = self._make_announcer()
+            self.announcer._last = last
+        if CONF_MODE_SYNC_ENTITY in changed:
+            if self.mode_sync:
+                self.mode_sync.async_stop()
+            self.mode_sync = self._make_mode_sync()
+            if self.mode_sync:
+                self.mode_sync.async_start()  # adopts the linked mode, as at start
+        if self.box and changed & _APP_RULE_OPTIONS:
+            self.box.set_rules(
+                self._app_rules(),
+                self.options.get(CONF_APP_ACTION) or ACTION_HOME,
+                list(self.options.get(CONF_BLOCKED_SHOWS) or []),
+            )
+
+        # Decide again with the new limits and windows: this logs and announces a
+        # change, and turns the TV off if it's now over its limit.
+        self._recompute()
+        if changed & _INPUT_LOCK_OPTIONS:
+            self.guard.pinned_source = self._pinned_source()
+            self.guard.reset()  # fresh tries, and switch now if the input isn't allowed anymore
+        if self.box:
+            self.box.evaluate()  # stop an app or show that's now blocked
+        self._enforce_power()
+        self.notify()
+        return True
 
     # ---- properties ------------------------------------------------------------
 

@@ -25,7 +25,6 @@ from .const import (
     CONF_MEDIA_PLAYER,
     CONF_REVERT_DELAY,
     CONF_TARGET_SOURCE,
-    CONF_TV_LIGHTS,
     DOMAIN,
     SECTION_INPUT_LOCK,
     SECTION_SCREEN_TIME,
@@ -35,7 +34,7 @@ from .const import (
     SERVICE_SEND_MESSAGE,
     SERVICE_UNBLOCK,
 )
-from .manager import TVManager, flatten_options
+from .manager import TVManager
 
 PLATFORMS: list[Platform] = [
     Platform.BINARY_SENSOR,
@@ -265,26 +264,19 @@ async def async_remove_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> N
         await light_data.config.async_remove_entry(entry.entry_id)
 
 
-# Options that apply without reloading the TV.
-_LIVE_OPTIONS = frozenset({CONF_TV_LIGHTS})
-
-
 async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
+    """Options changed (the sidebar app or the options flow saved settings).
+
+    Most settings apply in place (TVManager.apply_options), so the TV's
+    timers, today's state and the light sync zones carry on. A reload sets the
+    TV up from scratch; it's only needed when the TV itself or its name
+    changed (entry data or title), or for an option apply_options can't
+    change in place, such as which Apple TV is linked.
+    """
     manager = entry.runtime_data
-    new = flatten_options(dict(entry.options))
-    changed = {
-        key for key in set(new) | set(manager.options) if new.get(key) != manager.options.get(key)
-    }
-    if (
-        changed
-        and changed <= _LIVE_OPTIONS
-        and getattr(manager, "loaded_as", None) == (entry.title, dict(entry.data))
+    if getattr(manager, "loaded_as", None) == (entry.title, dict(entry.data)) and manager.apply_options(
+        dict(entry.options)
     ):
-        # Only the TV's lights changed (from the Lights tab): no reload, so
-        # the TV's state and light sync carry on.
-        for key in changed:
-            manager.options[key] = new.get(key)
-        manager.notify()
         return
     await hass.config_entries.async_reload(entry.entry_id)
 

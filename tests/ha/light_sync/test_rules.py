@@ -226,11 +226,26 @@ async def test_tv_lights_change_live(
     assert light_zone(mapped) is zone
 
 
-async def test_other_option_changes_still_reload(
+async def test_limit_change_keeps_zones(
+    hass: HomeAssistant, mapped: MockConfigEntry
+) -> None:
+    """Other settings apply live too: the zones keep running."""
+    zone = light_zone(mapped)
+    options: dict[str, Any] = dict(mapped.options)
+    options["screen_time"] = {**options["screen_time"], "daily_budget": 60}
+    with patch.object(hass.config_entries, "async_reload") as reload:
+        hass.config_entries.async_update_entry(mapped, options=options)
+        await hass.async_block_till_done()
+    reload.assert_not_called()
+    assert mapped.runtime_data.daily_budget == 60
+    assert light_zone(mapped) is zone
+
+
+async def test_linking_another_apple_tv_reloads(
     hass: HomeAssistant, mapped: MockConfigEntry
 ) -> None:
     options: dict[str, Any] = dict(mapped.options)
-    options["screen_time"] = {**options["screen_time"], "daily_budget": 60}
+    options["apple_tv"] = {**options.get("apple_tv", {}), "streaming_player": "media_player.other_apple_tv"}
     with patch.object(hass.config_entries, "async_reload") as reload:
         hass.config_entries.async_update_entry(mapped, options=options)
         await hass.async_block_till_done()

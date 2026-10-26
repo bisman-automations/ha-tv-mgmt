@@ -393,7 +393,7 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
     entry = manager.entry
     options = {key: (dict(value) if isinstance(value, dict) else value) for key, value in entry.options.items()}
     options.setdefault(SECTION_SCREEN_TIME, {}).update(changes)
-    # Saving options reloads the profile with the new limits.
+    # The update listener applies the new limits to the running TV (no reload).
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": changes})
 

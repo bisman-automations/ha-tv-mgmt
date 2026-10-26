@@ -130,3 +130,28 @@ async def test_options_flow_saves_link_and_shows_it_again(
     result = await hass.config_entries.options.async_init(entry.entry_id)
     sync_field = serialize(result["data_schema"])[-1]
     assert sync_field["schema"][0]["description"]["suggested_value"] == ATV_MODE
+
+
+async def test_unlinking_and_relinking_applies_live(hass: HomeAssistant) -> None:
+    """Changing the linked select stops and starts following it, without a reload."""
+    from unittest.mock import patch
+
+    entry, _ = await setup_synced(hass)
+    manager = entry.runtime_data
+
+    def with_sync(sync):
+        return {**entry.options, "sync": sync}
+
+    with patch.object(hass.config_entries, "async_reload") as reload:
+        hass.config_entries.async_update_entry(entry, options=with_sync({}))
+        await hass.async_block_till_done()
+        assert manager.mode_sync is None
+        set_atv(hass, "paused")
+        await hass.async_block_till_done()
+        assert hass.states.get(OUR_MODE).state == "enforced"  # not followed anymore
+
+        hass.config_entries.async_update_entry(entry, options=with_sync({"mode_sync_entity": ATV_MODE}))
+        await hass.async_block_till_done()
+    reload.assert_not_called()
+    assert entry.runtime_data is manager
+    assert hass.states.get(OUR_MODE).state == "paused"  # adopted when linked again
