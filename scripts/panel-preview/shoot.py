@@ -10,11 +10,17 @@ The page takes query parameters: theme=light|dark, single=1 (one TV),
 empty=1 (no TVs), denied=1 (a user without access), nohome=1 (no whole-home limit), loading=1 (every
 request stays loading) and loading=tabs (the TVs load, each tab's data stays
 loading), to see the placeholders; saved as loading-*.png.
+
+With --docs, it instead refreshes the README screenshot of the Lights tab,
+docs/images/panel-lights.png: dark theme, 390x900 at 4/3 scale (520x1200),
+like the other docs/images/panel-*.png. Set CHROME to a Chrome or Chromium
+binary to use it instead of Playwright's own.
 """
 
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+import os
 import sys
 import threading
 
@@ -29,18 +35,36 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 
 TABS = ["dashboard", "activity", "analytics", "limits", "lights", "access"]
 SIZES = {"phone": (390, 900), "desktop": (1440, 1000)}
+DOCS = ROOT / "docs" / "images"
+
+
+def _docs(browser, base: str, errors: list[str]) -> None:
+    """Save the Lights tab as it appears in the README."""
+    page = browser.new_page(viewport={"width": 390, "height": 900}, device_scale_factor=4 / 3)
+    page.on("pageerror", lambda e: errors.append(str(e)))
+    page.on("console", lambda m: errors.append(m.text) if m.type == "error" else None)
+    page.goto(f"{base}?theme=dark")
+    page.wait_for_timeout(1200)
+    page.locator("tv-mgmt-panel").locator("nav button[data-tab='lights']").click()
+    page.wait_for_timeout(800)
+    page.screenshot(path=DOCS / "panel-lights.png")
+    page.close()
 
 
 def main() -> int:
-    out = Path(sys.argv[1] if len(sys.argv) > 1 else "panel-shots")
+    docs = "--docs" in sys.argv[1:]
+    args = [a for a in sys.argv[1:] if a != "--docs"]
+    out = DOCS if docs else Path(args[0] if args else "panel-shots")
     out.mkdir(parents=True, exist_ok=True)
     server = ThreadingHTTPServer(("127.0.0.1", 0), partial(_QuietHandler, directory=str(ROOT)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{server.server_port}/scripts/panel-preview/index.html"
     errors: list[str] = []
     with sync_playwright() as p:
-        browser = p.chromium.launch()
-        for size, (w, h) in SIZES.items():
+        browser = p.chromium.launch(executable_path=os.environ.get("CHROME") or None)
+        if docs:
+            _docs(browser, base, errors)
+        for size, (w, h) in ({} if docs else SIZES).items():
             for theme in ("light", "dark"):
                 page = browser.new_page(viewport={"width": w, "height": h})
                 page.on("pageerror", lambda e: errors.append(str(e)))
@@ -63,7 +87,7 @@ def main() -> int:
                 # The placeholders shown while each tab loads.
                 page = browser.new_page(viewport={"width": w, "height": h})
                 page.on("pageerror", lambda e: errors.append(str(e)))
-                for mode, tabs in (("1", ["dashboard"]), ("tabs", ["activity", "analytics", "limits"])):
+                for mode, tabs in (("1", ["dashboard"]), ("tabs", ["activity", "analytics", "limits", "lights"])):
                     page.goto(f"{base}?theme={theme}&loading={mode}")
                     page.wait_for_timeout(600)
                     panel = page.locator("tv-mgmt-panel")

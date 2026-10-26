@@ -84,6 +84,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
 <img src="docs/images/panel-dashboard.png" alt="Dashboard: each TV drawn as a screen showing its current input, with time used and parent controls" width="240">
 <img src="docs/images/panel-activity.png" alt="Activity: a 24-hour strip of when the TV was on, by input, above a log of what happened" width="240">
 <img src="docs/images/panel-analytics.png" alt="Analytics: screen time per day against the daily limit" width="240">
+<img src="docs/images/panel-lights.png" alt="Lights: the lights that follow the TV, and a light sync zone coloring its lights from the artwork of what's playing" width="240">
 </p>
 
 *Screenshots use sample data.*
