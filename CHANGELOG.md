@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.15.1] - 2026-10-26
+
+### Changed
+
+- **Saving settings no longer restarts the TV.** Limits, quiet windows, allowed inputs, input names, app rules, announcements, the Apple TV Mgmt link and TV lights now take effect straight away, whether saved in the sidebar app or under **Configure**. A turn-off or input switch that's already on its way still happens, and light sync zones carry on. Linking a different Apple TV or renaming the TV still reloads it.
+- On a phone, all six tabs of the sidebar app fit across the screen, so **Access** is no longer cut off. On very narrow screens the tabs scroll, and the open tab stays in view.
+- New README screenshots of every tab.
+- Tests now run against the oldest and newest Home Assistant that TV Mgmt supports (2026.3 and the latest).
+
 ## [1.15.0] - 2026-10-26
 
 ### Added
@@ -363,7 +372,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...HEAD
+[1.15.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...v1.15.0
 [1.14.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.0...v1.14.1
 [1.14.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.13.0...v1.14.0
