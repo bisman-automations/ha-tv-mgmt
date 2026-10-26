@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [1.16.1] - 2026-10-26
+
+### Fixed
+
+- **Light zones can be changed and removed again.** In the Lights tab, **Change**, **✕** (remove), a zone's on/off switch and **Look again** did nothing in Home Assistant, because the panel looked for each zone under the wrong name. They now work whatever the TV is doing, including while it's off or blocked at bedtime. Only the coloring waits.
+- When a zone can't be saved, removed or switched, the error now shows in the Light sync card, next to the zones, instead of only at the top of the page. A switch that didn't save flips back.
+- Removing a zone asks first in the zone itself, instead of a pop-up that some Home Assistant apps don't show.
+
+### Added
+
+- **Turn TV lights off** on the dashboard, next to the TV's power button, when the TV has TV lights. It works with the TV on, off or blocked, and says if a light didn't respond.
+
+### Changed
+
+- The dashboard's power button for the TV now reads **Turn TV on** (and **Turn TV off**), so it isn't mistaken for the lights.
+
 ## [1.16.0] - 2026-10-26
 
 ### Added
@@ -389,7 +405,8 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
 
-[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...HEAD
+[Unreleased]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...HEAD
+[1.16.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...v1.16.0
 [1.15.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.0...v1.15.1
 [1.15.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.14.1...v1.15.0
