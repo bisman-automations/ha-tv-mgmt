@@ -24,17 +24,18 @@ The sidebar app is the product. Every setting should be manageable there, not on
 | `websocket.py` | The sidebar app's API (`tv_mgmt/*` commands). |
 | `frontend/tv-mgmt-panel.js` | The sidebar app: one plain web component, **no build step**. |
 | `panel.py`, `access.py` | Sidebar registration, and who may use it (admins plus parents an admin picks). |
-| `config_flow.py` | Adds a TV. The options flow has sections: input lock, screen time, Apple TV, warnings, TV lights, Apple TV Mgmt sync. |
+| `config_flow.py` | Adds a TV. The options flow has sections: input lock, screen time, Apple TV, warnings, TV lights, Apple TV Mgmt sync. **Reconfigure** changes the TV media player (entry data) with the same selector and one-profile-per-TV check as setup. |
+| `repairs.py` | Raises a repair when a TV, Apple TV, warning speaker, TV light, or light-zone light or player is removed or renamed. The fix flow picks a replacement or removes it from the profile. |
 | `entity.py`, `sensor.py`, `switch.py`, `select.py`, `binary_sensor.py`, `number.py`, `button.py` | Entities. The TV's are on one service device per TV; each light zone has its own device. |
 | `scripts/panel-preview/` | A page that fakes Home Assistant with sample TVs, `shoot.py`, which screenshots every tab, and `check.py`, which clicks through the dashboard and Lights tab buttons. |
 
 ## Rules that keep it working
 
-- **Support Home Assistant 2026.3 and newer** (`hacs.json`).
-  - Device linking has two paths, chosen by `hasattr(registry, "async_get_devices")`. From 2026.8, TV Mgmt's device carries the TV's and the Apple TV's identifiers, so they show as linked devices. Older versions use `via_device` and add the entry to the TV's device.
-  - On 2026.8+ never pass `via_device`, even as `None` (deprecated, removed in 2027.8), and never read `DeviceEntry.config_entries`.
+- **Support Home Assistant 2026.8 and newer** (`hacs.json`). Do not put `homeassistant` in `manifest.json`: hassfest rejects that key. The minimum lives in `hacs.json`.
+  - Device linking is one path. TV Mgmt's device carries the TV's and the Apple TV's identifiers, so they show as linked devices. Look devices up with `async_get_device_by_identifier` or `async_get_devices` (identifiers are unique per config entry). A device has `config_entry_id`, not `config_entries`. Remove a leftover device with `async_remove_device`. Don't move the TV's device onto this profile with `new_config_entry_id`; it stays on the TV's integration.
+  - Never pass `via_device`, even as `None` (deprecated, removed in 2027.8). A light zone still sets `via_device_id` so it shows under the profile. Clear a stale `via_device_id` on the profile device only when one is set.
   - `DeviceInfo` is a dataclass from 2026.11: build it with keyword arguments, never as a dict.
-  - Never pair the update listener with reloading methods in a config flow (`async_update_reload_and_abort`, `_abort_if_unique_id_configured(updates=...)`): that's an error from 2026.12. The sidebar app saves settings by updating options, and the update listener applies them live with `TVManager.apply_options`, so timers, today's state and light sync zones carry on. It reloads only for options outside `LIVE_OPTIONS` (which Apple TV is linked) or a changed entry title or data. A new option must be added to `LIVE_OPTIONS` and applied there, or it reloads. Light zones aren't options at all.
+  - Never pair the update listener with reloading methods in a config flow (`async_update_reload_and_abort`, `_abort_if_unique_id_configured(updates=...)`): that's an error from 2026.12. The sidebar app saves settings by updating options, and the update listener applies them live with `TVManager.apply_options`, so timers, today's state and light sync zones carry on. It reloads only for options outside `LIVE_OPTIONS` (which Apple TV is linked) or a changed entry title or data. A new option must be added to `LIVE_OPTIONS` and applied there, or it reloads. Light zones aren't options at all. Reconfigure uses `async_update_reload_and_abort` and calls `detach_update_listener` first, only when the TV actually changes, so the flow's reload is the only one. Setup registers the listener again.
 - **State listeners must be `@callback`.** A plain function or lambda passed to `async_track_state_change_event` runs in a worker thread.
 - **Config flow sections are `vol.Required` with no default.** An optional section with a default is submitted as that default, dropping what the form showed.
 - **Never set a `NumberSelector` unit to `None`**; leave the key out instead.
@@ -53,7 +54,7 @@ The sidebar app is the product. Every setting should be manageable there, not on
 
 ## Testing
 
-Run the shared checks at the end of this file against the oldest and the newest Home Assistant TV Mgmt supports, both on Python 3.14. CI does the same: `requirements_test_min.txt` pins Home Assistant 2026.3.4 (the newest harness release of 2026.3, still on the older device path), and `requirements_test.txt` takes the newest. There's no Python 3.13 job: Home Assistant 2026.3 and newer need 3.14, and a 3.13 venv resolves 2026.2, which TV Mgmt doesn't support.
+Run the shared checks at the end of this file against the oldest and the newest Home Assistant TV Mgmt supports, both on Python 3.14. CI does the same: `requirements_test_min.txt` pins Home Assistant 2026.8.3 (the newest harness release of 2026.8), and `requirements_test.txt` takes the newest. There's no Python 3.13 job: Home Assistant 2026.3 and newer need 3.14, and a 3.13 venv resolves 2026.2, which TV Mgmt doesn't support.
 
 - Treat any `Detected that custom integration 'tv_mgmt' ...` warning as a bug to fix, even if tests pass. To see them: `pytest -q -o log_cli=true --log-cli-level=WARNING | grep Detected`.
 - To try the next Home Assistant before it's released, clone `home-assistant/core`, install its `pyproject.toml` requirements and then the clone with `--no-deps` into the Python 3.14 venv, and run pytest from Python with Home Assistant imported first (it aliases `httpx`): `python -c "import homeassistant, sys, pytest; sys.exit(pytest.main(['tests', '-q']))"`.

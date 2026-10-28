@@ -5,7 +5,7 @@
 # TV Mgmt
 
 [![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
-[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.3%2B-blue.svg)](https://www.home-assistant.io/)
+[![Home Assistant](https://img.shields.io/badge/Home%20Assistant-2026.8%2B-blue.svg)](https://www.home-assistant.io/)
 [![GitHub Release](https://img.shields.io/github/v/release/bisman-automations/ha-tv-mgmt)](https://github.com/bisman-automations/ha-tv-mgmt/releases)
 [![Test](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/test.yml/badge.svg)](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/test.yml)
 [![Validate](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/validate.yml/badge.svg)](https://github.com/bisman-automations/ha-tv-mgmt/actions/workflows/validate.yml)
@@ -42,7 +42,7 @@ It's modeled on [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt), b
 1. Click the button above, or in HACS open the menu, choose **Custom repositories**, and add `https://github.com/bisman-automations/ha-tv-mgmt` as an **Integration**.
 2. Download **TV Mgmt** and restart Home Assistant.
 
-Requires **Home Assistant 2026.3 or newer**.
+Requires **Home Assistant 2026.8 or newer**.
 
 ### Manual
 
@@ -59,6 +59,18 @@ Or go to **Settings → Devices & services → Add integration → TV Mgmt**.
 3. Optionally set a daily limit and quiet windows.
 
 You can change everything later with **Configure**. Each TV gets its own profile, rules and entities.
+
+## Changing the TV
+
+Open the profile under **Settings → Devices & services → TV Mgmt**, choose **Reconfigure**, and pick the TV's media player. The rules stay as they are. Home Assistant loads the profile again once, so it watches the new TV.
+
+If that TV already has a profile, TV Mgmt keeps the one you already have.
+
+## When something is removed
+
+If the TV, the Apple TV, a speaker used for warnings, or a light the profile uses is removed or renamed, it shows under **Settings → System → Repairs**. Open the repair and pick the entity that replaced it, or remove it from the profile.
+
+Removing the TV itself deletes the profile, including today's screen time. The TV's own integration is left as it is. The repair goes away when you fix it, or when the entity comes back.
 
 ## Supported TVs
 
@@ -321,10 +333,7 @@ If [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt) manages the App
 
 ## What you get
 
-Each profile is a device named like Apple TV Mgmt's, such as **TV Mgmt — Family Room TV**. It's linked to the TV's own device, and to the linked Apple TV's:
-
-- **Home Assistant 2026.8 and newer:** TV Mgmt shows under **Linked devices** on the TV's and the Apple TV's device pages, and they show under TV Mgmt's, the same way a UniFi client shows next to the device it is.
-- **Older versions:** TV Mgmt shows as connected via the TV, and the TV's and the Apple TV's device pages list TV Mgmt as an integration.
+Each profile is a device named like Apple TV Mgmt's, such as **TV Mgmt — Family Room TV**. It's linked to the TV's own device, and to the linked Apple TV's. TV Mgmt shows under **Linked devices** on the TV's and the Apple TV's device pages, and they show under TV Mgmt's, the same way a UniFi client shows next to the device it is.
 
 It has these entities:
 
@@ -503,7 +512,7 @@ ruff check . && ruff format --check .
 pytest
 ```
 
-To test against the oldest supported Home Assistant (2026.3), use Python 3.14 and
+To test against the oldest supported Home Assistant (2026.8), use Python 3.14 and
 `pip install -r requirements_test_min.txt` instead.
 
 CI runs the same checks on every push and pull request, on both Home Assistant

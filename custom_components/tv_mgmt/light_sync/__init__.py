@@ -375,12 +375,13 @@ class LightSync(ZoneLink):
 def _own_device(
     devices: dr.DeviceRegistry, key: str, entry_id: str
 ) -> dr.DeviceEntry | None:
-    """The TV's own TV Mgmt device with identifier ``(tv_mgmt, key)``."""
-    identifier = (DOMAIN, key)
-    if hasattr(devices, "async_get_device_by_identifier"):
-        # Newer Home Assistant: identifiers are only unique per config entry.
-        return devices.async_get_device_by_identifier(identifier, entry_id)
-    return devices.async_get_device(identifiers={identifier})
+    """The TV's own TV Mgmt device with identifier ``(tv_mgmt, key)``.
+
+    Identifiers are unique per config entry, so the lookup is the identifier
+    plus this profile's entry. ``async_get_device`` is the old lookup and is
+    not used.
+    """
+    return devices.async_get_device_by_identifier((DOMAIN, key), entry_id)
 
 
 def zone_device_name(tv: str, zone: str) -> str:

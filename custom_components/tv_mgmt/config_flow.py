@@ -629,6 +629,66 @@ class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders=_placeholders(backend),
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Point the profile at a different TV. The rules stay in the options.
+
+        The data field is the TV's media player, the same selector and the
+        same one-profile-per-TV check as setup. Options stay on Configure.
+
+        The update listener reloads the profile when its data changes, and
+        ``async_update_reload_and_abort`` reloads too. Home Assistant 2026.12
+        rejects that pair. The listener is detached first, so this reload is
+        the only one. Setup registers the listener again. Nothing is detached
+        when the TV didn't change, and then nothing is reloaded.
+        """
+        entry = self._get_reconfigure_entry()
+        current = entry.data[CONF_MEDIA_PLAYER]
+        if user_input is not None:
+            entity_id = user_input[CONF_MEDIA_PLAYER]
+            # Same rule as setup: one profile per TV. The profile being
+            # reconfigured already has this unique id when the TV is unchanged,
+            # so that case is not "already configured".
+            existing = await self.async_set_unique_id(
+                entity_id, raise_on_progress=False
+            )
+            if existing is not None and existing.entry_id != entry.entry_id:
+                return self.async_abort(reason="already_configured")
+            state = self.hass.states.get(entity_id)
+            title = state.name if state is not None and state.name else entity_id
+            data = {CONF_MEDIA_PLAYER: entity_id}
+            changed = (
+                dict(entry.data) != data
+                or entry.unique_id != entity_id
+                or entry.title != title
+            )
+            if changed:
+                from . import detach_update_listener
+
+                detach_update_listener(entry)
+            return self.async_update_reload_and_abort(
+                entry,
+                unique_id=entity_id,
+                title=title,
+                data=data,
+                reload_even_if_entry_is_unchanged=False,
+            )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_MEDIA_PLAYER, default=current
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=MP_DOMAIN)
+                    )
+                }
+            ),
+            description_placeholders={"profile": entry.title, "entity": current},
+        )
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
@@ -94,6 +96,12 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     from .messages import async_register_messages_path
 
     await async_register_messages_path(hass)
+    from .repairs import async_register
+
+    # Entity-registry repairs. Registered here, with the rest of startup,
+    # so a TV removed while Home Assistant was stopped is caught on the
+    # next start as well as while it's running.
+    async_register(hass)
     return True
 
 
@@ -150,14 +158,39 @@ async def async_setup_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bo
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     light_sync.async_start()
-    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+    # The listener applies options in place, and reloads when the TV or its
+    # name changes. Reconfigure detaches it first (see detach_update_listener)
+    # so async_update_reload_and_abort is the only reload. Home Assistant
+    # 2026.12 rejects a flow that reloads an entry which still has a listener.
+    unsub_update = entry.add_update_listener(_async_update_listener)
+
+    @callback
+    def _detach_update_listener() -> None:
+        try:
+            unsub_update()
+        except ValueError:
+            return
+
+    entry.async_on_unload(_detach_update_listener)
+    manager.detach_update_listener = _detach_update_listener
+
+    from .repairs import async_reconcile_entities
+
+    async_reconcile_entities(hass)
     return True
 
 
-@callback
-def _shared_devices_model(registry: dr.DeviceRegistry) -> bool:
-    """Newer Home Assistant: one config entry per device, linked by shared identifiers."""
-    return hasattr(registry, "async_get_devices")
+def detach_update_listener(entry: ConfigEntry) -> None:
+    """Drop the update listener so a config flow can reload the entry itself.
+
+    Setup registers the listener again after the reload. Calling this when
+    the entry was never loaded (no runtime data) does nothing.
+    """
+    manager = getattr(entry, "runtime_data", None)
+    detach = getattr(manager, "detach_update_listener", None)
+    if detach is not None:
+        detach()
+        manager.detach_update_listener = None
 
 
 def _profile_devices(
@@ -180,26 +213,22 @@ def _profile_devices(
 
 
 def _link_devices(hass: HomeAssistant, entry: ConfigEntry, manager: TVManager) -> None:
-    """Show TV Mgmt with the TV's and the Apple TV's own devices."""
+    """Show TV Mgmt under Linked devices on the TV and the Apple TV.
+
+    Home Assistant 2026.8 gives each device one config entry
+    (``device.config_entry_id``) and links devices from different integrations
+    that share an identifier. TV Mgmt's device carries the TV's and the Apple
+    TV's identifiers. Lookups with ``async_get_device_by_identifier`` still
+    find the TV's own device when the TV's config entry is passed, because
+    identifiers are unique per config entry.
+
+    The TV's device stays on the TV's integration. It is not moved with
+    ``new_config_entry_id``. Copies left over from the 2026.8 device split
+    (a second device on this config entry that isn't the profile or a light
+    zone) are removed with ``async_remove_device``.
+    """
     registry = dr.async_get(hass)
     devices = _profile_devices(hass, entry, manager)
-    if _shared_devices_model(registry):
-        _link_shared_devices(registry, entry, devices)
-    else:
-        _link_by_config_entry(registry, entry, devices)
-
-
-def _link_shared_devices(
-    registry: dr.DeviceRegistry, entry: ConfigEntry, devices: list[dr.DeviceEntry]
-) -> None:
-    """Newer Home Assistant: list them under each other's Linked devices.
-
-    Home Assistant links devices from different integrations that share an
-    identifier, as it does a Rain Bird controller and its UniFi client. So
-    TV Mgmt's device carries the TV's and the Apple TV's identifiers too.
-    Lookups by those identifiers still find the TV's own device first, since
-    Home Assistant prefers the device from the identifier's integration.
-    """
     own_id = (DOMAIN, entry.entry_id)
     own = registry.async_get_or_create(
         config_entry_id=entry.entry_id,
@@ -211,49 +240,41 @@ def _link_shared_devices(
     )
     shared: set[tuple[str, str]] = set()
     for device in devices:
-        if device.config_entry_id != entry.entry_id:
+        # Only identifiers that belong to the TV's or the Apple TV's own
+        # integration. A device already owned by this profile is the profile
+        # itself (or a zone) and must not be copied onto itself.
+        if device.config_entry_id is None or device.config_entry_id == entry.entry_id:
+            continue
+        # Identifiers are unique per config entry. Resolve them with the
+        # device's own entry so a shared identifier doesn't pick TV Mgmt's copy.
+        if not device.identifiers:
+            continue
+        matched = registry.async_get_devices(
+            identifiers=set(device.identifiers),
+            config_entry_id=device.config_entry_id,
+        )
+        if any(item.id == device.id for item in matched):
             shared |= set(device.identifiers)
-    # Upgrading split the TV's device that 1.3 to 1.9 added TV Mgmt to into one
-    # device per integration. TV Mgmt's copies hold the TV's identifiers, which
-    # would clash with linking, and nothing uses them, so they go.
     zone_prefix = f"{entry.entry_id}_zone_"
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        if device.id == own.id or any(
+        if device.id == own.id or device.config_entry_id != entry.entry_id:
+            continue
+        if any(
             domain == DOMAIN and ident.startswith(zone_prefix)
             for domain, ident in device.identifiers
         ):
-            continue  # TV Mgmt's own devices: the profile and its light sync zones
+            continue  # A light sync zone device.
         registry.async_remove_device(device.id)
-    registry.async_update_device(
-        own.id, new_identifiers={own_id, *shared}, via_device_id=None
-    )
-
-
-def _link_by_config_entry(
-    registry: dr.DeviceRegistry, entry: ConfigEntry, devices: list[dr.DeviceEntry]
-) -> None:
-    """Older Home Assistant: add TV Mgmt to the TV's and the Apple TV's devices.
-
-    The profile's device points at the TV (via_device), and adding this entry
-    to the TV's device links it the other way. A device that's no longer part
-    of the profile, such as an Apple TV that was swapped or unlinked, is let
-    go. Home Assistant removes every link when the profile is deleted.
-    """
-    wanted: set[str] = set()
-    for device in devices:
-        wanted.add(device.id)
-        if entry.entry_id not in device.config_entries:
-            registry.async_update_device(device.id, add_config_entry_id=entry.entry_id)
-
-    own = (DOMAIN, entry.entry_id)
-    for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        if device.id in wanted or own in device.identifiers:
-            continue
-        # Only devices another integration owns; never remove a device outright.
-        if len(device.config_entries) > 1:
-            registry.async_update_device(
-                device.id, remove_config_entry_id=entry.entry_id
-            )
+    # Clear a via device left by a version that nested the profile under the
+    # TV. via_device on DeviceInfo is deprecated; the link is the shared
+    # identifiers. Only pass via_device_id when there is one to clear.
+    update: dict[str, Any] = {}
+    if set(own.identifiers) != {own_id, *shared}:
+        update["new_identifiers"] = {own_id, *shared}
+    if own.via_device_id is not None:
+        update["via_device_id"] = None
+    if update:
+        registry.async_update_device(own.id, **update)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> bool:
@@ -279,6 +300,9 @@ async def async_remove_entry(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> N
         # Give the lights back, then forget the TV's zones.
         await async_remove_zone_snapshots(hass, entry.entry_id, zones)
         await light_data.config.async_remove_entry(entry.entry_id)
+    from .repairs import async_delete_entry_issues
+
+    async_delete_entry_issues(hass, entry.entry_id)
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) -> None:
@@ -295,6 +319,10 @@ async def _async_update_listener(hass: HomeAssistant, entry: TVMgmtConfigEntry) 
         entry.title,
         dict(entry.data),
     ) and manager.apply_options(dict(entry.options)):
+        from .repairs import async_reconcile_entities
+
+        # A speaker or light taken off the profile in settings clears its repair.
+        async_reconcile_entities(hass)
         return
     await hass.config_entries.async_reload(entry.entry_id)
 

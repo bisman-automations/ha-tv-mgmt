@@ -113,6 +113,16 @@
             }
           }
         }
+      },
+      "reconfigure": {
+        "title": "Change the TV",
+        "description": "Pick the media player for {profile}. The rules stay as they are. The profile watches {entity} now.",
+        "data": {
+          "media_player": "TV"
+        },
+        "data_description": {
+          "media_player": "The TV's media player from the integration that already runs it."
+        }
       }
     },
     "error": {
@@ -652,6 +662,80 @@
     "metadata_auth_failed": {
       "title": "{provider} didn't accept its key",
       "description": "TV Mgmt couldn't look up genres on {provider} because it didn't accept the key. Light sync carries on without {provider}. Enter a new key in the TV Mgmt sidebar app, under Lights → Shared settings."
+    },
+    "entity_removed": {
+      "title": "{name} was removed from {profile}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Replace {name}",
+            "description": "{profile} uses {name} ({entity}) as its {role}. Pick the entity that replaced it, or remove it from the profile.",
+            "data": {
+              "replacement": "Replacement",
+              "remove": "Remove it from the profile"
+            },
+            "data_description": {
+              "replacement": "The entity that replaced it.",
+              "remove": "Take it off the profile. For the TV itself, this deletes the profile."
+            }
+          },
+          "confirm_remove": {
+            "title": "Remove {profile}?",
+            "description": "This deletes the {profile} profile, including its screen time and rules. The TV itself is left as it is."
+          }
+        },
+        "error": {
+          "pick_or_remove": "Pick the replacement, or remove it from the profile.",
+          "still_missing": "That's the entity that's missing. Pick the new one.",
+          "unknown_entity": "That entity isn't in Home Assistant.",
+          "wrong_kind": "Pick an entity of the same kind.",
+          "not_apple_tv": "Pick an Apple TV.",
+          "already_configured": "Another profile already uses that TV.",
+          "zone_missing": "That light zone is already gone."
+        },
+        "abort": {
+          "not_allowed": "You don't have access to TV Mgmt. An admin can give you access in the TV Mgmt sidebar app, under Access.",
+          "profile_missing": "That profile is already gone.",
+          "already_fixed": "That entity is back. Nothing to change."
+        }
+      }
+    },
+    "entity_renamed": {
+      "title": "{name} was renamed on {profile}",
+      "fix_flow": {
+        "step": {
+          "init": {
+            "title": "Replace {name}",
+            "description": "{profile} still has {entity} as its {role}. Home Assistant renamed it to {suggested}. Pick that entity, or another one, or remove it from the profile.",
+            "data": {
+              "replacement": "Replacement",
+              "remove": "Remove it from the profile"
+            },
+            "data_description": {
+              "replacement": "The entity that replaced it. The renamed one is filled in.",
+              "remove": "Take it off the profile. For the TV itself, this deletes the profile."
+            }
+          },
+          "confirm_remove": {
+            "title": "Remove {profile}?",
+            "description": "This deletes the {profile} profile, including its screen time and rules. The TV itself is left as it is."
+          }
+        },
+        "error": {
+          "pick_or_remove": "Pick the replacement, or remove it from the profile.",
+          "still_missing": "That's the entity that's missing. Pick the new one.",
+          "unknown_entity": "That entity isn't in Home Assistant.",
+          "wrong_kind": "Pick an entity of the same kind.",
+          "not_apple_tv": "Pick an Apple TV.",
+          "already_configured": "Another profile already uses that TV.",
+          "zone_missing": "That light zone is already gone."
+        },
+        "abort": {
+          "not_allowed": "You don't have access to TV Mgmt. An admin can give you access in the TV Mgmt sidebar app, under Access.",
+          "profile_missing": "That profile is already gone.",
+          "already_fixed": "That entity is back. Nothing to change."
+        }
+      }
     }
   }
 }

@@ -238,6 +238,9 @@ class TVManager:
         self.light_sync: LightSync | None = None
         # (title, data) the entry was loaded with; set by the integration.
         self.loaded_as: tuple[str, dict[str, Any]] | None = None
+        # Set by the integration. Reconfigure calls it so the flow's reload
+        # is the only one (Home Assistant 2026.12).
+        self.detach_update_listener: CALLBACK_TYPE | None = None
 
         self.quiet_windows: list[QuietWindow] = self._parse_quiet_windows()
 

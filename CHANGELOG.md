@@ -7,11 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.16.2] - 2026-10-26
 
+### Added
+
+- **Repairs when a TV, Apple TV, speaker or light is removed or renamed.** It shows under **Settings → System → Repairs**. Pick the entity that replaced it, or remove it from the profile. Removing the TV itself deletes the profile. The repair goes away when it's fixed, or when the entity comes back.
+- **Reconfigure**, on the profile's menu, to point it at a different TV. The rules stay. Home Assistant loads the profile again once.
+
 ### Changed
 
+- **Requires Home Assistant 2026.8 or newer.**
 - The changelog no longer keeps an Unreleased section; the agent notes follow the updated shared release rules.
 - The README follows the same layout as the other bisman-automations integrations: a button that opens it in HACS, a button that starts setup, and troubleshooting steps for debug logs and diagnostics.
 - Each release now includes `tv_mgmt.zip` for installing without HACS.
+
+### Removed
+
+- The link used before Home Assistant 2026.8, which showed the profile as connected via the TV. Profiles now show under **Linked devices** on the TV and the Apple TV.
 
 ## [1.16.1] - 2026-10-26
 

@@ -32,11 +32,10 @@ V3_KEY = "0123456789abcdef0123456789abcdef"
 
 
 def _zone_device(hass: HomeAssistant, zone_id: str) -> dr.DeviceEntry | None:
-    devices = dr.async_get(hass)
-    identifier = (DOMAIN, f"{ENTRY_ID}_zone_{zone_id}")
-    if hasattr(devices, "async_get_device_by_identifier"):
-        return devices.async_get_device_by_identifier(identifier, ENTRY_ID)
-    return devices.async_get_device(identifiers={identifier})
+    """The zone device. Identifiers are unique per config entry."""
+    return dr.async_get(hass).async_get_device_by_identifier(
+        (DOMAIN, f"{ENTRY_ID}_zone_{zone_id}"), ENTRY_ID
+    )
 
 
 @pytest.fixture
