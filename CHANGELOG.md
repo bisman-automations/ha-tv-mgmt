@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.17.1] - 2026-10-30
+
+### Changed
+
+- **Install from the Marketplace.** The README now explains how to install from the Marketplace that replaces HACS in Home Assistant 2026.11, with its own button. The HACS steps stay for Home Assistant 2026.10 and older, and an install you already have moves over by itself.
+
 ## [1.17.0] - 2026-10-28
 
 ### Added
@@ -421,6 +427,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.17.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...v1.16.1
 [1.16.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.15.1...v1.16.0
