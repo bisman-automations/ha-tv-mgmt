@@ -3,6 +3,8 @@
 
 const EXPANDED_KEY = "tv-mgmt-expanded";
 const DASH_KEY = "tv-mgmt-dashboard";
+// Time on that counts as watched today, for the dashboard's "Watched today".
+const WATCHED_SECONDS = 60;
 const DASH_SORTS = [
   { id: "activity", label: "On, then recent" },
   { id: "name", label: "Name" },
@@ -788,10 +790,10 @@ class TvMgmtPanel extends HTMLElement {
     const shows = {
       all: () => true,
       on: (p) => this._tvOn(p) === true,
-      // Time on today: on now, seen on in this browser today, or time counted
-      // (adult mode time too, when it doesn't count).
-      today: (p) => this._tvOn(p) === true || (this._seenOn[p.entry_id] || 0) >= today.getTime()
-        || p.used_seconds > 0 || p.adult_seconds > 0,
+      // On now, or at least a minute on today (adult mode time too, when it
+      // doesn't count). A TV that woke for a few seconds in the night, or was
+      // switched straight back off, wasn't watched.
+      today: (p) => this._tvOn(p) === true || p.used_seconds + (p.adult_seconds || 0) >= WATCHED_SECONDS,
       off: (p) => this._tvOn(p) === false,
       blocked: (p) => p.state === "enforcing" || p.force_block,
       unreachable: (p) => this._tvOn(p) == null,

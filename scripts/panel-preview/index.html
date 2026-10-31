@@ -164,7 +164,7 @@ profiles[1].last_on = t(16, 0);
 // dashboard's order, search and filters.
 if (params.get("many")) {
   profiles.push({ ...profiles[1], entry_id: "den", name: "Den TV", tv_entity_id: "media_player.den_tv", state: "ok", reason: null, used_seconds: 20*60, last_on: t(19, 30) });
-  profiles.push({ ...profiles[1], entry_id: "gar", name: "Garage TV", tv_entity_id: "media_player.garage_tv", state: "ok", reason: null, used_seconds: 0, last_on: null, is_on: null });
+  profiles.push({ ...profiles[1], entry_id: "gar", name: "Garage TV", tv_entity_id: "media_player.garage_tv", state: "ok", reason: null, used_seconds: 29, last_on: t(2, 52), is_on: null });
   states["media_player.den_tv"] = { entity_id: "media_player.den_tv", state: "off", attributes: {} };
   states["media_player.garage_tv"] = { entity_id: "media_player.garage_tv", state: "unavailable", attributes: {} };
 }
