@@ -193,8 +193,21 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "tv_lights_follow": manager.tv_lights_follow,
         # Turned off from here or the button; light sync leaves them off for now.
         "tv_lights_held_off": manager.tv_lights_held_off,
+        # Lights around the TV, for the glow around the TV on the dashboard.
+        "ambient_lights": ambient_lights(manager),
         "apple_tv": apple_tv_summary(manager),
     }
+
+
+def ambient_lights(manager: TVManager) -> list[str]:
+    """The TV lights and the lights of the TV's turned-on light zones, once each."""
+    lights = list(manager.tv_lights or [])
+    light_sync = manager.light_sync
+    if light_sync is not None:
+        for zone in light_sync.zones.values():
+            if zone.data.enabled:
+                lights.extend(zone.configured_lights)
+    return list(dict.fromkeys(lights))
 
 
 def profile_entities(manager: TVManager) -> list[dict[str, str]]:

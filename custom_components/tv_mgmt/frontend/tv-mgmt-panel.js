@@ -354,6 +354,11 @@ main.wide { max-width: 1760px; }
 
 /* The TV: what's on screen right now. */
 .screen-wrap { padding: 16px 16px 0; }
+/* The lights around the TV, glowing out from behind its frame. */
+.tv-frame { position: relative; isolation: isolate; }
+.ambient { position: absolute; inset: -9px; z-index: -1; border-radius: 18px; filter: blur(9px) saturate(1.3); pointer-events: none;
+  transition: background .6s, opacity .6s; }
+.ambient[hidden] { display: none; }
 .screen {
   position: relative; aspect-ratio: 16 / 7; border-radius: 10px;
   background: var(--tm-screen); color: var(--tm-screen-text);
@@ -724,11 +729,45 @@ class TvMgmtPanel extends HTMLElement {
     else this._refreshNowPlaying();
   }
 
+  // The colors of the lights around the TV, as a glow around the TV's frame.
+  // Lights that are off, or can't show a color, are left out.
+  _ambientColors(p) {
+    const out = [];
+    for (const eid of p.ambient_lights || []) {
+      const st = this._hass?.states?.[eid];
+      if (!st || st.state !== "on") continue;
+      const rgb = st.attributes?.rgb_color;
+      if (!Array.isArray(rgb) || rgb.length < 3) continue;
+      const level = st.attributes.brightness == null ? 1 : Math.max(0.6, Number(st.attributes.brightness) / 255);
+      out.push({ rgb: rgb.slice(0, 3).map((v) => Math.round(Number(v) || 0)), level });
+    }
+    return out;
+  }
+
+  _ambient(p) {
+    const colors = this._ambientColors(p);
+    const id = `amb-${esc(p.entry_id)}`;
+    if (!colors.length) return `<div class="ambient" id="${id}" hidden></div>`;
+    const css = colors.map((c) => `rgb(${c.rgb.join(" ")})`);
+    // Spread several colors around the frame; one color goes all the way round.
+    const fill = css.length === 1 ? css[0] : `conic-gradient(from 210deg, ${[...css, css[0]].join(", ")})`;
+    const level = Math.max(...colors.map((c) => c.level));
+    return `<div class="ambient" id="${id}" style="background:${fill};opacity:${level.toFixed(2)}" aria-hidden="true"></div>`;
+  }
+
   // Redraw just the Apple TV "Now playing" spots when their media player changes.
   _refreshNowPlaying() {
     if (this._tab !== "dashboard" || !this._profiles) return;
     this._npStates = this._npStates || {};
+    this._ambStates = this._ambStates || {};
     for (const p of this._profiles) {
+      const lights = (p.ambient_lights || []).map((e) => this._hass.states[e]);
+      const prev = this._ambStates[p.entry_id];
+      if (!prev || prev.length !== lights.length || lights.some((st, i) => st !== prev[i])) {
+        this._ambStates[p.entry_id] = lights;
+        const amb = this.shadowRoot.getElementById(`amb-${p.entry_id}`);
+        if (amb) amb.outerHTML = this._ambient(p);
+      }
       const tv = this._hass.states[p.tv_entity_id];
       if (tv !== this._npStates[p.tv_entity_id]) {
         this._npStates[p.tv_entity_id] = tv;
@@ -1124,6 +1163,8 @@ class TvMgmtPanel extends HTMLElement {
     const open = this._expanded.has(id);
     // Collapsed, the Apple TV sits inside the TV's screen; expanded, it gets its own spot.
     const screen = (withAtv) => `<div class="screen-wrap">
+          <div class="tv-frame">
+          ${this._ambient(p)}
           <div class="${screenClass}${withAtv ? " with-atv" : ""}">
             <div class="glow"></div>
             <button class="tv-name link" data-more-info="${esc(p.tv_entity_id)}" title="Open ${esc(p.name)}">${esc(p.name)}</button>
@@ -1131,6 +1172,7 @@ class TvMgmtPanel extends HTMLElement {
             <div class="now">${now}</div>
             ${sub ? `<div class="sub">${sub}</div>` : ""}
             ${withAtv ? this._atvMini(p) : ""}
+          </div>
           </div>
           <div class="stand"></div>
         </div>`;

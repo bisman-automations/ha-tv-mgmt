@@ -41,6 +41,7 @@ const profiles = [
     input_names: {"com.tcl.tv": "Apple TV", "HDMI 2": "HDMI 2", "com.google.android.apps.tv.launcherx": "Google TV home", "com.google.android.youtube.tv": "YouTube"},
     custom_input_names: {"com.tcl.tv": "Apple TV"},
     tv_lights: ["light.tv_backlight"],
+    ambient_lights: ["light.tv_backlight", "light.reading_lamp"],
     tv_lights_follow: true,
     tv_lights_held_off: false,
     message_targets: { apple_tv: true, screen: true, speak: false },
@@ -127,8 +128,8 @@ function summarize(days) {
 }
 const ART = "data:image/svg+xml;utf8," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9a5a"/><stop offset="1" stop-color="#6a3fd1"/></linearGradient></defs><rect width="100" height="100" fill="url(#g)"/><circle cx="70" cy="32" r="14" fill="#ffe08a"/><path d="M0 78 L28 52 L48 68 L66 50 L100 80 L100 100 L0 100Z" fill="#2b1d55"/></svg>');
 const states = {
-  "light.tv_backlight": { entity_id: "light.tv_backlight", state: "on", attributes: { friendly_name: "TV Backlight" } },
-  "light.reading_lamp": { entity_id: "light.reading_lamp", state: "off", attributes: { friendly_name: "Reading Lamp" } },
+  "light.tv_backlight": { entity_id: "light.tv_backlight", state: "on", attributes: { friendly_name: "TV Backlight", rgb_color: [106, 63, 209], brightness: 230 } },
+  "light.reading_lamp": { entity_id: "light.reading_lamp", state: "on", attributes: { friendly_name: "Reading Lamp", rgb_color: [255, 154, 90], brightness: 200 } },
   "light.ceiling": { entity_id: "light.ceiling", state: "off", attributes: { friendly_name: "Ceiling Light" } },
   "media_player.family_room_tv": { entity_id: "media_player.family_room_tv", state: "on", attributes: { supported_features: 128|256|1024|8, is_volume_muted: false } },
   "media_player.playroom_tv": { entity_id: "media_player.playroom_tv", state: "off", attributes: { supported_features: 128|256|1024|8 } },

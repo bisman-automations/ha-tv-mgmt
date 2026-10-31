@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.18.0] - 2026-10-30
+
+### Added
+
+- **Light colors around the TV.** On the dashboard, the colors of a TV's lights now glow around its screen: its TV lights and the lights in its light sync zones that are turned on. The glow follows the lights as they change, and goes away when they're off.
+
 ## [1.17.1] - 2026-10-30
 
 ### Changed
@@ -427,6 +433,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.18.0]: https://github.com/bisman-automations/./compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.17.0...v1.17.1
 [1.17.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.1...v1.17.0
 [1.16.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.16.0...v1.16.1
