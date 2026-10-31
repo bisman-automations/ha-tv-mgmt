@@ -158,6 +158,16 @@ const lightTvs = {
         failed_lights: {}, last_error: null, pending: null, save_title: null, outcome: null, players: ["media_player.playroom_tv"], name: "Ceiling" }, entities: {} },
   ] },
 };
+profiles[0].last_on = t(17, 5);
+profiles[1].last_on = t(16, 0);
+// many=1: two more TVs, off, one watched a few minutes ago, for the
+// dashboard's order, search and filters.
+if (params.get("many")) {
+  profiles.push({ ...profiles[1], entry_id: "den", name: "Den TV", tv_entity_id: "media_player.den_tv", state: "ok", reason: null, used_seconds: 20*60, last_on: t(19, 30) });
+  profiles.push({ ...profiles[1], entry_id: "gar", name: "Garage TV", tv_entity_id: "media_player.garage_tv", state: "ok", reason: null, used_seconds: 0, last_on: null, is_on: null });
+  states["media_player.den_tv"] = { entity_id: "media_player.den_tv", state: "off", attributes: {} };
+  states["media_player.garage_tv"] = { entity_id: "media_player.garage_tv", state: "unavailable", attributes: {} };
+}
 // blocked=1: the Family Room TV off for bedtime, its zones paused (as on a real
 // evening). Zones can still be changed and removed.
 if (params.get("blocked")) {

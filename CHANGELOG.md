@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.0] - 2026-10-31
+
+### Added
+
+- **Dashboard order, search and filters.** TVs that are on come first, then the ones watched most recently. A TV that was just turned off moves down to the recent ones straight away. With two or more TVs, a bar above them lets you:
+  - search by TV name, input, or what's on the Apple TV;
+  - show only TVs that are on now, watched today, off, blocked, or can't be reached;
+  - sort by name or by most watched today instead.
+
+  Your sort and filter are remembered on each device.
+
 ## [1.18.1] - 2026-10-31
 
 ### Fixed
@@ -439,6 +450,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.19.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.18.1...v1.19.0
 [1.18.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.17.1...v1.18.0
 [1.17.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.17.0...v1.17.1

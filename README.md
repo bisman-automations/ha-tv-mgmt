@@ -118,7 +118,7 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
 
 *Screenshots use sample data.*
 
-- **Dashboard.** Every TV at a glance. Each TV starts collapsed to just its screen, with what the Apple TV is playing inside it, and a line with today's time. When the TV's lights are on (its TV lights and the lights in its light sync zones), their colors glow around the screen, changing as the lights change. Tap that line to open the TV; your phone or browser remembers which are open. Open, a TV spreads out into columns on a wide screen, with the TV, the Apple TV and the controls side by side. On a phone they stack.
+- **Dashboard.** Every TV at a glance. Each TV starts collapsed to just its screen, with what the Apple TV is playing inside it, and a line with today's time. When the TV's lights are on (its TV lights and the lights in its light sync zones), their colors glow around the screen, changing as the lights change. Tap that line to open the TV; your phone or browser remembers which are open. TVs that are on come first, then the ones watched most recently. With two or more TVs, a bar above them lets you search by TV name, input, or what's on the Apple TV, show only some TVs (on now, watched today, off, blocked, or can't reach), and sort by name or by most watched today instead. Your phone or browser remembers the sort and filter. Open, a TV spreads out into columns on a wide screen, with the TV, the Apple TV and the controls side by side. On a phone they stack.
   - what it's showing, and whether that's allowed
   - time used and time left
   - extra time, blocked switches and the last input someone tried

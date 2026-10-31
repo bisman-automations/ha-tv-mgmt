@@ -2,6 +2,20 @@
 // Talks to the integration over Home Assistant's websocket (tv_mgmt/* commands).
 
 const EXPANDED_KEY = "tv-mgmt-expanded";
+const DASH_KEY = "tv-mgmt-dashboard";
+const DASH_SORTS = [
+  { id: "activity", label: "On, then recent" },
+  { id: "name", label: "Name" },
+  { id: "watched", label: "Most watched today" },
+];
+const DASH_SHOWS = [
+  { id: "all", label: "All TVs" },
+  { id: "on", label: "On now" },
+  { id: "today", label: "Watched today" },
+  { id: "off", label: "Off" },
+  { id: "blocked", label: "Blocked" },
+  { id: "unreachable", label: "Can't reach" },
+];
 
 const TABS = [
   { id: "dashboard", label: "Dashboard" },
@@ -458,6 +472,10 @@ main.wide { max-width: 1760px; }
 .switch input:focus-visible + span { outline: 2px solid var(--primary-color); outline-offset: 2px; }
 
 .toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dash-tools { justify-content: flex-start; }
+.dash-tools .inline { display: inline-flex; align-items: center; gap: 8px; }
+.dash-tools select { width: auto; }
+.dash-search { flex: 1; min-width: 220px; max-width: 420px; }
 .picker { display: flex; flex-wrap: wrap; gap: 6px; }
 .picker .btn[aria-pressed="true"] { background: var(--primary-color); color: var(--text-primary-color, #fff); border-color: transparent; }
 .date-nav { display: flex; align-items: center; gap: 4px; }
@@ -708,6 +726,83 @@ class TvMgmtPanel extends HTMLElement {
     }
     this._msgDrafts = {};
     this._msgNote = {};
+    // Dashboard sort and filter, remembered on this device; the search isn't.
+    this._dash = { sort: "activity", show: "all", query: "" };
+    try {
+      const saved = JSON.parse(localStorage.getItem(DASH_KEY) || "{}");
+      if (DASH_SORTS.some((o) => o.id === saved.sort)) this._dash.sort = saved.sort;
+      if (DASH_SHOWS.some((o) => o.id === saved.show)) this._dash.show = saved.show;
+    } catch (err) {
+      /* storage unavailable: the defaults */
+    }
+    // When each TV was last seen on in this browser, so one just turned off
+    // moves to "recent" before the next refresh.
+    this._seenOn = {};
+    this._onNow = new Set();
+  }
+
+  _saveDash() {
+    try {
+      localStorage.setItem(DASH_KEY, JSON.stringify({ sort: this._dash.sort, show: this._dash.show }));
+    } catch (err) {
+      /* not remembered, still works */
+    }
+  }
+
+  // The TV's power from Home Assistant right now: true, false, or null when
+  // it can't be reached. Falls back to what the backend last reported.
+  _tvOn(p) {
+    const st = this._hass?.states?.[p.tv_entity_id];
+    if (!st) return p.is_on;
+    if (["unavailable", "unknown"].includes(st.state)) return null;
+    return !["off", "standby"].includes(st.state);
+  }
+
+  // A TV that was on and now isn't was just watched.
+  _noteOn() {
+    for (const p of this._profiles || []) {
+      if (this._tvOn(p) === true) this._onNow.add(p.entry_id);
+      else if (this._onNow.delete(p.entry_id)) this._seenOn[p.entry_id] = Date.now();
+    }
+  }
+
+  // Infinity while on, so TVs that are on come first and sort by name among
+  // themselves; otherwise the newest of the backend's log and this browser.
+  _lastOn(p) {
+    if (this._tvOn(p) === true) return Infinity;
+    const logged = p.last_on ? new Date(p.last_on).getTime() : 0;
+    return Math.max(logged || 0, this._seenOn[p.entry_id] || 0);
+  }
+
+  _dashProfiles() {
+    const d = this._dash;
+    const query = d.query.toLowerCase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const matches = (p) => {
+      if (!query) return true;
+      const atv = p.apple_tv?.entity_id ? this._hass?.states?.[p.apple_tv.entity_id]?.attributes || {} : {};
+      return [p.name, nameOf(p, p.current_input), atv.app_name, atv.media_title, atv.media_series_title]
+        .some((v) => v && String(v).toLowerCase().includes(query));
+    };
+    const shows = {
+      all: () => true,
+      on: (p) => this._tvOn(p) === true,
+      today: (p) => this._lastOn(p) >= today.getTime() || p.used_seconds > 0,
+      off: (p) => this._tvOn(p) === false,
+      blocked: (p) => p.state === "enforcing" || p.force_block,
+      unreachable: (p) => this._tvOn(p) == null,
+    };
+    const byName = (a, b) => a.name.localeCompare(b.name);
+    const sorts = {
+      // Infinity - Infinity is NaN, which counts as a tie.
+      activity: (a, b) => this._lastOn(b) - this._lastOn(a) || byName(a, b),
+      name: byName,
+      watched: (a, b) => b.used_seconds - a.used_seconds || byName(a, b),
+    };
+    return this._profiles
+      .filter((p) => (shows[d.show] || shows.all)(p) && matches(p))
+      .sort(sorts[d.sort] || sorts.activity);
   }
 
   _toggleExpanded(id) {
@@ -758,6 +853,15 @@ class TvMgmtPanel extends HTMLElement {
   // Redraw just the Apple TV "Now playing" spots when their media player changes.
   _refreshNowPlaying() {
     if (this._tab !== "dashboard" || !this._profiles) return;
+    this._noteOn();
+    // Move TVs that turned on or off, unless someone is using a control or
+    // typing (it would jump away from under them).
+    const active = this.shadowRoot.activeElement;
+    const busy = active && ["INPUT", "SELECT", "TEXTAREA"].includes(active.tagName);
+    if (!busy && this._dashProfiles().map((p) => p.entry_id).join(",") !== this._dashOrder) {
+      this._render();
+      return;
+    }
     this._npStates = this._npStates || {};
     this._ambStates = this._ambStates || {};
     for (const p of this._profiles) {
@@ -1081,7 +1185,21 @@ class TvMgmtPanel extends HTMLElement {
   // Dashboard ------------------------------------------------------------------------
 
   _renderDashboard() {
-    return `${this._renderHomeStrip()}<div class="grid">${this._profiles.map((p) => this._renderTv(p)).join("")}</div>`;
+    this._noteOn();
+    const shown = this._dashProfiles();
+    this._dashOrder = shown.map((p) => p.entry_id).join(",");
+    const d = this._dash;
+    const toolbar = this._profiles.length > 1
+      ? `<div class="toolbar dash-tools">
+          <input type="text" id="dash-search" class="dash-search" placeholder="Search TVs, inputs or what's on" value="${esc(d.query)}" aria-label="Search TVs" autocomplete="off">
+          <label class="inline">Show <select id="dash-show">${DASH_SHOWS.map((o) => `<option value="${o.id}" ${o.id === d.show ? "selected" : ""}>${o.label}</option>`).join("")}</select></label>
+          <label class="inline">Sort by <select id="dash-sort">${DASH_SORTS.map((o) => `<option value="${o.id}" ${o.id === d.sort ? "selected" : ""}>${o.label}</option>`).join("")}</select></label>
+        </div>`
+      : "";
+    const body = shown.length
+      ? `<div class="grid">${shown.map((p) => this._renderTv(p)).join("")}</div>`
+      : `<div class="empty"><h2>No TVs match</h2><p>${d.query ? "Try another search, or " : ""}<button class="btn" data-dash-reset>Show all TVs</button></p></div>`;
+    return `${this._renderHomeStrip()}${toolbar}${body}`;
   }
 
   // The whole home's TV time, above the TVs, when a home limit is set.
@@ -3028,6 +3146,12 @@ class TvMgmtPanel extends HTMLElement {
       this._toggleShow(el.dataset.id, el.dataset.blockShow);
       return;
     }
+    if (el.dataset.dashReset !== undefined) {
+      this._dash = { ...this._dash, show: "all", query: "" };
+      this._saveDash();
+      this._render();
+      return;
+    }
     if (el.dataset.expand) {
       this._toggleExpanded(el.dataset.expand);
       return;
@@ -3080,6 +3204,12 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (input.id === "dash-sort" || input.id === "dash-show") {
+      this._dash[input.id === "dash-sort" ? "sort" : "show"] = input.value;
+      this._saveDash();
+      this._render();
+      return;
+    }
     if (this._tab === "lights" && this._onLightsChange(input)) return;
     if (input.dataset.light !== undefined && this._lightsDraft) {
       if (input.checked) this._lightsDraft.picked.add(input.dataset.light);
@@ -3141,6 +3271,17 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   _onInput(ev) {
+    if (ev.target.id === "dash-search") {
+      const box = ev.target;
+      clearTimeout(this._dashTimer);
+      this._dashTimer = setTimeout(() => {
+        this._dash.query = box.value.trim();
+        this._render();
+        const again = this.shadowRoot.getElementById("dash-search");
+        if (again) { again.focus(); again.setSelectionRange(again.value.length, again.value.length); }
+      }, 200);
+      return;
+    }
     if (this._tab === "lights" && this._onLightsInput(ev.target)) return;
     if (ev.target.dataset.lightFilter !== undefined && this._lightsDraft) {
       this._lightsDraft.filter = ev.target.value;

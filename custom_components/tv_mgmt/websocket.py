@@ -174,6 +174,8 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         # Time on in adult mode today. Part of used_seconds only when it counts.
         "adult_seconds": state.adult_seconds,
         "used_seconds": state.used_seconds,
+        # When the TV was last on, so the dashboard can list recent TVs first.
+        "last_on": manager.activity.last_on,
         "budget_minutes": manager.daily_budget,
         "extension_minutes": state.extension_minutes,
         "warn_minutes": manager.warn_minutes,

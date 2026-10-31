@@ -185,6 +185,18 @@ class ActivityLog:
     # ---- reading ---------------------------------------------------------------
 
     @property
+    def last_on(self) -> str | None:
+        """When the TV was last on: the latest time it turned on or off."""
+        return next(
+            (
+                event["t"]
+                for event in reversed(self.events)
+                if event["type"] in (EV_TV_ON, EV_TV_OFF)
+            ),
+            None,
+        )
+
+    @property
     def last_power(self) -> tuple[bool | None, str | None]:
         """(on, source) as last logged."""
         on: bool | None = None
