@@ -186,15 +186,17 @@ class ActivityLog:
 
     @property
     def last_on(self) -> str | None:
-        """When the TV was last on: the latest time it turned on or off."""
-        return next(
-            (
-                event["t"]
-                for event in reversed(self.events)
-                if event["type"] in (EV_TV_ON, EV_TV_OFF)
-            ),
-            None,
-        )
+        """When the TV was last on: when it last turned off after being on,
+        or turned on. An off with no on before it (a TV reported off when
+        Home Assistant starts) isn't time on."""
+        last: str | None = None
+        on = False
+        for event in self.events:
+            if event["type"] == EV_TV_ON:
+                on, last = True, event["t"]
+            elif event["type"] == EV_TV_OFF and on:
+                on, last = False, event["t"]
+        return last
 
     @property
     def last_power(self) -> tuple[bool | None, str | None]:

@@ -788,7 +788,10 @@ class TvMgmtPanel extends HTMLElement {
     const shows = {
       all: () => true,
       on: (p) => this._tvOn(p) === true,
-      today: (p) => this._lastOn(p) >= today.getTime() || p.used_seconds > 0,
+      // Time on today: on now, seen on in this browser today, or time counted
+      // (adult mode time too, when it doesn't count).
+      today: (p) => this._tvOn(p) === true || (this._seenOn[p.entry_id] || 0) >= today.getTime()
+        || p.used_seconds > 0 || p.adult_seconds > 0,
       off: (p) => this._tvOn(p) === false,
       blocked: (p) => p.state === "enforcing" || p.force_block,
       unreachable: (p) => this._tvOn(p) == null,

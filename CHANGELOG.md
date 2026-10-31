@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.19.1] - 2026-10-31
+
+### Fixed
+
+- **Watched today** on the dashboard no longer lists a TV that wasn't on today. A TV that was only reported off, for example when Home Assistant restarted, counted as watched. Now only TVs that are on, were on today, or have time today are listed. The same off report no longer moves a TV up in **On, then recent** either.
+
 ## [1.19.0] - 2026-10-31
 
 ### Added
@@ -450,6 +456,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.19.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.19.0...v1.19.1
 [1.19.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.18.1...v1.19.0
 [1.18.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.18.0...v1.18.1
 [1.18.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.17.1...v1.18.0

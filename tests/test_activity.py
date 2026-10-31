@@ -71,10 +71,15 @@ def test_last_power():
 def test_last_on():
     log = ActivityLog()
     assert log.last_on is None
+    # Reported off (Home Assistant starting) without being on: not time on.
+    log.add(at(9), EV_TV_OFF)
+    assert log.last_on is None
     log.add(at(10), EV_TV_ON, source="HDMI 1")
     log.add(at(11), EV_INPUT, source="HDMI 2")
     assert log.last_on == at(10).isoformat()
     log.add(at(12), EV_TV_OFF)
+    assert log.last_on == at(12).isoformat()
+    log.add(at(13), EV_TV_OFF)
     assert log.last_on == at(12).isoformat()
 
 
