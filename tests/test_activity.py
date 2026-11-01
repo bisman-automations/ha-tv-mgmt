@@ -331,3 +331,33 @@ def test_adult_totals_in_days_and_summary():
     # Over the limit is screen time only: adult time is in used_seconds just when it counted.
     assert summary["days_over_limit"] == 2
     assert summary["total_seconds"] == 600 + 3600 + 3600
+
+
+def test_days_with_no_limit_and_a_limit_of_zero():
+    """1.20.0: None is no limit; 0 is a limit (no time without extra time)."""
+    log = ActivityLog()
+    log.record_day(
+        "2026-10-07",
+        used_seconds=600,
+        budget_minutes=None,
+        extension_minutes=0,
+        blocked=0,
+    )
+    log.record_day(
+        "2026-10-08",
+        used_seconds=1800,
+        budget_minutes=0,
+        extension_minutes=20,
+        blocked=0,
+    )
+    # Before 1.20.0, 0 was written for no limit.
+    log.daily["2026-10-06"] = {
+        "used_seconds": 600,
+        "budget_minutes": 0,
+        "extension_minutes": 0,
+        "blocked": 0,
+    }
+    series = log.daily_series(date(2026, 10, 8), 3)
+    assert [d["budget_minutes"] for d in series] == [None, None, 0]
+    # Only the earned-time day went over (30 min used, 20 earned).
+    assert summarize(series)["days_over_limit"] == 1

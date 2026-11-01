@@ -196,9 +196,12 @@ def _input_lock_schema(
 def _screen_time_schema(d: Mapping[str, Any]) -> vol.Schema:
     return vol.Schema(
         {
-            vol.Required(
+            # Empty: no limit. 0: no time until extra time is given.
+            vol.Optional(
                 CONF_DAILY_BUDGET,
-                default=d.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET),
+                description={
+                    "suggested_value": d.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET)
+                },
             ): _number(0, 1440, "min"),
             vol.Required(
                 CONF_WARN_MINUTES,
@@ -504,8 +507,10 @@ def _process(
         if key in lock:
             lock[key] = int(lock[key])
     for key in (CONF_DAILY_BUDGET, CONF_WARN_MINUTES, CONF_ADULT_MODE_DURATION):
-        if key in screen:
+        if key in screen and screen[key] is not None:
             screen[key] = int(screen[key])
+    # Left empty: no daily limit (0 is a limit of no time).
+    screen.setdefault(CONF_DAILY_BUDGET, None)
 
     sync = {
         CONF_MODE_SYNC_ENTITY: user_input.get(SECTION_SYNC, {}).get(
@@ -580,6 +585,8 @@ def _placeholders(backend: TVBackend) -> dict[str, str]:
 
 class TVMgmtConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 2
+    # 2: an empty daily limit is no limit, and 0 is a limit of no time.
+    MINOR_VERSION = 2
 
     def __init__(self) -> None:
         self._entity_id: str | None = None

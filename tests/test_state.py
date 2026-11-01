@@ -63,9 +63,19 @@ def test_negative_extension_removes_time():
 
 
 def test_unlimited_budget():
-    d = run(budget_minutes=0, used_seconds=10 * 3600)
+    d = run(budget_minutes=None, used_seconds=10 * 3600)
     assert d.state == STATE_OK
     assert d.remaining_seconds is None
+
+
+def test_zero_budget_needs_extra_time():
+    """A limit of 0: the TV stays off until extra time is given (earned)."""
+    d = run(budget_minutes=0, used_seconds=0)
+    assert d.state == STATE_ENFORCING
+    assert d.remaining_seconds == 0
+    earned = run(budget_minutes=0, extension_minutes=30, used_seconds=10 * 60)
+    assert earned.state == STATE_OK
+    assert earned.remaining_seconds == 20 * 60
 
 
 def test_quiet_window_blocks_even_with_time_left():

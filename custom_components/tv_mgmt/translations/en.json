@@ -42,7 +42,7 @@
               "adult_mode_counts": "Count adult mode time toward limits"
             },
             "data_description": {
-              "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
+              "daily_budget": "Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
@@ -174,7 +174,7 @@
               "adult_mode_counts": "Count adult mode time toward limits"
             },
             "data_description": {
-              "daily_budget": "0 means no daily limit. When it runs out, the TV is turned off and kept off until tomorrow.",
+              "daily_budget": "Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
               "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
@@ -489,6 +489,10 @@
         "minutes": {
           "name": "Minutes",
           "description": "Minutes to add. Negative to take time away."
+        },
+        "whole_home": {
+          "name": "Whole home too",
+          "description": "Also give the whole home the same extra time, so a whole-home limit doesn't stop the TV first."
         }
       }
     },

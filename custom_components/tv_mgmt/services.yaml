@@ -13,6 +13,11 @@ grant_extension:
           max: 240
           step: 5
           unit_of_measurement: min
+    whole_home:
+      required: false
+      default: false
+      selector:
+        boolean:
 
 force_block:
   fields:

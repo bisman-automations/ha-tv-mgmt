@@ -372,8 +372,11 @@ class TVManager:
         return self.store.state
 
     @property
-    def daily_budget(self) -> int:
-        return int(self.options.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET))
+    def daily_budget(self) -> int | None:
+        """Minutes a day, or None for no limit. 0 lets the TV on only for
+        extra time given (earned) today."""
+        value = self.options.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET)
+        return None if value is None or value == "" else int(value)
 
     @property
     def warn_minutes(self) -> int:

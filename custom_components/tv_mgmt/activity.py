@@ -123,7 +123,7 @@ class ActivityLog:
         day: date | str,
         *,
         used_seconds: int,
-        budget_minutes: int,
+        budget_minutes: int | None,
         extension_minutes: int,
         blocked: int,
         apps: dict[str, int] | None = None,
@@ -136,7 +136,11 @@ class ActivityLog:
         key = day if isinstance(day, str) else day.isoformat()
         record: dict[str, Any] = {
             "used_seconds": int(used_seconds),
-            "budget_minutes": int(budget_minutes),
+            # None: no limit that day. "limited" tells a limit of 0 (no
+            # time without extra time) from days before 1.20.0, when 0
+            # meant no limit.
+            "budget_minutes": int(budget_minutes or 0),
+            "limited": budget_minutes is not None,
             "extension_minutes": int(extension_minutes),
             "blocked": int(blocked),
             # Always written, even 0: it marks the day as tracking adult mode.
@@ -378,7 +382,7 @@ class ActivityLog:
                 {
                     "date": key,
                     "used_seconds": record["used_seconds"] if record else 0,
-                    "budget_minutes": record["budget_minutes"] if record else 0,
+                    "budget_minutes": _limit(record),
                     "extension_minutes": record["extension_minutes"] if record else 0,
                     "blocked": record["blocked"] if record else 0,
                     "apps": dict(record.get("apps", {})) if record else {},
@@ -396,6 +400,15 @@ class ActivityLog:
         return series
 
 
+def _limit(record: dict[str, Any] | None) -> int | None:
+    """A recorded day's limit in minutes, or None when it had none."""
+    if not record:
+        return None
+    budget = int(record.get("budget_minutes") or 0)
+    limited = record.get("limited", budget > 0)
+    return budget if limited else None
+
+
 def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
     recorded = [d for d in series if d["recorded"]]
     total = sum(d["used_seconds"] for d in recorded)
@@ -403,7 +416,7 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
     over = [
         d
         for d in recorded
-        if d["budget_minutes"] > 0
+        if d["budget_minutes"] is not None
         and d["used_seconds"] >= (d["budget_minutes"] + d["extension_minutes"]) * 60
     ]
     return {

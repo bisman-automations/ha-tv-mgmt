@@ -95,7 +95,7 @@ async def test_home_daily_limit_turns_every_tv_off(
         {
             "type": "tv_mgmt/home/set",
             "daily_minutes": 60,
-            "weekly_minutes": 0,
+            "weekly_minutes": None,
             "warn_minutes": 10,
             "notify": ["notify.parent_phone"],
         }
@@ -209,7 +209,7 @@ async def test_home_needs_access(
     client = await hass_ws_client(hass)
     for msg in (
         {"type": "tv_mgmt/home/get"},
-        {"type": "tv_mgmt/home/set", "daily_minutes": 600, "weekly_minutes": 0},
+        {"type": "tv_mgmt/home/set", "daily_minutes": 600, "weekly_minutes": None},
         {"type": "tv_mgmt/home/extension", "minutes": 60},
     ):
         await client.send_json_auto_id(msg)

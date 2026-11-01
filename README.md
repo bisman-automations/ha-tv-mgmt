@@ -149,8 +149,8 @@ Set limits for all the TVs together, under **Limits → Whole home** in the side
 
 | Setting | Example | What it does |
 | --- | --- | --- |
-| Daily TV time for the home | 240 minutes | All the TVs' time together, per day. 0 means no daily limit. |
-| Weekly TV time for the home | 20 hours | All the TVs' time together, per week. Weeks start on Monday or Sunday. 0 means no weekly limit. |
+| Daily TV time for the home | 240 minutes | All the TVs' time together, per day. Leave empty for no daily limit. 0 means no TV time until you give extra time. |
+| Weekly TV time for the home | 20 hours | All the TVs' time together, per week. Weeks start on Monday or Sunday. Leave empty for no weekly limit. 0 means no TV time until you give extra time. |
 | Tell me before it runs out | 10 minutes | When to send the "running out" message. |
 | When the home's time runs out | Turn the TVs off | Or only tell you, and leave the TVs on. |
 | Tell | your phone | Who gets the messages: the Home Assistant app on a phone, or any other notify service or entity. |
@@ -162,7 +162,7 @@ How it works:
 - **The TVs' own limits still apply.** Whichever has less time left is the one that counts, and each TV shows it as its time left.
 - **When the home's time runs out,** every TV that counts is turned off, the same way as when its own limit runs out, with the same warnings on the TV. They stay off until the next day, or the next week for a weekly limit.
 - **Messages:** you're told once when time is running low and once when it's up, for each day or week.
-- **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time given today also counts toward this week.
+- **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time given today also counts toward this week. To give a TV and the whole home time together, tick **Whole home too** next to that TV's extra time buttons (your phone or browser remembers it), or pass `whole_home: true` to `tv_mgmt.grant_extension`.
 - Paused and adult mode on a TV lift the home's limit for that TV, like its own rules.
 - Adult mode time doesn't use up the home's time unless that TV counts it. See [Adult mode](#adult-mode).
 
@@ -368,7 +368,7 @@ All services take the profile (`profile_id`) to act on.
 
 | Service | What it does |
 | --- | --- |
-| `tv_mgmt.grant_extension` | Add minutes to today's limit (negative to take time away). |
+| `tv_mgmt.grant_extension` | Add minutes to today's limit (negative to take time away). `whole_home: true` gives the whole home the same time. |
 | `tv_mgmt.force_block` | Turn the TV off and keep it off until unblocked or the day ends. |
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
@@ -390,6 +390,18 @@ action: tv_mgmt.grant_extension
 data:
   profile_id: 01JABCDEF...   # pick it from the dropdown in the UI
   minutes: 30
+```
+
+### Earning TV time
+
+Set a TV's **Daily screen time**, or the whole home's limit, to **0** and the TVs stay off each day until extra time is given. For example, a chore marked done in a to-do list can run an automation that gives 30 minutes. With `whole_home: true`, the whole home's limit gets the same time, so it doesn't stop that TV first. Leave the field empty instead for no limit.
+
+```yaml
+action: tv_mgmt.grant_extension
+data:
+  profile_id: 01JABCDEF...
+  minutes: 30
+  whole_home: true
 ```
 
 ```yaml
@@ -459,7 +471,7 @@ automation:
 
 | Setting | Default | What it does |
 | --- | --- | --- |
-| Daily screen time | 0 (no limit) | Minutes per day before the TV is turned off. |
+| Daily screen time | Empty (no limit) | Minutes per day before the TV is turned off. 0 means no TV time until you give extra time. |
 | Warn before time runs out | 5 min | When `tv_mgmt_warning` fires. |
 | Quiet windows | none | Times the TV stays off, e.g. `20:30-07:00 Bedtime, 08:00-15:00 School`. |
 | Adult mode lasts | 120 min | How long adult mode lifts the rules. |

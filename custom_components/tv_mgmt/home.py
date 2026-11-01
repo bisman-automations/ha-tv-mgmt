@@ -28,12 +28,16 @@ WEEK_STARTS = {"monday": 0, "sunday": 6}  # date.weekday() of the first day
 DEFAULT_WARN_MINUTES = 10
 MAX_MINUTES_DAY = 1440
 MAX_MINUTES_WEEK = 7 * 1440
+# Saved with the settings since 1.20.0, when 0 became a limit of no time.
+LIMITS_VERSION = 2
 
 
 @dataclass
 class HomeSettings:
-    daily_minutes: int = 0  # 0 = no daily limit
-    weekly_minutes: int = 0  # 0 = no weekly limit
+    # None: no limit. 0 is a limit of no time at all, so only extra time
+    # given (earned) lets the TVs on.
+    daily_minutes: int | None = None
+    weekly_minutes: int | None = None
     week_start: str = "monday"
     warn_minutes: int = DEFAULT_WARN_MINUTES
     action: str = ACTION_TURN_OFF
@@ -44,8 +48,19 @@ class HomeSettings:
 
     @classmethod
     def from_dict(cls, raw: dict[str, Any] | None) -> HomeSettings:
-        """Validate stored or submitted settings. Raises ValueError."""
+        """Validate stored or submitted settings. Raises ValueError.
+
+        Before 1.20.0, 0 meant no limit. Those settings are saved without
+        ``limits`` (``LIMITS_VERSION``), so their 0 still reads as no limit.
+        """
         raw = raw or {}
+        legacy = raw.get("limits") != LIMITS_VERSION
+
+        def limit(key: str, top: int) -> int | None:
+            value = raw.get(key)
+            if value is None or value == "" or (legacy and value == 0):
+                return None
+            return minutes(key, top)
 
         def minutes(key: str, top: int) -> int:
             value = raw.get(key) or 0
@@ -64,8 +79,8 @@ class HomeSettings:
         if action not in ACTIONS:
             raise ValueError(f"unknown action {action!r}")
         return cls(
-            daily_minutes=minutes("daily_minutes", MAX_MINUTES_DAY),
-            weekly_minutes=minutes("weekly_minutes", MAX_MINUTES_WEEK),
+            daily_minutes=limit("daily_minutes", MAX_MINUTES_DAY),
+            weekly_minutes=limit("weekly_minutes", MAX_MINUTES_WEEK),
             week_start=week_start,
             warn_minutes=minutes("warn_minutes", 120)
             if raw.get("warn_minutes") is not None
@@ -83,6 +98,7 @@ class HomeSettings:
 
     def as_dict(self) -> dict[str, Any]:
         return {
+            "limits": LIMITS_VERSION,
             "daily_minutes": self.daily_minutes,
             "weekly_minutes": self.weekly_minutes,
             "week_start": self.week_start,
@@ -95,7 +111,7 @@ class HomeSettings:
     @property
     def active(self) -> bool:
         """Is there any home limit at all?"""
-        return self.daily_minutes > 0 or self.weekly_minutes > 0
+        return self.daily_minutes is not None or self.weekly_minutes is not None
 
     def counts(self, entry_id: str) -> bool:
         return entry_id not in self.excluded
@@ -156,9 +172,9 @@ def home_status(
     the next day.
     """
     daily = weekly = None
-    if settings.daily_minutes > 0:
+    if settings.daily_minutes is not None:
         daily = (settings.daily_minutes + extension_today) * 60 - today_seconds
-    if settings.weekly_minutes > 0:
+    if settings.weekly_minutes is not None:
         weekly = (settings.weekly_minutes + extension_week) * 60 - week_seconds
     return HomeStatus(
         int(today_seconds), int(week_seconds), daily, weekly, extension_today

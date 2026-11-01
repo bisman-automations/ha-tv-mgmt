@@ -3,6 +3,8 @@
 
 const EXPANDED_KEY = "tv-mgmt-expanded";
 const DASH_KEY = "tv-mgmt-dashboard";
+// "Whole home too" next to each TV's extra time, remembered on this device.
+const HOME_TOO_KEY = "tv-mgmt-extra-home-too";
 // Time on that counts as watched today, for the dashboard's "Watched today".
 const WATCHED_SECONDS = 60;
 const DASH_SORTS = [
@@ -741,6 +743,23 @@ class TvMgmtPanel extends HTMLElement {
     // moves to "recent" before the next refresh.
     this._seenOn = {};
     this._onNow = new Set();
+    this._homeToo = false;
+    try {
+      this._homeToo = localStorage.getItem(HOME_TOO_KEY) === "1";
+    } catch (err) {
+      /* storage unavailable: off */
+    }
+  }
+
+  // The whole home has a limit and this TV counts toward it.
+  _homeCounts(p) {
+    const h = this._home;
+    return !!h?.active && !(h.excluded || []).includes(p.entry_id);
+  }
+
+  // Extra time for a TV, and for the whole home too when that's ticked.
+  _extra(p) {
+    return this._homeToo && this._homeCounts(p) ? { whole_home: true } : {};
   }
 
   _saveDash() {
@@ -1068,6 +1087,8 @@ class TvMgmtPanel extends HTMLElement {
       const res = await this._ws({ type: "tv_mgmt/action", entry_id: entryId, action, ...extra });
       const index = this._profiles.findIndex((p) => p.entry_id === entryId);
       if (index >= 0) this._profiles[index] = res.profile;
+      // Extra time for the whole home too: show its new total straight away.
+      if (res.home) this._home = res.home;
       this._error = null;
     } catch (err) {
       this._error = this._errorText(err);
@@ -1212,9 +1233,10 @@ class TvMgmtPanel extends HTMLElement {
     const h = this._home;
     if (!h?.active) return "";
     const bar = (label, used, limitMin, left) => {
-      if (!limitMin) return "";
+      // null: no limit. 0 is a limit too: no time without extra time.
+      if (limitMin == null) return "";
       const total = limitMin * 60;
-      const pct = Math.min(100, (used / total) * 100);
+      const pct = total ? Math.min(100, (used / total) * 100) : 100;
       const tone = left <= 0 ? "bad" : left <= (h.warn_minutes || 0) * 60 ? "warn" : "info";
       return `<div class="home-row">
         <div class="time-line"><span><strong>${duration(used)}</strong> <span class="muted">of ${duration(total)} ${label}</span></span>
@@ -1222,13 +1244,13 @@ class TvMgmtPanel extends HTMLElement {
         <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limitMin}" aria-valuenow="${minutes(used)}" aria-label="Whole home, ${label}"><div class="tone-${tone}" style="width:${pct}%"></div></div>
       </div>`;
     };
-    const extra = h.daily_minutes ? h.daily_minutes + h.extension_minutes : 0;
+    const extra = h.daily_minutes != null ? h.daily_minutes + h.extension_minutes : null;
     return `<section class="card home-strip" aria-label="Whole home">
       <div class="card-body">
         <div class="card-head"><h2>Whole home</h2><button class="link" data-tab="limits">Change</button></div>
         <div class="home-rows">
           ${bar("today", h.today_seconds, extra, h.daily_remaining)}
-          ${bar("this week", h.week_seconds, h.weekly_minutes ? h.weekly_minutes + (h.extension_week_minutes || 0) : 0, h.weekly_remaining)}
+          ${bar("this week", h.week_seconds, h.weekly_minutes != null ? h.weekly_minutes + (h.extension_week_minutes || 0) : null, h.weekly_remaining)}
         </div>
         ${h.action === "notify" ? `<small class="muted">When it runs out, the people picked are told. The TVs aren't turned off.</small>` : ""}
         <div class="row">
@@ -1269,13 +1291,14 @@ class TvMgmtPanel extends HTMLElement {
     }
     if (p.lock_paused_reason) sub = esc(p.lock_paused_reason);
 
-    const limit = p.budget_minutes > 0 ? p.budget_minutes + p.extension_minutes : 0;
+    // null: no daily limit. 0 is a limit of no time, so only extra time counts.
+    const limit = p.budget_minutes != null ? p.budget_minutes + p.extension_minutes : null;
     const usedMin = minutes(p.used_seconds);
-    const pct = limit ? Math.min(100, (usedMin / limit) * 100) : 0;
+    const pct = limit ? Math.min(100, (usedMin / limit) * 100) : limit === 0 ? 100 : 0;
     const homeLimited = (p.limit === "home_daily" || p.limit === "home_weekly") && p.remaining_seconds != null;
     const timeLine = homeLimited
       ? `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">today on this TV</span></span><span class="muted">${p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left for the home ${p.limit === "home_weekly" ? "this week" : "today"}` : `No home time left ${p.limit === "home_weekly" ? "this week" : "today"}`}</span></div>`
-      : limit
+      : limit != null
       ? `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">of ${duration(limit * 60)}</span></span><span class="muted">${p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left` : "No time left"}</span></div>
          <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limit}" aria-valuenow="${usedMin}" aria-label="Screen time used"><div class="tone-${state.tone === "bad" ? "bad" : state.tone === "warn" ? "warn" : "info"}" style="width:${pct}%"></div></div>`
       : `<div class="time-line"><span><strong>${duration(p.used_seconds)}</strong> <span class="muted">today</span></span><span class="muted">No daily limit</span></div>`;
@@ -1300,8 +1323,8 @@ class TvMgmtPanel extends HTMLElement {
           <div class="stand"></div>
         </div>`;
     const summary = [
-      limit ? `${duration(p.used_seconds)} of ${duration(limit * 60)}` : `${duration(p.used_seconds)} today`,
-      limit ? (p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left` : "No time left") : "",
+      limit != null ? `${duration(p.used_seconds)} of ${duration(limit * 60)}` : `${duration(p.used_seconds)} today`,
+      limit != null ? (p.remaining_seconds > 0 ? `${duration(p.remaining_seconds)} left` : "No time left") : "",
       p.force_block ? "Blocked" : "",
     ].filter(Boolean).join(" · ");
     const toggle = `<button class="expand" data-expand="${id}" aria-expanded="${open}" aria-controls="more-${id}">
@@ -1345,6 +1368,9 @@ class TvMgmtPanel extends HTMLElement {
               <input type="number" name="minutes" min="-240" max="720" step="1" inputmode="numeric" placeholder="Minutes" aria-label="Extra minutes for ${esc(p.name)}. Use a minus sign to take time away.">
               <button class="btn" type="submit">Add</button>
             </form>
+            ${this._homeCounts(p)
+              ? `<label class="radio home-too"><input type="checkbox" class="check" data-home-too ${this._homeToo ? "checked" : ""}> Whole home too</label>`
+              : ""}
           </div>
           <div class="row">
             <span class="label">Mode${p.mode_sync_entity ? " (kept in sync with Apple TV Mgmt)" : ""}</span>
@@ -1982,7 +2008,8 @@ class TvMgmtPanel extends HTMLElement {
     const values = days.map((d) => minutes(d.used_seconds));
     const own = days.map((d) => minutes(Math.max(0, d.used_seconds - (d.adult_counted_seconds || 0))));
     const totals = own.map((v, i) => v + adult[i]);
-    const limits = days.map((d) => (d.budget_minutes ? d.budget_minutes + d.extension_minutes : 0));
+    // null: no limit that day. A limit of 0 with extra time still shows its line.
+    const limits = days.map((d) => (d.budget_minutes != null ? d.budget_minutes + d.extension_minutes : 0));
     const max = Math.max(60, ...totals, ...limits);
     const step = max > 300 ? 120 : max > 120 ? 60 : 30;
     const top = Math.ceil(max / step) * step;
@@ -2043,7 +2070,8 @@ class TvMgmtPanel extends HTMLElement {
       return loading("Loading the whole home's limits…");
     }
     const h = e.home;
-    const hours = h.weekly_minutes ? +(h.weekly_minutes / 60).toFixed(2) : 0;
+    // Empty: no limit. 0: no time until extra time is given.
+    const hours = h.weekly_minutes != null ? +(h.weekly_minutes / 60).toFixed(2) : "";
     const radio = (name, value, label, checked) =>
       `<label class="radio"><input type="radio" name="${name}" value="${value}" ${checked ? "checked" : ""}> ${label}</label>`;
     const targets = e.notify_targets.length
@@ -2060,13 +2088,13 @@ class TvMgmtPanel extends HTMLElement {
           <small>Limits for all the TVs together. Each TV's time is added up, so two TVs on for an hour count as two hours. The TVs' own limits still apply too.</small></div>
         <div class="field">
           <label for="home-daily">Daily TV time for the home</label>
-          <span><input id="home-daily" type="number" min="0" max="1440" step="5" value="${h.daily_minutes}"> <span class="muted">minutes</span></span>
-          <small>0 means no daily limit.</small>
+          <span><input id="home-daily" type="number" min="0" max="1440" step="5" value="${h.daily_minutes ?? ""}" placeholder="No limit"> <span class="muted">minutes</span></span>
+          <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it.</small>
         </div>
         <div class="field">
           <label for="home-weekly">Weekly TV time for the home</label>
-          <span><input id="home-weekly" type="number" min="0" max="168" step="0.5" value="${hours}"> <span class="muted">hours</span></span>
-          <small>0 means no weekly limit.</small>
+          <span><input id="home-weekly" type="number" min="0" max="168" step="0.5" value="${hours}" placeholder="No limit"> <span class="muted">hours</span></span>
+          <small>Leave empty for no weekly limit. 0 means no TV time this week until you give extra time.</small>
           <div class="row">${radio("home-week", "monday", "Weeks start on Monday", h.week_start === "monday")}${radio("home-week", "sunday", "Sunday", h.week_start === "sunday")}</div>
         </div>
         <div class="field">
@@ -2092,16 +2120,18 @@ class TvMgmtPanel extends HTMLElement {
   async _saveHome() {
     const root = this.shadowRoot;
     const num = (id) => Number(root.getElementById(id).value || 0);
-    const daily = num("home-daily");
-    const weeklyHours = num("home-weekly");
+    // Empty: no limit (null). 0 is a limit of no time.
+    const optional = (id) => (root.getElementById(id).value.trim() === "" ? null : Number(root.getElementById(id).value));
+    const daily = optional("home-daily");
+    const weeklyHours = optional("home-weekly");
     const warn = num("home-warn");
-    if (!Number.isInteger(daily) || daily < 0 || daily > 1440) return this._showError("Daily TV time for the home needs a whole number of minutes from 0 to 1440.");
-    if (weeklyHours < 0 || weeklyHours > 168) return this._showError("Weekly TV time for the home needs a number of hours from 0 to 168.");
+    if (daily != null && (!Number.isInteger(daily) || daily < 0 || daily > 1440)) return this._showError("Daily TV time for the home needs a whole number of minutes from 0 to 1440, or empty for no limit.");
+    if (weeklyHours != null && (Number.isNaN(weeklyHours) || weeklyHours < 0 || weeklyHours > 168)) return this._showError("Weekly TV time for the home needs a number of hours from 0 to 168, or empty for no limit.");
     if (!Number.isInteger(warn) || warn < 0 || warn > 120) return this._showError("Tell me before it runs out needs a whole number of minutes from 0 to 120.");
     const msg = {
       type: "tv_mgmt/home/set",
       daily_minutes: daily,
-      weekly_minutes: Math.round(weeklyHours * 60),
+      weekly_minutes: weeklyHours == null ? null : Math.round(weeklyHours * 60),
       week_start: root.querySelector('input[name="home-week"]:checked')?.value || "monday",
       warn_minutes: warn,
       action: root.querySelector('input[name="home-action"]:checked')?.value || "turn_off",
@@ -2147,8 +2177,8 @@ class TvMgmtPanel extends HTMLElement {
         <form id="limits" novalidate>
           <div class="field">
             <label for="daily_budget">Daily screen time</label>
-            <span><input id="daily_budget" type="number" min="0" max="1440" step="5" value="${d.daily_budget}"> <span class="muted">minutes</span></span>
-            <small>0 means no daily limit. When the time runs out, the TV is turned off until tomorrow.</small>
+            <span><input id="daily_budget" type="number" min="0" max="1440" step="5" value="${d.daily_budget ?? ""}" placeholder="No limit"> <span class="muted">minutes</span></span>
+            <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off until tomorrow.</small>
           </div>
           <div class="field">
             <label for="warn_minutes">Warn before time runs out</label>
@@ -3120,6 +3150,10 @@ class TvMgmtPanel extends HTMLElement {
       const extra = {};
       if (el.dataset.minutes) extra.minutes = Number(el.dataset.minutes);
       if (el.dataset.mode) extra.mode = el.dataset.mode;
+      if (el.dataset.act === "grant_extension") {
+        const profile = this._profiles.find((x) => x.entry_id === el.dataset.id);
+        if (profile) Object.assign(extra, this._extra(profile));
+      }
       this._action(el.dataset.id, el.dataset.act, extra);
       return;
     }
@@ -3209,6 +3243,16 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if (input.dataset.homeToo !== undefined) {
+      this._homeToo = input.checked;
+      try {
+        localStorage.setItem(HOME_TOO_KEY, input.checked ? "1" : "0");
+      } catch (err) {
+        /* not remembered, still works */
+      }
+      this._render();
+      return;
+    }
     if (input.id === "dash-sort" || input.id === "dash-show") {
       this._dash[input.id === "dash-sort" ? "sort" : "show"] = input.value;
       this._saveDash();
@@ -3378,7 +3422,8 @@ class TvMgmtPanel extends HTMLElement {
         this._render();
         return;
       }
-      await this._action(ev.target.dataset.extra, "grant_extension", { minutes });
+      const profile = this._profiles.find((x) => x.entry_id === ev.target.dataset.extra);
+      await this._action(ev.target.dataset.extra, "grant_extension", { minutes, ...(profile ? this._extra(profile) : {}) });
       return;
     }
     if (ev.target.id === "access") {
@@ -3426,6 +3471,11 @@ class TvMgmtPanel extends HTMLElement {
       ["warn_minutes", "Warn before time runs out", 0, 60],
       ["adult_mode_duration", "Adult mode lasts", 5, 720],
     ]) {
+      // Daily screen time left empty: no limit (0 is a limit of no time).
+      if (key === "daily_budget" && (d[key] == null || String(d[key]).trim() === "")) {
+        numbers[key] = null;
+        continue;
+      }
       const value = Number(d[key]);
       if (!Number.isInteger(value) || value < min || value > max) {
         this._error = `${label} needs a whole number of minutes from ${min} to ${max}.`;

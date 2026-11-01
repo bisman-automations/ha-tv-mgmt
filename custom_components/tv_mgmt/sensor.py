@@ -148,7 +148,7 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         # Unknown when neither applies.
         value_fn=lambda m: _minutes(m.decision.remaining_seconds),
         attrs_fn=lambda m: {
-            "daily_budget": m.daily_budget or None,
+            "daily_budget": m.daily_budget,
             "limit": m.decision.limit,
         },
     ),

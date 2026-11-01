@@ -96,7 +96,7 @@ def _decide(**kw):
         mode=MODE_ENFORCED,
         adult_mode=False,
         force_block=False,
-        budget_minutes=0,
+        budget_minutes=None,
         extension_minutes=0,
         used_seconds=0,
         warn_minutes=5,

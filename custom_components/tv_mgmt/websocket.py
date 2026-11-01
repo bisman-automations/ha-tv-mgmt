@@ -48,6 +48,7 @@ from .const import (
 from .home import (
     ACTION_TURN_OFF as HOME_ACTION_TURN_OFF,
     ACTIONS as HOME_ACTIONS,
+    LIMITS_VERSION,
     WEEK_STARTS,
     HomeSettings,
 )
@@ -412,7 +413,10 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
     {
         vol.Required("type"): f"{DOMAIN}/limits/set",
         vol.Required("entry_id"): str,
-        vol.Optional(CONF_DAILY_BUDGET): vol.All(int, vol.Range(min=0, max=1440)),
+        # None: no limit. 0: no time without extra time.
+        vol.Optional(CONF_DAILY_BUDGET): vol.Any(
+            None, vol.All(int, vol.Range(min=0, max=1440))
+        ),
         vol.Optional(CONF_WARN_MINUTES): vol.All(int, vol.Range(min=0, max=60)),
         vol.Optional(CONF_QUIET_WINDOWS): str,
         vol.Optional(CONF_ADULT_MODE_DURATION): vol.All(int, vol.Range(min=5, max=720)),
@@ -599,6 +603,8 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("minutes"): vol.All(int, vol.Range(min=-240, max=720)),
         vol.Optional("mode"): vol.In(MODES),
         vol.Optional("enabled"): bool,
+        # grant_extension: give the whole home the same extra time.
+        vol.Optional("whole_home", default=False): bool,
     }
 )
 @require_access
@@ -610,6 +616,11 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
     try:
         if action == "grant_extension":
             manager.grant_extension(msg["minutes"])
+            if msg["whole_home"] and (home := get_home(hass)) is not None:
+                home.grant_extension(
+                    msg["minutes"],
+                    by=connection.user.name if connection.user else None,
+                )
         elif action == "force_block":
             manager.force_block()
         elif action == "unblock":
@@ -627,7 +638,10 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
             msg["id"], "invalid_format", f"{action} needs {err.args[0]}"
         )
         return
-    connection.send_result(msg["id"], {"profile": profile_summary(manager)})
+    result: dict[str, Any] = {"profile": profile_summary(manager)}
+    if action == "grant_extension" and msg["whole_home"] and (home := get_home(hass)):
+        result["home"] = home.summary()
+    connection.send_result(msg["id"], result)
 
 
 @websocket_api.websocket_command(
@@ -736,8 +750,13 @@ def ws_home_get(hass: HomeAssistant, connection, msg) -> None:
 @websocket_api.websocket_command(
     {
         vol.Required("type"): f"{DOMAIN}/home/set",
-        vol.Required("daily_minutes"): vol.All(int, vol.Range(min=0, max=1440)),
-        vol.Required("weekly_minutes"): vol.All(int, vol.Range(min=0, max=7 * 1440)),
+        # None: no limit. 0: no time until extra time is given.
+        vol.Required("daily_minutes"): vol.Any(
+            None, vol.All(int, vol.Range(min=0, max=1440))
+        ),
+        vol.Required("weekly_minutes"): vol.Any(
+            None, vol.All(int, vol.Range(min=0, max=7 * 1440))
+        ),
         vol.Optional("week_start", default="monday"): vol.In(list(WEEK_STARTS)),
         vol.Optional("warn_minutes", default=10): vol.All(
             int, vol.Range(min=0, max=120)
@@ -753,7 +772,11 @@ def ws_home_set(hass: HomeAssistant, connection, msg) -> None:
     """Save the whole home's limits. Every TV applies them straight away."""
     try:
         settings = HomeSettings.from_dict(
-            {k: v for k, v in msg.items() if k not in ("id", "type")}
+            {
+                **{k: v for k, v in msg.items() if k not in ("id", "type")},
+                # Submitted now: 0 is a limit of no time, not "no limit".
+                "limits": LIMITS_VERSION,
+            }
         )
     except ValueError as err:
         connection.send_error(msg["id"], "invalid_format", str(err))

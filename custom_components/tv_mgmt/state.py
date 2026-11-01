@@ -51,7 +51,7 @@ def decide(
     mode: str,
     adult_mode: bool,
     force_block: bool,
-    budget_minutes: int,
+    budget_minutes: int | None,
     extension_minutes: int,
     used_seconds: int,
     warn_minutes: int,
@@ -61,14 +61,15 @@ def decide(
 ) -> Decision:
     """What should be true about the TV right now.
 
-    budget_minutes == 0 means no daily limit. home_remaining is the time left
+    budget_minutes None means no daily limit; 0 is a limit of no time, so
+    only extra time lets the TV on. home_remaining is the time left
     for the whole home (None when no home limit applies to this TV); whichever
     limit has less left is the one that counts. The decision is the same in
     monitor-only mode; the caller just doesn't act on it.
     """
     remaining: int | None = None
     limit: str | None = None
-    if budget_minutes > 0:
+    if budget_minutes is not None:
         remaining = (budget_minutes + extension_minutes) * 60 - used_seconds
         limit = REASON_BUDGET
     if home_remaining is not None and (remaining is None or home_remaining < remaining):

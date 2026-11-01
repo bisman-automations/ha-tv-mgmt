@@ -32,7 +32,7 @@ DEFAULT_ENFORCE_ON_POWER_ON = True
 DEFAULT_MAX_ATTEMPTS = 5
 
 # Screen time
-CONF_DAILY_BUDGET = "daily_budget"  # minutes, 0 = unlimited
+CONF_DAILY_BUDGET = "daily_budget"  # minutes; empty = no limit, 0 = only extra time
 CONF_WARN_MINUTES = "warn_minutes"
 CONF_QUIET_WINDOWS = "quiet_windows"
 CONF_ADULT_MODE_DURATION = "adult_mode_duration"  # minutes
@@ -40,7 +40,7 @@ CONF_ADULT_MODE_DURATION = "adult_mode_duration"  # minutes
 # Off: it goes only to its own total (adult_seconds), with no app or title detail.
 CONF_ADULT_MODE_COUNTS = "adult_mode_counts"
 
-DEFAULT_DAILY_BUDGET = 0
+DEFAULT_DAILY_BUDGET = None  # no limit; 0 is a limit of no time
 DEFAULT_WARN_MINUTES = 5
 DEFAULT_QUIET_WINDOWS = ""
 DEFAULT_ADULT_MODE_DURATION = 120
@@ -93,6 +93,7 @@ SERVICE_SEND_MESSAGE = "send_message"
 SERVICE_TURN_OFF_TV_LIGHTS = "turn_off_tv_lights"
 ATTR_PROFILE_ID = "profile_id"
 ATTR_MINUTES = "minutes"
+ATTR_WHOLE_HOME = "whole_home"
 
 # Events
 EVENT_INPUT_BLOCKED = f"{DOMAIN}_input_blocked"

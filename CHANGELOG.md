@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.20.0] - 2026-11-01
+
+### Added
+
+- **Earned TV time.** A TV's daily screen time, and the whole home's daily or weekly time, can now be 0. The TVs then stay off until you give extra time, for example when the kids finish their chores. Leave the field empty for no limit.
+- **Whole home too.** Next to each TV's extra time buttons, tick **Whole home too** to give that TV and the whole home the same time in one go. Your phone or browser remembers the choice. `tv_mgmt.grant_extension` takes `whole_home: true` for the same thing in automations.
+
+### Changed
+
+- **No limit is now an empty field, not 0.** Existing TVs and whole-home limits set to 0 are changed to empty when you update, so nothing changes for them. Days recorded before this update still show in Analytics as they were.
+
 ## [1.19.2] - 2026-10-31
 
 ### Fixed
@@ -462,6 +473,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.20.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.19.2...v1.20.0
 [1.19.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.19.1...v1.19.2
 [1.19.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.19.0...v1.19.1
 [1.19.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.18.1...v1.19.0

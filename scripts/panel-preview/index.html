@@ -192,10 +192,15 @@ const lightSync = () => ({
     unsupported_lights: ["brightness_only", "skip"], color_modes: ["single", "palette"], palette_strategies: ["spread", "dominant_first", "mirrored"],
     palette_sizes: [3, 4, 5], metadata_providers: ["tmdb", "trakt"] } });
 // Whole-home limits (sample).
+// zero=1: no TV time without extra time (earned), for a TV and the home.
 let home = { daily_minutes: 240, weekly_minutes: 1200, week_start: "monday", warn_minutes: 10, action: "turn_off",
   notify: ["notify.mobile_app_parent_phone"], excluded: [], active: true, today_seconds: 3.4 * 3600, week_seconds: 15.2 * 3600,
   daily_remaining: 0.6 * 3600, weekly_remaining: 4.8 * 3600, remaining: 0.6 * 3600, reason: "home_daily",
   extension_minutes: 0, extension_week_minutes: 0, week_start_date: "2026-10-12" };
+if (params.get("zero")) {
+  Object.assign(home, { daily_minutes: 0, weekly_minutes: null, today_seconds: 0, daily_remaining: 0, weekly_remaining: null, remaining: 0 });
+  Object.assign(profiles[1], { budget_minutes: 0, extension_minutes: 0, used_seconds: 0, remaining_seconds: 0, state: "enforcing", reason: "budget" });
+}
 const homeResult = () => ({ home, notify_targets: ["notify.mobile_app_parent_phone", "notify.mobile_app_second_phone", "notify.family_room_tv"],
   tvs: profiles.map((x) => ({ entry_id: x.entry_id, name: x.name })) });
 window.hass = {
@@ -215,7 +220,7 @@ window.hass = {
     switch (msg.type) {
       case "tv_mgmt/profiles": return { profiles: params.get("empty") ? [] : params.get("single") ? profiles.slice(0, 1) : profiles, home: params.get("nohome") ? null : home, now: nowIso };
       case "tv_mgmt/home/get": return homeResult();
-      case "tv_mgmt/home/set": window.lastHome = msg; home = { ...home, ...msg, active: msg.daily_minutes > 0 || msg.weekly_minutes > 0 }; return homeResult();
+      case "tv_mgmt/home/set": window.lastHome = msg; home = { ...home, ...msg, active: msg.daily_minutes != null || msg.weekly_minutes != null }; return homeResult();
       case "tv_mgmt/home/extension": home = { ...home, extension_minutes: home.extension_minutes + msg.minutes, daily_remaining: home.daily_remaining + msg.minutes * 60 }; return { home };
       case "tv_mgmt/activity": return { app_segments: [
         { start: t(15,5), end: t(15,32), seconds: 27*60, app: "com.google.ios.youtube", name: "YouTube", live: false },
@@ -284,7 +289,19 @@ window.hass = {
         return { lights: p.tv_lights, failed: {}, profile: p };
       }
       case "tv_mgmt/remote": window.lastRemote = msg; return { key: msg.key };
-      case "tv_mgmt/action": window.lastAction = msg; return { profile: profiles.find(p => p.entry_id === msg.entry_id) };
+      case "tv_mgmt/action": {
+        window.lastAction = msg;
+        const p = profiles.find(p => p.entry_id === msg.entry_id);
+        if (msg.action === "grant_extension") {
+          p.extension_minutes += msg.minutes;
+          p.remaining_seconds = (p.remaining_seconds || 0) + msg.minutes * 60;
+          if (msg.whole_home) {
+            home = { ...home, extension_minutes: home.extension_minutes + msg.minutes, daily_remaining: (home.daily_remaining || 0) + msg.minutes * 60 };
+            return { profile: p, home };
+          }
+        }
+        return { profile: p };
+      }
     }
     throw { code: "unknown_command", message: msg.type };
   },

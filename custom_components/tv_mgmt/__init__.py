@@ -27,7 +27,9 @@ from .backends import create_backend
 from .const import (
     ATTR_MINUTES,
     ATTR_PROFILE_ID,
+    ATTR_WHOLE_HOME,
     CONF_ALLOWED_SOURCES,
+    CONF_DAILY_BUDGET,
     CONF_ENFORCE_ON_POWER_ON,
     CONF_MAX_ATTEMPTS,
     CONF_MEDIA_PLAYER,
@@ -70,7 +72,13 @@ MESSAGE_SCHEMA = PROFILE_SCHEMA.extend(
     }
 )
 EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
-    {vol.Required(ATTR_MINUTES): vol.All(vol.Coerce(int), vol.Range(min=-240, max=240))}
+    {
+        vol.Required(ATTR_MINUTES): vol.All(
+            vol.Coerce(int), vol.Range(min=-240, max=240)
+        ),
+        # Give the whole home the same extra time too.
+        vol.Optional(ATTR_WHOLE_HOME, default=False): cv.boolean,
+    }
 )
 
 
@@ -136,7 +144,21 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             return None
 
         await er.async_migrate_entries(hass, entry.entry_id, _migrate_unique_id)
-        hass.config_entries.async_update_entry(entry, options=options, version=2)
+        hass.config_entries.async_update_entry(
+            entry, options=options, version=2, minor_version=1
+        )
+
+    if entry.version == 2 and entry.minor_version < 2:
+        # Before 1.20.0 a daily limit of 0 meant no limit. Now empty means no
+        # limit and 0 means no time until extra time is given.
+        options = {
+            key: (dict(value) if isinstance(value, dict) else value)
+            for key, value in entry.options.items()
+        }
+        screen = options.setdefault(SECTION_SCREEN_TIME, {})
+        if not screen.get(CONF_DAILY_BUDGET):
+            screen[CONF_DAILY_BUDGET] = None
+        hass.config_entries.async_update_entry(entry, options=options, minor_version=2)
 
     return True
 
@@ -352,6 +374,11 @@ def _register_services(hass: HomeAssistant) -> None:
     async def grant_extension(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)
         _manager(hass, call).grant_extension(call.data[ATTR_MINUTES])
+        if call.data[ATTR_WHOLE_HOME]:
+            from .home_limits import get_home  # noqa: PLC0415
+
+            if (home := get_home(hass)) is not None:
+                home.grant_extension(call.data[ATTR_MINUTES])
 
     async def force_block(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)
