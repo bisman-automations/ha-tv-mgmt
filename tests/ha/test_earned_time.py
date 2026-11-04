@@ -147,6 +147,25 @@ async def test_home_zero_limit_and_extra_time_for_both(
     assert family.runtime_data.state.extension_minutes == 70
     assert home(hass).status().extension_minutes == 60
 
+    # A reason (from a chores reward) shows in the Activity, on the TV and the home.
+    await hass.services.async_call(
+        DOMAIN,
+        "grant_extension",
+        {
+            "profile_id": family.entry_id,
+            "minutes": 30,
+            "whole_home": True,
+            "reason": "Alex's reward: 30 minutes of TV",
+        },
+        blocking=True,
+    )
+    events = family.runtime_data.activity.events
+    assert events[-2]["type"] == "extension"
+    assert events[-2]["reason"] == "Alex's reward: 30 minutes of TV"
+    assert events[-1]["type"] == "home_extension"
+    assert events[-1]["reason"] == "Alex's reward: 30 minutes of TV"
+    assert events[-1]["by"] is None
+
 
 def test_home_settings_saved_before_zero_limits() -> None:
     # Before 1.20.0, 0 meant no limit; those settings are kept that way.

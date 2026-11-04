@@ -38,7 +38,7 @@ EV_TURNED_OFF = "turned_off"  # reason: TV Mgmt turned the TV off
 EV_MODE = "mode"  # mode, synced
 EV_INPUT_LOCK = "input_lock"  # on
 EV_ADULT_MODE = "adult_mode"  # on, minutes (on); reason "expired" when it ran out (off)
-EV_EXTENSION = "extension"  # minutes
+EV_EXTENSION = "extension"  # minutes, reason (optional)
 EV_BLOCK = "block"
 EV_UNBLOCK = "unblock"
 EV_RESET = "reset"
@@ -52,7 +52,9 @@ EV_MESSAGE = "message"  # text, sent (where), by: a parent sent a message to the
 EV_MEDIA = (
     "media"  # series, season, episode, title, artist, app, name: started watching
 )
-EV_HOME_EXTENSION = "home_extension"  # minutes, by: extra time for the whole home
+EV_HOME_EXTENSION = (
+    "home_extension"  # minutes, by, reason: extra time for the whole home
+)
 EV_TV_LIGHTS_OFF = "tv_lights_off"  # failed (count, when some didn't): turned off from the panel or button
 
 EVENT_TYPES = [

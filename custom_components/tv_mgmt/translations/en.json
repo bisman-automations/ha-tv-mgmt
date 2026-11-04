@@ -93,13 +93,15 @@
               "announce_tts": "Voice",
               "announce_players": "Say it on",
               "announce_screen": "Show on the TV screen with",
-              "announce_airplay": "Show on the Apple TV with AirPlay"
+              "announce_airplay": "Show on the Apple TV with AirPlay",
+              "live_activity": "Live Activity on these phones"
             },
             "data_description": {
               "announce_tts": "A text-to-speech entity, such as Google Translate or Piper.",
               "announce_players": "Speakers or media players in the room. On the Apple TV, speaking stops what's playing, so a HomePod or other speaker is nicer.",
               "announce_screen": "A notify service that shows messages on the TV, such as the Notifications for Android TV / Fire TV integration or LG webOS. Messages show over any input, including the Apple TV.",
-              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL."
+              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL.",
+              "live_activity": "Each time the TV turns on, these phones show a Live Activity with how much TV time is left today, counting down. It updates when extra time is given or the time runs out, and goes away a minute after the TV turns off. Needs the Home Assistant app on iPhone."
             }
           },
           "sync": {
@@ -225,13 +227,15 @@
               "announce_tts": "Voice",
               "announce_players": "Say it on",
               "announce_screen": "Show on the TV screen with",
-              "announce_airplay": "Show on the Apple TV with AirPlay"
+              "announce_airplay": "Show on the Apple TV with AirPlay",
+              "live_activity": "Live Activity on these phones"
             },
             "data_description": {
               "announce_tts": "A text-to-speech entity, such as Google Translate or Piper.",
               "announce_players": "Speakers or media players in the room. On the Apple TV, speaking stops what's playing, so a HomePod or other speaker is nicer.",
               "announce_screen": "A notify service that shows messages on the TV, such as the Notifications for Android TV / Fire TV integration or LG webOS. Messages show over any input, including the Apple TV.",
-              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL."
+              "announce_airplay": "Plays a 10-second full-screen message on the linked Apple TV, if it's on, such as \"5 minutes of TV time left\". It interrupts what's playing. The Apple TV fetches it from Home Assistant's local URL.",
+              "live_activity": "Each time the TV turns on, these phones show a Live Activity with how much TV time is left today, counting down. It updates when extra time is given or the time runs out, and goes away a minute after the TV turns off. Needs the Home Assistant app on iPhone."
             }
           },
           "sync": {
@@ -493,6 +497,10 @@
         "whole_home": {
           "name": "Whole home too",
           "description": "Also give the whole home the same extra time, so a whole-home limit doesn't stop the TV first."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Why the time was given, such as a chores reward. Shown in the Activity."
         }
       }
     },

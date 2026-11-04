@@ -30,6 +30,7 @@ from .const import (
     CONF_BLOCKED_SHOWS,
     CONF_DAILY_BUDGET,
     CONF_INPUT_NAMES,
+    CONF_LIVE_ACTIVITY,
     CONF_QUIET_WINDOWS,
     CONF_SLEEP_ON_BLOCK,
     CONF_TV_LIGHTS,
@@ -39,6 +40,7 @@ from .const import (
     DEFAULT_QUIET_WINDOWS,
     DEFAULT_TV_LIGHTS_FOLLOW,
     DOMAIN,
+    SECTION_ANNOUNCE,
     SECTION_APPLE_TV,
     SECTION_INPUT_LOCK,
     SECTION_LIGHTS,
@@ -53,6 +55,7 @@ from .home import (
     HomeSettings,
 )
 from .home_limits import get_home, notify_targets
+from .live_activity import phone_targets
 from .manager import TVManager
 from .media import describe
 from .messages import MAX_LENGTH as MAX_MESSAGE_LENGTH, PRESETS as MESSAGE_PRESETS
@@ -402,6 +405,11 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
             ),
             CONF_ADULT_MODE_DURATION: manager.adult_mode_duration,
             CONF_ADULT_MODE_COUNTS: manager.adult_mode_counts,
+            CONF_LIVE_ACTIVITY: list(manager.options.get(CONF_LIVE_ACTIVITY) or []),
+            "phones": [
+                {"service": service, "name": name}
+                for service, name in phone_targets(hass).items()
+            ],
         },
     )
 
@@ -421,6 +429,8 @@ def ws_limits_get(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional(CONF_QUIET_WINDOWS): str,
         vol.Optional(CONF_ADULT_MODE_DURATION): vol.All(int, vol.Range(min=5, max=720)),
         vol.Optional(CONF_ADULT_MODE_COUNTS): bool,
+        # Phones (notify services) that show the TV's Live Activity.
+        vol.Optional(CONF_LIVE_ACTIVITY): [str],
     }
 )
 @require_access
@@ -452,6 +462,13 @@ def ws_limits_set(hass: HomeAssistant, connection, msg) -> None:
         for key, value in entry.options.items()
     }
     options.setdefault(SECTION_SCREEN_TIME, {}).update(changes)
+    if CONF_LIVE_ACTIVITY in msg:
+        phones = list(dict.fromkeys(msg[CONF_LIVE_ACTIVITY]))
+        options[SECTION_ANNOUNCE] = {
+            **options.get(SECTION_ANNOUNCE, {}),
+            CONF_LIVE_ACTIVITY: phones,
+        }
+        changes[CONF_LIVE_ACTIVITY] = phones
     # The update listener applies the new limits to the running TV (no reload).
     hass.config_entries.async_update_entry(entry, options=options)
     connection.send_result(msg["id"], {"saved": changes})

@@ -141,7 +141,9 @@ class HomeLimits:
         self.refresh_all()
 
     @callback
-    def grant_extension(self, minutes: int, by: str | None = None) -> None:
+    def grant_extension(
+        self, minutes: int, by: str | None = None, reason: str | None = None
+    ) -> None:
         today = dt_util.now().date()
         key = today.isoformat()
         self.extensions[key] = self.extensions.get(key, 0) + minutes
@@ -151,7 +153,7 @@ class HomeLimits:
         }
         self._schedule_save()
         for manager in self.counted():
-            manager.log_home_extension(minutes, by)
+            manager.log_home_extension(minutes, by, reason)
         self.refresh_all()
 
     @callback

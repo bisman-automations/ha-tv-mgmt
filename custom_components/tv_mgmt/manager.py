@@ -42,6 +42,7 @@ from .const import (
     CONF_DAILY_BUDGET,
     CONF_ENFORCE_ON_POWER_ON,
     CONF_INPUT_NAMES,
+    CONF_LIVE_ACTIVITY,
     CONF_MAX_ATTEMPTS,
     CONF_MEDIA_PLAYER,
     CONF_MODE_SYNC_ENTITY,
@@ -75,6 +76,7 @@ from .const import (
 )
 from .guard import InputGuard
 from .home_limits import get_home
+from .live_activity import TVLiveActivity
 from .media import media_key, show_of
 from .mode_sync import ModeSync
 from .names import InputNames
@@ -160,6 +162,7 @@ LIVE_OPTIONS = frozenset(
         CONF_MODE_SYNC_ENTITY,
         CONF_TV_LIGHTS,
         CONF_TV_LIGHTS_FOLLOW,
+        CONF_LIVE_ACTIVITY,
     }
 )
 
@@ -229,6 +232,7 @@ class TVManager:
         self._tv_lights_held_off = False
         self._logged_media: tuple | None = None
         self._unsub_follow: CALLBACK_TYPE | None = None
+        self.live_activity = TVLiveActivity(self)
 
         self._last_tick: datetime | None = None
         self._last_turn_off: datetime | None = None
@@ -335,6 +339,8 @@ class TVManager:
         if CONF_TV_LIGHTS_FOLLOW in changed and self.light_sync:
             # Whether its zones treat the TV lights as TV Mgmt's changed.
             self.light_sync.tv_lights_hold_changed()
+        if CONF_LIVE_ACTIVITY in changed:
+            self.live_activity.phones_changed()
         if was_private and not self._adult_private():
             # Adult mode time counts from now on, so its apps are logged again.
             self._relog_app()
@@ -536,8 +542,10 @@ class TVManager:
             self._log_media()
             self.box.evaluate()
         self._record_today()
+        self.live_activity.async_start()
 
     async def async_stop(self) -> None:
+        self.live_activity.async_stop()
         self._count_usage()
         if home := get_home(self.hass):
             home.unregister(self)
@@ -1158,8 +1166,13 @@ class TVManager:
         self.notify()
 
     @callback
-    def log_home_extension(self, minutes: int, by: str | None = None) -> None:
-        self._log(act.EV_HOME_EXTENSION, minutes=minutes, by=by)
+    def log_home_extension(
+        self, minutes: int, by: str | None = None, reason: str | None = None
+    ) -> None:
+        if reason:
+            self._log(act.EV_HOME_EXTENSION, minutes=minutes, by=by, reason=reason)
+        else:
+            self._log(act.EV_HOME_EXTENSION, minutes=minutes, by=by)
 
     @callback
     def _changed(self) -> None:
@@ -1228,10 +1241,13 @@ class TVManager:
         self._log_app()
 
     @callback
-    def grant_extension(self, minutes: int) -> None:
+    def grant_extension(self, minutes: int, reason: str | None = None) -> None:
         self._count_usage()
         self.state.extension_minutes += minutes
-        self._log(act.EV_EXTENSION, minutes=minutes)
+        if reason:
+            self._log(act.EV_EXTENSION, minutes=minutes, reason=reason)
+        else:
+            self._log(act.EV_EXTENSION, minutes=minutes)
         self._changed()
 
     @callback
@@ -1264,6 +1280,7 @@ class TVManager:
         async_dispatcher_send(self.hass, SIGNAL_ANY_UPDATED, self.entry.entry_id)
         if self.light_sync:
             self.light_sync.handle_profile_update()
+        self.live_activity.refresh()
 
     # ---- activity log -------------------------------------------------------------------
 

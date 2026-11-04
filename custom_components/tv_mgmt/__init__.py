@@ -27,6 +27,7 @@ from .backends import create_backend
 from .const import (
     ATTR_MINUTES,
     ATTR_PROFILE_ID,
+    ATTR_REASON,
     ATTR_WHOLE_HOME,
     CONF_ALLOWED_SOURCES,
     CONF_DAILY_BUDGET,
@@ -78,6 +79,7 @@ EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
         ),
         # Give the whole home the same extra time too.
         vol.Optional(ATTR_WHOLE_HOME, default=False): cv.boolean,
+        vol.Optional(ATTR_REASON): vol.All(cv.string, vol.Length(max=100)),
     }
 )
 
@@ -373,12 +375,13 @@ def _register_services(hass: HomeAssistant) -> None:
 
     async def grant_extension(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)
-        _manager(hass, call).grant_extension(call.data[ATTR_MINUTES])
+        reason = (call.data.get(ATTR_REASON) or "").strip() or None
+        _manager(hass, call).grant_extension(call.data[ATTR_MINUTES], reason)
         if call.data[ATTR_WHOLE_HOME]:
             from .home_limits import get_home  # noqa: PLC0415
 
             if (home := get_home(hass)) is not None:
-                home.grant_extension(call.data[ATTR_MINUTES])
+                home.grant_extension(call.data[ATTR_MINUTES], reason=reason)
 
     async def force_block(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)

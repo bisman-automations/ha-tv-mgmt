@@ -170,9 +170,9 @@ function describeEvent(e, p) {
     case "adult_mode":
       return { icon: "adult", text: e.on ? `Adult mode on for ${e.minutes} min` : e.reason === "expired" ? "Adult mode ended" : "Adult mode turned off" };
     case "extension":
-      return { icon: "plus", text: e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away` };
+      return { icon: "plus", text: `${e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away`}${e.reason ? `: ${e.reason}` : ""}` };
     case "home_extension":
-      return { icon: "plus", text: `${e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away`} for the whole home${e.by ? ` by ${e.by}` : ""}` };
+      return { icon: "plus", text: `${e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away`} for the whole home${e.by ? ` by ${e.by}` : ""}${e.reason ? `: ${e.reason}` : ""}` };
     case "block":
       return { icon: "shield", tone: "bad", text: "Blocked now" };
     case "unblock":
@@ -2199,6 +2199,7 @@ class TvMgmtPanel extends HTMLElement {
             <label class="toggle"><span>Count adult mode time toward limits<small>When off, time in adult mode doesn't use up this TV's or the home's time, or any app's. Activity and Analytics show it as its own total.</small></span>
               <span class="switch"><input type="checkbox" id="adult_mode_counts" ${d.adult_mode_counts ? "checked" : ""}><span></span></span></label>
           </div>
+          ${this._renderLivePhones(d)}
           <div class="form-actions">
             <button type="submit" class="btn primary" ${this._busy ? "disabled" : ""}>${this._busy ? "Saving…" : "Save limits"}</button>
             ${this._savedNote ? `<span class="saved" role="status">${esc(this._savedNote)}</span>` : ""}
@@ -2207,6 +2208,23 @@ class TvMgmtPanel extends HTMLElement {
       </div></section>
       ${this._renderAppRules()}
       ${this._renderNames()}`;
+  }
+
+  _renderLivePhones(d) {
+    const picked = d.live_activity || [];
+    const phones = [...(d.phones || [])];
+    for (const service of picked) if (!phones.some((p) => p.service === service)) phones.push({ service, name: service });
+    const boxes = phones.length
+      ? phones
+          .map((p) => `<label class="toggle"><span>${esc(p.name)}</span>
+            <span class="switch"><input type="checkbox" data-phone="${esc(p.service)}" ${picked.includes(p.service) ? "checked" : ""}><span></span></span></label>`)
+          .join("")
+      : `<p class="muted">No phones with the Home Assistant app yet.</p>`;
+    return `<div class="field">
+            <label>Live Activity on phones</label>
+            <small>Each time the TV turns on, these phones show how much TV time is left today, counting down. It updates when extra time is given or the time runs out, and goes away a minute after the TV turns off. Needs the Home Assistant app on iPhone.</small>
+            ${boxes}
+          </div>`;
   }
 
   _renderAppRules() {
@@ -3243,6 +3261,11 @@ class TvMgmtPanel extends HTMLElement {
 
   _onChange(ev) {
     const input = ev.target;
+    if ((input.dataset.phone !== undefined || input.id === "adult_mode_counts") && this._limitsDraft) {
+      // Keep the switch through a live redraw before Save.
+      this._syncLimitInputs();
+      return;
+    }
     if (input.dataset.homeToo !== undefined) {
       this._homeToo = input.checked;
       try {
@@ -3392,6 +3415,8 @@ class TvMgmtPanel extends HTMLElement {
     }
     const counts = root.getElementById("adult_mode_counts");
     if (counts) d.adult_mode_counts = counts.checked;
+    const phones = root.querySelectorAll("[data-phone]");
+    if (phones.length) d.live_activity = [...phones].filter((el) => el.checked).map((el) => el.dataset.phone);
     root.querySelectorAll("[data-win]").forEach((el) => {
       d.windows[Number(el.dataset.win)][el.dataset.key] = el.value;
     });
@@ -3498,9 +3523,10 @@ class TvMgmtPanel extends HTMLElement {
     this._render();
     try {
       const adult_mode_counts = !!d.adult_mode_counts;
-      await this._ws({ type: "tv_mgmt/limits/set", entry_id: this._selected, ...numbers, quiet_windows: quiet, adult_mode_counts });
+      const live_activity = [...(d.live_activity || [])];
+      await this._ws({ type: "tv_mgmt/limits/set", entry_id: this._selected, ...numbers, quiet_windows: quiet, adult_mode_counts, live_activity });
       this._savedNote = "Limits saved";
-      this._limits = { ...numbers, quiet_windows: quiet, adult_mode_counts };
+      this._limits = { ...this._limits, ...numbers, quiet_windows: quiet, adult_mode_counts, live_activity };
     } catch (err) {
       this._error = this._errorText(err);
     }

@@ -62,6 +62,8 @@ CONF_ANNOUNCE_TTS = "announce_tts"
 CONF_ANNOUNCE_PLAYERS = "announce_players"
 CONF_ANNOUNCE_SCREEN = "announce_screen"
 CONF_ANNOUNCE_AIRPLAY = "announce_airplay"
+# Phones (notify.mobile_app_* services) that show the TV's Live Activity.
+CONF_LIVE_ACTIVITY = "live_activity"
 ANNOUNCE_GRACE = 10  # seconds between "the TV is turning off" and turning it off
 DEFAULT_WAKE_WITH_TV = True
 APP_STOP_DELAY = 2  # seconds before stopping an app that isn't allowed
@@ -94,6 +96,8 @@ SERVICE_TURN_OFF_TV_LIGHTS = "turn_off_tv_lights"
 ATTR_PROFILE_ID = "profile_id"
 ATTR_MINUTES = "minutes"
 ATTR_WHOLE_HOME = "whole_home"
+# Why the extra time was given, shown in the Activity (e.g. "Alex's reward").
+ATTR_REASON = "reason"
 
 # Events
 EVENT_INPUT_BLOCKED = f"{DOMAIN}_input_blocked"

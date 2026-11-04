@@ -267,6 +267,17 @@ The "turning off" message plays once per block. If the TV doesn't turn off, or c
 
 When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
 
+## Live Activity on your phone
+
+Each time the TV turns on, your iPhone can show a Live Activity with how much TV time is left today: on the Lock Screen and in the Dynamic Island, counting down by itself. Pick the phones on the **Limits** tab of the sidebar app, under **Live Activity on phones**, or under **Configure → Warnings on the TV**. Phones with the Home Assistant app are listed.
+
+- **While the TV is on**, it shows when the time runs out ("TV time ends at 7:45 PM") and counts down. It turns orange at the warning time.
+- **It updates** when extra time is given (from the dashboard, an automation or a chores reward), when the time runs out, during a quiet window or a block, and when the rules are paused or adult mode is on. With no daily limit, it says so.
+- **When the TV turns off**, it shows "TV off" with the time watched today, and goes away a minute later.
+- Tapping it opens TV Mgmt.
+
+iOS ends a Live Activity after 8 hours; TV Mgmt starts a new one if the TV is still on. It needs the Home Assistant app on iOS 17.2 or newer (Live Activities); on Android 16 or newer it shows as a Live Update.
+
 ## Naming inputs
 
 TVs report inputs however their integration knows them. Android TV, for example, reports the app on screen, so an HDMI input can show up as `com.tcl.tv`. Give it a name you'll recognise, like **Apple TV**, and TV Mgmt shows that name everywhere:
@@ -368,7 +379,7 @@ All services take the profile (`profile_id`) to act on.
 
 | Service | What it does |
 | --- | --- |
-| `tv_mgmt.grant_extension` | Add minutes to today's limit (negative to take time away). `whole_home: true` gives the whole home the same time. |
+| `tv_mgmt.grant_extension` | Add minutes to today's limit (negative to take time away). `whole_home: true` gives the whole home the same time. `reason` (optional) shows in the Activity, such as "Alex's reward". |
 | `tv_mgmt.force_block` | Turn the TV off and keep it off until unblocked or the day ends. |
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
@@ -402,7 +413,10 @@ data:
   profile_id: 01JABCDEF...
   minutes: 30
   whole_home: true
+  reason: Chores done   # optional, shown in the Activity
 ```
+
+The [Family](https://github.com/bisman-automations/ha-family) integration does this for you: kids spend points from chores on a TV time reward, and it gives the time on the TV (and the whole home, if you tick it), with the reward's name in the Activity.
 
 ```yaml
 action: tv_mgmt.send_message

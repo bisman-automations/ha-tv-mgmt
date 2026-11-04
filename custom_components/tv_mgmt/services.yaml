@@ -18,6 +18,10 @@ grant_extension:
       default: false
       selector:
         boolean:
+    reason:
+      required: false
+      selector:
+        text:
 
 force_block:
   fields:

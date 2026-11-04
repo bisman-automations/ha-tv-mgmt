@@ -47,6 +47,7 @@ from .const import (
     CONF_DAILY_BUDGET,
     CONF_ENFORCE_ON_POWER_ON,
     CONF_INPUT_NAMES,
+    CONF_LIVE_ACTIVITY,
     CONF_MAX_ATTEMPTS,
     CONF_MEDIA_PLAYER,
     CONF_MODE_SYNC_ENTITY,
@@ -79,6 +80,7 @@ from .const import (
     SECTION_SCREEN_TIME,
     SECTION_SYNC,
 )
+from .live_activity import phone_targets
 from .manager import flatten_options
 from .mode_sync import suggest_mode_select
 from .names import InputNames, format_names, parse_names
@@ -271,8 +273,31 @@ def _announce_schema(hass: HomeAssistant, d: Mapping[str, Any]) -> vol.Schema:
             vol.Required(
                 CONF_ANNOUNCE_AIRPLAY, default=bool(d.get(CONF_ANNOUNCE_AIRPLAY, False))
             ): selector.BooleanSelector(),
+            vol.Optional(
+                CONF_LIVE_ACTIVITY,
+                description={"suggested_value": list(d.get(CONF_LIVE_ACTIVITY) or [])},
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=_phone_options(hass, d.get(CONF_LIVE_ACTIVITY)),
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
         }
     )
+
+
+def _phone_options(
+    hass: HomeAssistant, current: list[str] | None
+) -> list[selector.SelectOptionDict]:
+    """Phones with the Home Assistant app, plus any picked that are gone now."""
+    phones = phone_targets(hass)
+    for service in current or []:
+        phones.setdefault(service, service)
+    return [
+        selector.SelectOptionDict(value=service, label=name)
+        for service, name in phones.items()
+    ]
 
 
 def _sync_schema(
@@ -549,6 +574,7 @@ def _process(
         CONF_ANNOUNCE_PLAYERS: list(raw.get(CONF_ANNOUNCE_PLAYERS) or []),
         CONF_ANNOUNCE_SCREEN: (raw.get(CONF_ANNOUNCE_SCREEN) or "").strip() or None,
         CONF_ANNOUNCE_AIRPLAY: bool(raw.get(CONF_ANNOUNCE_AIRPLAY)),
+        CONF_LIVE_ACTIVITY: list(dict.fromkeys(raw.get(CONF_LIVE_ACTIVITY) or [])),
     }
     if announce[CONF_ANNOUNCE_PLAYERS] and not announce[CONF_ANNOUNCE_TTS]:
         errors["base"] = "announce_needs_voice"
