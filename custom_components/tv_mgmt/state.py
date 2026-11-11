@@ -58,19 +58,25 @@ def decide(
     quiet_windows: list[QuietWindow],
     home_remaining: int | None = None,
     home_reason: str | None = None,
+    carried_seconds: int = 0,
 ) -> Decision:
     """What should be true about the TV right now.
 
     budget_minutes None means no daily limit; 0 is a limit of no time, so
-    only extra time lets the TV on. home_remaining is the time left
-    for the whole home (None when no home limit applies to this TV); whichever
-    limit has less left is the one that counts. The decision is the same in
-    monitor-only mode; the caller just doesn't act on it.
+    only extra time lets the TV on. extension_minutes is extra given today.
+    carried_seconds is extra from earlier days that hasn't been used yet;
+    it stays until it is watched, including after midnight. home_remaining
+    is the time left for the whole home (None when no home limit applies to
+    this TV); whichever limit has less left is the one that counts. The
+    decision is the same in monitor-only mode; the caller just doesn't act
+    on it.
     """
     remaining: int | None = None
     limit: str | None = None
     if budget_minutes is not None:
-        remaining = (budget_minutes + extension_minutes) * 60 - used_seconds
+        remaining = (
+            (budget_minutes + extension_minutes) * 60 + carried_seconds - used_seconds
+        )
         limit = REASON_BUDGET
     if home_remaining is not None and (remaining is None or home_remaining < remaining):
         remaining, limit = home_remaining, home_reason

@@ -1244,22 +1244,31 @@ class TvMgmtPanel extends HTMLElement {
         <div class="meter" role="progressbar" aria-valuemin="0" aria-valuemax="${limitMin}" aria-valuenow="${minutes(used)}" aria-label="Whole home, ${label}"><div class="tone-${tone}" style="width:${pct}%"></div></div>
       </div>`;
     };
-    const extra = h.daily_minutes != null ? h.daily_minutes + h.extension_minutes : null;
+    // Unused extra from earlier days counts today; from before this week, this week.
+    const todayLimit = h.daily_minutes != null
+      ? h.daily_minutes + (h.extension_minutes || 0) + (h.carried_seconds || 0) / 60
+      : null;
+    const weekLimit = h.weekly_minutes != null
+      ? h.weekly_minutes + (h.extension_week_minutes || 0) + (h.carried_week_seconds || 0) / 60
+      : null;
+    const bank = h.carried_seconds > 0 ? ` · ${duration(h.carried_seconds)} still left from earlier` : "";
+    const granted = h.extension_minutes ? ` (${h.extension_minutes > 0 ? "+" : ""}${h.extension_minutes} min today)` : "";
     return `<section class="card home-strip" aria-label="Whole home">
       <div class="card-body">
         <div class="card-head"><h2>Whole home</h2><button class="link" data-tab="limits">Change</button></div>
         <div class="home-rows">
-          ${bar("today", h.today_seconds, extra, h.daily_remaining)}
-          ${bar("this week", h.week_seconds, h.weekly_minutes != null ? h.weekly_minutes + (h.extension_week_minutes || 0) : null, h.weekly_remaining)}
+          ${bar("today", h.today_seconds, todayLimit, h.daily_remaining)}
+          ${bar("this week", h.week_seconds, weekLimit, h.weekly_remaining)}
         </div>
         ${h.action === "notify" ? `<small class="muted">When it runs out, the people picked are told. The TVs aren't turned off.</small>` : ""}
         <div class="row">
-          <span class="label">Extra time for the whole home today${h.extension_minutes ? ` (${h.extension_minutes > 0 ? "+" : ""}${h.extension_minutes} min so far)` : ""}</span>
+          <span class="label">Extra time for the whole home${bank}${granted}</span>
           <button class="btn" data-home-extra="-15">−15 min</button>
           <button class="btn" data-home-extra="15">+15 min</button>
           <button class="btn" data-home-extra="30">+30 min</button>
           <button class="btn" data-home-extra="60">+1 h</button>
         </div>
+        <small class="muted">Extra time that isn't used stays until it is.</small>
       </div>
     </section>`;
   }
@@ -1292,7 +1301,9 @@ class TvMgmtPanel extends HTMLElement {
     if (p.lock_paused_reason) sub = esc(p.lock_paused_reason);
 
     // null: no daily limit. 0 is a limit of no time, so only extra time counts.
-    const limit = p.budget_minutes != null ? p.budget_minutes + p.extension_minutes : null;
+    // carried_seconds is extra from earlier days that hasn't been used.
+    const carried = p.budget_minutes != null ? (p.carried_seconds || 0) : 0;
+    const limit = p.budget_minutes != null ? p.budget_minutes + p.extension_minutes + carried / 60 : null;
     const usedMin = minutes(p.used_seconds);
     const pct = limit ? Math.min(100, (usedMin / limit) * 100) : limit === 0 ? 100 : 0;
     const homeLimited = (p.limit === "home_daily" || p.limit === "home_weekly") && p.remaining_seconds != null;
@@ -1351,7 +1362,7 @@ class TvMgmtPanel extends HTMLElement {
         ${p.apple_tv ? `<div class="col col-atv card-body">${this._renderAppleTv(p)}</div>` : ""}
         <div class="col col-controls card-body">
           <dl class="facts">
-            <dt>Extra time today</dt><dd>${p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min` : "None"}</dd>
+            <dt>Extra time</dt><dd>${[carried > 0 ? `${duration(carried)} still left from earlier` : "", p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min today` : ""].filter(Boolean).join(", ") || "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
             ${p.adult_seconds ? `<dt>Adult mode today</dt><dd>${duration(p.adult_seconds)}${p.adult_mode_counts ? "" : `<span class="muted"> · not counted</span>`}</dd>` : ""}
             <dt>Last tried</dt><dd>${lastBlocked}</dd>
@@ -2089,12 +2100,12 @@ class TvMgmtPanel extends HTMLElement {
         <div class="field">
           <label for="home-daily">Daily TV time for the home</label>
           <span><input id="home-daily" type="number" min="0" max="1440" step="5" value="${h.daily_minutes ?? ""}" placeholder="No limit"> <span class="muted">minutes</span></span>
-          <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it.</small>
+          <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. Extra time that isn't used stays until it is, including after midnight and into the next week.</small>
         </div>
         <div class="field">
           <label for="home-weekly">Weekly TV time for the home</label>
           <span><input id="home-weekly" type="number" min="0" max="168" step="0.5" value="${hours}" placeholder="No limit"> <span class="muted">hours</span></span>
-          <small>Leave empty for no weekly limit. 0 means no TV time this week until you give extra time.</small>
+          <small>Leave empty for no weekly limit. 0 means no TV time this week until you give extra time. Extra from an earlier week stays until it's used.</small>
           <div class="row">${radio("home-week", "monday", "Weeks start on Monday", h.week_start === "monday")}${radio("home-week", "sunday", "Sunday", h.week_start === "sunday")}</div>
         </div>
         <div class="field">
@@ -2178,7 +2189,7 @@ class TvMgmtPanel extends HTMLElement {
           <div class="field">
             <label for="daily_budget">Daily screen time</label>
             <span><input id="daily_budget" type="number" min="0" max="1440" step="5" value="${d.daily_budget ?? ""}" placeholder="No limit"> <span class="muted">minutes</span></span>
-            <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off until tomorrow.</small>
+            <small>Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. Extra time that isn't used stays until it is. When the time runs out, the TV stays off.</small>
           </div>
           <div class="field">
             <label for="warn_minutes">Warn before time runs out</label>

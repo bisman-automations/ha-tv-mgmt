@@ -49,7 +49,13 @@ class ProfileState:
     media_apps: dict[str, str] = field(default_factory=dict)  # show -> app name, kept
 
     def reset_day(self, day: date) -> None:
-        """Start a new day. Extensions and manual blocks don't carry over."""
+        """Start a new day.
+
+        The grant recorded for today goes back to zero. Extra that wasn't
+        used is not kept here: it is worked out from earlier days' totals,
+        so a reward still counts after midnight. A manual block ends with
+        the day.
+        """
         self.day = day.isoformat()
         self.used_seconds = 0
         self.extension_minutes = 0

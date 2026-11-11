@@ -134,7 +134,11 @@ class HomeStatus:
     week_seconds: int
     daily_remaining: int | None  # None = no daily limit
     weekly_remaining: int | None  # None = no weekly limit
-    extension_minutes: int = 0  # extra time today
+    extension_minutes: int = 0  # extra minutes given today (negative takes some away)
+    # Unused extra from before today, and from before this week, in seconds.
+    # Added on top of the allowances so a reward isn't lost at midnight.
+    carried_seconds: int = 0
+    carried_week_seconds: int = 0
 
     @property
     def remaining(self) -> int | None:
@@ -157,6 +161,95 @@ class HomeStatus:
         return None
 
 
+def _is_day(value: object) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        date.fromisoformat(value)
+    except ValueError:
+        return False
+    return True
+
+
+def carried_extra(
+    grants: dict[str, int],
+    used_seconds: dict[str, int],
+    *,
+    today: str,
+    daily_minutes: int | None,
+    allowances: dict[str, int | None] | None = None,
+    week_start: str | None = None,
+    weekly_minutes: int | None = None,
+) -> tuple[int, int]:
+    """Unused extra carried into today, and into this week, in seconds.
+
+    Extra time (a reward, or time added from the dashboard) is a balance.
+    It stays until it is watched. It is not dropped at midnight or when a
+    new week starts.
+
+    ``grants`` maps a day to the extra minutes given that day. Negative
+    takes time away. ``used_seconds`` maps a day to seconds watched.
+    ``today`` and ``week_start`` are ISO dates. Days on or after ``today``
+    are ignored: today's grant is counted by the caller, not here.
+
+    On a day with a daily allowance, that allowance is watched first and
+    only the minutes beyond it come out of the balance. An allowance of 0
+    means every minute comes out of the balance. ``allowances`` overrides
+    ``daily_minutes`` for the days it names (a day the TV had no limit is
+    ``None``). With no daily allowance, watching still comes out of the
+    balance when a weekly allowance is set, so the extra doesn't sit on
+    top of that allowance forever. A penalty doesn't leave a debt: the
+    balance never goes below zero.
+
+    The first number is the balance at the start of today. Add it to
+    today's allowance. It is 0 when there is no daily allowance, because
+    there is no daily limit to add it to.
+
+    The second number is the balance at the start of this week. Add it to
+    the weekly allowance. Extra given during this week is not included;
+    the caller adds that itself. It is 0 when there is no weekly allowance.
+    """
+    allowances = allowances or {}
+    days = sorted(
+        day
+        for day in set(grants) | set(used_seconds) | set(allowances)
+        if _is_day(day) and day < today
+    )
+    # No daily allowance anywhere, and no weekly one either: extra has
+    # nowhere to count, so none of it is carried.
+    historic_daily = any(allowances.get(day) is not None for day in days)
+    if daily_minutes is None and not historic_daily and weekly_minutes is None:
+        return 0, 0
+
+    bank = 0
+    carried_into_week = 0
+    seen_week = False
+    for day in days:
+        if week_start and not seen_week and day >= week_start:
+            carried_into_week = bank
+            seen_week = True
+        grant = int(grants.get(day, 0) or 0) * 60
+        used = max(0, int(used_seconds.get(day, 0) or 0))
+        bank += grant
+        allow = allowances[day] if day in allowances else daily_minutes
+        if allow is None:
+            # No daily cap that day. A weekly cap still spends the balance,
+            # so the extra is used by watching instead of lasting forever.
+            if weekly_minutes is not None:
+                bank = max(0, bank - used)
+            else:
+                bank = max(0, bank)
+            continue
+        bank = max(0, bank - max(0, used - int(allow) * 60))
+    if week_start and not seen_week:
+        # Every earlier day is before this week (or there were none).
+        carried_into_week = bank
+    # Nothing to add to a day that has no daily allowance.
+    carried_today = 0 if daily_minutes is None else max(0, bank)
+    carried_week = 0 if weekly_minutes is None else max(0, carried_into_week)
+    return carried_today, carried_week
+
+
 def home_status(
     settings: HomeSettings,
     *,
@@ -164,18 +257,36 @@ def home_status(
     week_seconds: int,
     extension_today: int = 0,
     extension_week: int = 0,
+    carried_today_seconds: int = 0,
+    carried_week_seconds: int = 0,
 ) -> HomeStatus:
     """Time used and left.
 
-    Extra time given today adds to today's limit; extra time given on any day
-    this week (today included) adds to the weekly limit, so it isn't taken back
-    the next day.
+    Extra given today (``extension_today``) and extra carried from earlier
+    days (``carried_today_seconds``) both raise today's allowance. Extra
+    given this week, and extra carried in from before the week, both raise
+    the weekly allowance. A new day or a new week doesn't take unused extra
+    away.
     """
     daily = weekly = None
     if settings.daily_minutes is not None:
-        daily = (settings.daily_minutes + extension_today) * 60 - today_seconds
+        daily = (
+            (settings.daily_minutes + extension_today) * 60
+            + carried_today_seconds
+            - today_seconds
+        )
     if settings.weekly_minutes is not None:
-        weekly = (settings.weekly_minutes + extension_week) * 60 - week_seconds
+        weekly = (
+            (settings.weekly_minutes + extension_week) * 60
+            + carried_week_seconds
+            - week_seconds
+        )
     return HomeStatus(
-        int(today_seconds), int(week_seconds), daily, weekly, extension_today
+        today_seconds=int(today_seconds),
+        week_seconds=int(week_seconds),
+        daily_remaining=daily,
+        weekly_remaining=weekly,
+        extension_minutes=extension_today,
+        carried_seconds=int(carried_today_seconds),
+        carried_week_seconds=int(carried_week_seconds),
     )

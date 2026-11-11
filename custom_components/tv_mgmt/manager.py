@@ -75,6 +75,7 @@ from .const import (
     TURN_OFF_DELAY,
 )
 from .guard import InputGuard
+from .home import carried_extra
 from .home_limits import get_home
 from .live_activity import TVLiveActivity
 from .media import media_key, show_of
@@ -235,6 +236,8 @@ class TVManager:
         self.live_activity = TVLiveActivity(self)
 
         self._last_tick: datetime | None = None
+        # Unused extra from before today, in seconds. Set in _recompute.
+        self.carried_seconds = 0
         self._last_turn_off: datetime | None = None
         self._unsubs: list[CALLBACK_TYPE] = []
         self._unsub_turn_off: CALLBACK_TYPE | None = None
@@ -380,7 +383,7 @@ class TVManager:
     @property
     def daily_budget(self) -> int | None:
         """Minutes a day, or None for no limit. 0 lets the TV on only for
-        extra time given (earned) today."""
+        extra time. Extra that isn't used stays until it is."""
         value = self.options.get(CONF_DAILY_BUDGET, DEFAULT_DAILY_BUDGET)
         return None if value is None or value == "" else int(value)
 
@@ -530,6 +533,14 @@ class TVManager:
         if home := get_home(self.hass):
             home.register(self)
         self._recompute(fire_events=False)
+        if self.carried_seconds >= 60:
+            # Saved before 1.21.2 as a one-day grant. The minutes left are
+            # available again as soon as this profile loads.
+            _LOGGER.info(
+                "TV Mgmt %s: %s min of extra time from earlier is still available",
+                self.name,
+                round(self.carried_seconds / 60),
+            )
         self._log_power()
         self._tv_was_on = self.backend.is_on
         self.guard.async_start()
@@ -944,11 +955,43 @@ class TVManager:
                 self.state.media_seconds.get(show, 0) + seconds
             )
 
+    def carried_extra_seconds(self) -> int:
+        """Extra from before today that hasn't been used, in seconds.
+
+        Today's grant is ``state.extension_minutes``. Earlier grants are the
+        ``extension_minutes`` saved with each day's totals. With no daily
+        limit there is nowhere to add the balance, so this is 0.
+        """
+        if self.daily_budget is None:
+            return 0
+        today = self.state.day
+        grants: dict[str, int] = {}
+        used: dict[str, int] = {}
+        allowances: dict[str, int | None] = {}
+        for day, record in self.activity.daily.items():
+            if not isinstance(record, dict) or day >= today:
+                continue
+            grants[day] = int(record.get("extension_minutes") or 0)
+            used[day] = int(record.get("used_seconds") or 0)
+            # "limited" is saved from 1.20.0. Before that, 0 meant no limit.
+            budget = int(record.get("budget_minutes") or 0)
+            limited = bool(record.get("limited", budget > 0))
+            allowances[day] = budget if limited else None
+        carried, _week = carried_extra(
+            grants,
+            used,
+            today=today,
+            daily_minutes=self.daily_budget,
+            allowances=allowances,
+        )
+        return carried
+
     @callback
     def _recompute(self, *, fire_events: bool = True) -> None:
         previous = self.decision
         home = get_home(self.hass)
         home_remaining, home_reason = home.remaining_for(self) if home else (None, None)
+        self.carried_seconds = self.carried_extra_seconds()
         self.decision = decide(
             now=dt_util.now().time(),
             mode=self.state.mode,
@@ -961,6 +1004,7 @@ class TVManager:
             quiet_windows=self.quiet_windows,
             home_remaining=home_remaining,
             home_reason=home_reason,
+            carried_seconds=self.carried_seconds,
         )
         if not fire_events:
             return

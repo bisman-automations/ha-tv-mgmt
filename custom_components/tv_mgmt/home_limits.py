@@ -16,12 +16,14 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from .activity import KEEP_DAILY_DAYS
 from .const import DOMAIN, SIGNAL_ANY_UPDATED
 from .home import (
     ACTION_TURN_OFF,
     REASON_HOME_DAILY,
     HomeSettings,
     HomeStatus,
+    carried_extra,
     home_status,
     week_days_before,
     week_start,
@@ -36,7 +38,9 @@ STORAGE_VERSION = 1
 SAVE_DELAY = 10  # seconds
 DATA_HOME = f"{DOMAIN}_home"
 EVENT_HOME_LIMIT = f"{DOMAIN}_home_limit"
-KEEP_EXTENSION_DAYS = 8
+# Grants are kept with the daily totals. Unused minutes are carried from
+# them, so a reward from last month is still there. Older than that, the
+# daily totals are gone too and the balance can't be worked out.
 
 
 def _duration(seconds: int) -> str:
@@ -60,6 +64,9 @@ class HomeLimits:
         ] = {}  # what was sent -> the day or week it was for
         self._managers: dict[str, TVManager] = {}
         self._exhausted = False
+        # So the "still available" note is logged once per start, not on
+        # every refresh.
+        self._reported_carry = False
 
     # ---- storage ----------------------------------------------------------------
 
@@ -113,12 +120,72 @@ class HomeLimits:
                 daily.get(day, {}).get("used_seconds", 0) for day in earlier
             )
         week_seconds += today_seconds
-        return home_status(
+        carried_today, carried_week = self._carry(today)
+        status = home_status(
             self.settings,
             today_seconds=today_seconds,
             week_seconds=week_seconds,
             extension_today=self.extensions.get(today_key, 0),
             extension_week=self.extension_week(today),
+            carried_today_seconds=carried_today,
+            carried_week_seconds=carried_week,
+        )
+        self._report_carry(status)
+        return status
+
+    def _used_before(self, today: date) -> dict[str, int]:
+        """Seconds each earlier day was watched, across the TVs that count.
+
+        The day a TV still has open is read from its live counters. The
+        saved daily total for that day can be behind.
+        """
+        today_key = today.isoformat()
+        usage: dict[str, int] = {}
+        for manager in self.counted():
+            open_day = manager.state.day
+            if open_day < today_key:
+                usage[open_day] = usage.get(open_day, 0) + int(
+                    manager.state.used_seconds
+                )
+            for day, record in manager.activity.daily.items():
+                if day >= today_key or day == open_day or not isinstance(record, dict):
+                    continue
+                usage[day] = usage.get(day, 0) + int(record.get("used_seconds") or 0)
+        return usage
+
+    def _carry(self, today: date) -> tuple[int, int]:
+        """Unused extra from before today, and from before this week.
+
+        Grants and daily totals already saved are enough. Nothing is
+        rewritten on upgrade: a reward given before 1.21.2 was a one-day
+        grant, and the minutes that weren't watched become available again
+        the next time this is worked out.
+        """
+        today_key = today.isoformat()
+        grants = {
+            day: int(minutes)
+            for day, minutes in self.extensions.items()
+            if day < today_key
+        }
+        return carried_extra(
+            grants,
+            self._used_before(today),
+            today=today_key,
+            daily_minutes=self.settings.daily_minutes,
+            week_start=week_start(today, self.settings.week_start).isoformat(),
+            weekly_minutes=self.settings.weekly_minutes,
+        )
+
+    def _report_carry(self, status: HomeStatus) -> None:
+        if self._reported_carry:
+            return
+        carried = max(status.carried_seconds, status.carried_week_seconds)
+        if carried < 60:
+            return
+        self._reported_carry = True
+        _LOGGER.info(
+            "TV Mgmt home: %s of extra time from earlier is still available",
+            _duration(carried),
         )
 
     def remaining_for(self, manager: TVManager) -> tuple[int | None, str | None]:
@@ -147,7 +214,7 @@ class HomeLimits:
         today = dt_util.now().date()
         key = today.isoformat()
         self.extensions[key] = self.extensions.get(key, 0) + minutes
-        oldest = (today - timedelta(days=KEEP_EXTENSION_DAYS)).isoformat()
+        oldest = (today - timedelta(days=KEEP_DAILY_DAYS)).isoformat()
         self.extensions = {
             d: m for d, m in self.extensions.items() if d >= oldest and m
         }
@@ -173,15 +240,25 @@ class HomeLimits:
             return
         today = dt_util.now().date()
         status = self.status(today)
+        # The allowance plus extra, so "used its 0 min" isn't said when a
+        # reward made the day longer than the allowance.
         periods = {
             "daily": (
                 status.daily_remaining,
-                self.settings.daily_minutes,
+                _cap_minutes(
+                    self.settings.daily_minutes,
+                    self.extensions.get(today.isoformat(), 0),
+                    status.carried_seconds,
+                ),
                 today.isoformat(),
             ),
             "weekly": (
                 status.weekly_remaining,
-                self.settings.weekly_minutes,
+                _cap_minutes(
+                    self.settings.weekly_minutes,
+                    self.extension_week(today),
+                    status.carried_week_seconds,
+                ),
                 week_start(today, self.settings.week_start).isoformat(),
             ),
         }
@@ -293,10 +370,22 @@ class HomeLimits:
             "reason": status.reason,
             "extension_minutes": status.extension_minutes,
             "extension_week_minutes": self.extension_week(),
+            # Unused extra from before today / before this week, in seconds.
+            "carried_seconds": status.carried_seconds,
+            "carried_week_seconds": status.carried_week_seconds,
             "week_start_date": week_start(
                 dt_util.now().date(), self.settings.week_start
             ).isoformat(),
         }
+
+
+def _cap_minutes(
+    allowance: int | None, extra_minutes: int, carried_seconds: int
+) -> int | None:
+    """The limit to quote in a message: the allowance plus extra still in it."""
+    if allowance is None:
+        return None
+    return allowance + extra_minutes + round(carried_seconds / 60)
 
 
 def notify_targets(hass: HomeAssistant) -> list[str]:

@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.2] - 2026-11-11
+
+### Fixed
+
+- **Extra TV time stays until it's used.** Time from a reward, or from the extra-time buttons, used to count for that day only, and it was also added to the week's total. The next day a limit of 0 showed "0 min of 0 min today" and "No time left", even when the week still had minutes left. The TV looked like it had no time (and stayed off, when the limit turns TVs off) while the week said a few minutes were left. Unused extra now stays until it is watched, after midnight and into the next week, on each TV and for the whole home. A normal daily or weekly allowance still starts over on its own. Updating puts the minutes that are left back by itself: the extra already saved and the time already watched are read again, and what's left is available. Nothing to reset. Once that leftover is used, a limit of 0 means no TV time again until the next extra time. Family keeps giving the time the same way, and taking a reward back still takes the minutes away.
+
 ## [1.21.1] - 2026-11-10
 
 ### Changed
@@ -487,6 +493,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.21.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.1...v1.21.2
 [1.21.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.0...v1.21.1
 [1.21.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.20.0...v1.21.0
 [1.20.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.19.2...v1.20.0

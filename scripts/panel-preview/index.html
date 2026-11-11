@@ -36,7 +36,7 @@ const profiles = [
     current_input: "com.tcl.tv", input_allowed: true, allowed_inputs: ["com.tcl.tv"], target_input: "HDMI 2", input_lock: true,
     lock_paused_reason: null, state: "warning", reason: "budget", quiet_window: null, remaining_seconds: 4*60, mode: "enforced",
     force_block: false, adult_mode_until: null, adult_mode_duration: 120, adult_mode_counts: false, adult_seconds: 47*60, used_seconds: 101*60, budget_minutes: 90,
-    extension_minutes: 15, warn_minutes: 5, blocked_switches: 3, last_blocked_input: "com.google.android.youtube.tv", last_blocked_at: t(18, 12),
+    extension_minutes: 15, carried_seconds: 0, warn_minutes: 5, blocked_switches: 3, last_blocked_input: "com.google.android.youtube.tv", last_blocked_at: t(18, 12),
     mode_sync_entity: "select.apple_tv_mgmt_family_room_mode", quiet_windows: ["20:30-07:00 Bedtime"],
     input_names: {"com.tcl.tv": "Apple TV", "HDMI 2": "HDMI 2", "com.google.android.apps.tv.launcherx": "Google TV home", "com.google.android.youtube.tv": "YouTube"},
     custom_input_names: {"com.tcl.tv": "Apple TV"},
@@ -67,7 +67,7 @@ const profiles = [
     current_input: null, input_allowed: null, allowed_inputs: ["com.google.android.tv.hdmi2"], target_input: "HDMI 2", input_lock: true,
     lock_paused_reason: null, state: "enforcing", reason: "budget", quiet_window: null, remaining_seconds: 0, mode: "enforced",
     force_block: false, adult_mode_until: null, adult_mode_duration: 120, adult_mode_counts: false, adult_seconds: 0, used_seconds: 62*60, budget_minutes: 60,
-    extension_minutes: 0, warn_minutes: 5, blocked_switches: 0, last_blocked_input: null, last_blocked_at: null,
+    extension_minutes: 0, carried_seconds: 0, warn_minutes: 5, blocked_switches: 0, last_blocked_input: null, last_blocked_at: null,
     mode_sync_entity: null, quiet_windows: [], remote_keys: ["power","volume_up","volume_down","mute","up","down","left","right","select","back","home"], entities: [] },
 ];
 const events = [
@@ -196,7 +196,7 @@ const lightSync = () => ({
 let home = { daily_minutes: 240, weekly_minutes: 1200, week_start: "monday", warn_minutes: 10, action: "turn_off",
   notify: ["notify.mobile_app_parent_phone"], excluded: [], active: true, today_seconds: 3.4 * 3600, week_seconds: 15.2 * 3600,
   daily_remaining: 0.6 * 3600, weekly_remaining: 4.8 * 3600, remaining: 0.6 * 3600, reason: "home_daily",
-  extension_minutes: 0, extension_week_minutes: 0, week_start_date: "2026-10-12" };
+  extension_minutes: 0, extension_week_minutes: 0, carried_seconds: 0, carried_week_seconds: 0, week_start_date: "2026-10-12" };
 if (params.get("zero")) {
   Object.assign(home, { daily_minutes: 0, weekly_minutes: null, today_seconds: 0, daily_remaining: 0, weekly_remaining: null, remaining: 0 });
   Object.assign(profiles[1], { budget_minutes: 0, extension_minutes: 0, used_seconds: 0, remaining_seconds: 0, state: "enforcing", reason: "budget" });

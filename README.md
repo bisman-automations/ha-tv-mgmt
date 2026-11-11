@@ -169,9 +169,9 @@ How it works:
 
 - **Each TV's time is added up.** Two TVs on for an hour count as two hours of the home's time.
 - **The TVs' own limits still apply.** Whichever has less time left is the one that counts, and each TV shows it as its time left.
-- **When the home's time runs out,** every TV that counts is turned off, the same way as when its own limit runs out, with the same warnings on the TV. They stay off until the next day, or the next week for a weekly limit.
+- **When the home's time runs out,** every TV that counts is turned off, the same way as when its own limit runs out, with the same warnings on the TV. They stay off until the next day, or the next week for a weekly limit. Extra time that is still left does not run out at midnight: it stays until it is used.
 - **Messages:** you're told once when time is running low and once when it's up, for each day or week.
-- **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time given today also counts toward this week. To give a TV and the whole home time together, tick **Whole home too** next to that TV's extra time buttons (your phone or browser remembers it), or pass `whole_home: true` to `tv_mgmt.grant_extension`.
+- **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time is a balance. Minutes that aren't used stay until they are, including after midnight and into the next week, and they count toward this week's limit too. To give a TV and the whole home time together, tick **Whole home too** next to that TV's extra time buttons (your phone or browser remembers it), or pass `whole_home: true` to `tv_mgmt.grant_extension`.
 - Paused and adult mode on a TV lift the home's limit for that TV, like its own rules.
 - Adult mode time doesn't use up the home's time unless that TV counts it. See [Adult mode](#adult-mode).
 
@@ -373,14 +373,14 @@ It has these entities:
 | **Adult mode** (switch) | Lifts every rule for a set time (2 hours by default), then turns itself off. |
 | **Enforcement state** (sensor) | `OK`, `Warning`, `Blocked`, `Paused` or `Adult mode`, with the reason and any active quiet window. |
 | **Time used today** / **Time remaining today** (sensors) | Today's screen time. Remaining is unknown when there's no daily limit. |
-| **Extra time today** (sensor) | Minutes granted (or taken) today. |
+| **Extra time today** (sensor) | Minutes granted (or taken) today. Unused extra from earlier days is part of **Time remaining today**, not this number. |
 | **Current input** (sensor) | What the TV is showing, using your [input names](#naming-inputs), and whether it's allowed. Shows `TV off` when the TV is off. The `source` attribute has the value the TV reports. |
 | **Blocked switches today** (sensor) | How many times someone tried another input, and the last one tried. |
 | **Adult mode time today** (sensor) | How long adult mode was on today. `counts_toward_limits` says whether it's in **Time used today**. See [Adult mode](#adult-mode). |
 | **TV lights follow the TV** (switch) | Whether the [TV lights](#tv-lights) turn on and off with the TV. Unavailable without TV lights. |
 | **Turn off TV lights** (button) | Turns the TV lights off now. Unavailable without TV lights. |
 
-Counters, adult mode time, extra time and manual blocks reset at midnight. Mode, input lock and adult mode survive restarts.
+Screen time, adult mode time and manual blocks reset at midnight. Extra time that isn't used stays until it is. Mode and input lock survive restarts. Adult mode that is still running survives a restart too.
 
 ## Services
 
@@ -388,7 +388,7 @@ All services take the profile (`profile_id`) to act on.
 
 | Service | What it does |
 | --- | --- |
-| `tv_mgmt.grant_extension` | Add minutes to today's limit (negative to take time away). `whole_home: true` gives the whole home the same time. `reason` (optional) shows in the Activity, such as "Alex's reward". |
+| `tv_mgmt.grant_extension` | Add minutes (negative to take time away). Minutes that aren't used stay until they are. `whole_home: true` gives the whole home the same time. `reason` (optional) shows in the Activity, such as "Alex's reward". |
 | `tv_mgmt.force_block` | Turn the TV off and keep it off until unblocked or the day ends. |
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
@@ -414,7 +414,7 @@ data:
 
 ### Earning TV time
 
-Set a TV's **Daily screen time**, or the whole home's limit, to **0** and the TVs stay off each day until extra time is given. For example, a chore marked done in a to-do list can run an automation that gives 30 minutes. With `whole_home: true`, the whole home's limit gets the same time, so it doesn't stop that TV first. Leave the field empty instead for no limit.
+Set a TV's **Daily screen time**, or the whole home's limit, to **0** and the TVs stay off until extra time is given. For example, a chore marked done in a to-do list can run an automation that gives 30 minutes. With `whole_home: true`, the whole home's limit gets the same time, so it doesn't stop that TV first. Minutes that aren't used stay until they are, including the next day and the next week. When they're used up, a limit of 0 means no TV time again until the next extra time. Leave the field empty instead for no limit.
 
 ```yaml
 action: tv_mgmt.grant_extension
@@ -425,7 +425,7 @@ data:
   reason: Chores done   # optional, shown in the Activity
 ```
 
-The [Family](https://github.com/bisman-automations/ha-family) integration does this for you: kids spend points from chores on a TV time reward, and it gives the time on the TV (and the whole home, if you tick it), with the reward's name in the Activity.
+The [Family](https://github.com/bisman-automations/ha-family) integration does this for you: kids spend points from chores on a TV time reward, and it gives the time on the TV (and the whole home, if you tick it), with the reward's name in the Activity. Family doesn't need a change for the leftover minutes to stay: it already calls `tv_mgmt.grant_extension`.
 
 ```yaml
 action: tv_mgmt.send_message

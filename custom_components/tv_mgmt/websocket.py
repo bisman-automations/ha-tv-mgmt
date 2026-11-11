@@ -182,6 +182,8 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "last_on": manager.activity.last_on,
         "budget_minutes": manager.daily_budget,
         "extension_minutes": state.extension_minutes,
+        # Unused extra from before today. Added to today's allowance.
+        "carried_seconds": manager.carried_seconds,
         "warn_minutes": manager.warn_minutes,
         "blocked_switches": state.blocked_switches,
         "last_blocked_input": state.last_blocked_source,

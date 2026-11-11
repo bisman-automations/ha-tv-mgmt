@@ -484,7 +484,7 @@
   "services": {
     "grant_extension": {
       "name": "Grant extra time",
-      "description": "Add (or take away) minutes from today's screen time. Unblocks within seconds if the limit was reached.",
+      "description": "Add (or take away) minutes of TV time. Minutes that aren't used stay until they are, including after midnight. Unblocks within seconds if the limit was reached.",
       "fields": {
         "profile_id": {
           "name": "Profile",

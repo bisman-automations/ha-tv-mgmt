@@ -72,6 +72,11 @@ MESSAGE_SCHEMA = PROFILE_SCHEMA.extend(
         vol.Optional("speak", default=False): cv.boolean,
     }
 )
+# Family calls this with profile_id, minutes (negative when a reward is
+# undone), whole_home and reason. There is no day, week or bank field:
+# minutes that aren't watched are carried here, from the grants and the
+# time already counted. Extra keys would be rejected, so these stay the
+# whole call.
 EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
     {
         vol.Required(ATTR_MINUTES): vol.All(

@@ -68,6 +68,23 @@ def test_unlimited_budget():
     assert d.remaining_seconds is None
 
 
+def test_carried_extra_counts_after_today_grant_is_gone():
+    """A reward left over from yesterday still lets the TV on."""
+    d = run(budget_minutes=0, extension_minutes=0, carried_seconds=8 * 60)
+    assert d.state == STATE_OK
+    assert d.remaining_seconds == 8 * 60
+    used_some = run(
+        budget_minutes=0,
+        extension_minutes=0,
+        carried_seconds=8 * 60,
+        used_seconds=3 * 60,
+        warn_minutes=5,
+    )
+    # 5 minutes left is the warning line, and the TV is not blocked.
+    assert used_some.remaining_seconds == 5 * 60
+    assert used_some.state == STATE_WARNING
+
+
 def test_zero_budget_needs_extra_time():
     """A limit of 0: the TV stays off until extra time is given (earned)."""
     d = run(budget_minutes=0, used_seconds=0)
