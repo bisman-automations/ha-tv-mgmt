@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.3] - 2026-11-13
+
+### Changed
+
+- **Smoother updates.** Each kind of entity now tells Home Assistant how many updates it can take at once, as Home Assistant recommends. Nothing changes in how anything looks or works.
+
 ## [1.21.2] - 2026-11-11
 
 ### Fixed
@@ -493,6 +499,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.21.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.2...v1.21.3
 [1.21.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.1...v1.21.2
 [1.21.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.0...v1.21.1
 [1.21.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.20.0...v1.21.0

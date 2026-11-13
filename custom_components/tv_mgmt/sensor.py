@@ -23,6 +23,9 @@ from .manager import TVManager
 from .media import describe, show_of
 from .state import STATES
 
+# Coordinator or push updates; nothing polls on its own.
+PARALLEL_UPDATES = 0
+
 
 @dataclass(frozen=True, kw_only=True)
 class TVMgmtSensorDescription(SensorEntityDescription):
