@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.21.4] - 2026-11-14
+
+### Changed
+
+- **Renaming an entity keeps it running.** From Home Assistant 2026.11, when you change one of this integration's entity IDs, the entity moves to its new ID in place instead of being removed and added again, as Home Assistant now expects. Everything keeps working the same.
+
 ## [1.21.3] - 2026-11-13
 
 ### Changed
@@ -499,6 +505,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.21.4]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.3...v1.21.4
 [1.21.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.2...v1.21.3
 [1.21.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.1...v1.21.2
 [1.21.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.0...v1.21.1
