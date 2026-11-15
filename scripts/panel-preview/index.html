@@ -89,7 +89,7 @@ const events = [
   { t: t(15, 0), type: "tv_on", source: "Apple TV" },
   { t: t(7, 30), type: "mode", mode: "enforced", synced: true },
   { t: t(7, 0), type: "enforcement", state: "ok", reason: null },
-  // A parent watching the morning news in adult mode (not counted).
+  // A parent watching the morning news in parent mode (not counted).
   { t: t(6, 58), type: "tv_off" },
   { t: t(6, 57), type: "adult_mode", on: false },
   { t: t(6, 10), type: "adult_mode", on: true, minutes: 120 },
@@ -111,7 +111,7 @@ function series(n) {
     const recorded = i < 24;
     const weekend = [0, 6].includes(d.getDay());
     const used = recorded ? Math.round((weekend ? 120 : 70) + 40 * Math.sin(i * 1.7)) * 60 : 0;
-    // Adult mode is tracked from 1.16.0, installed 5 days ago in this sample.
+    // Parent mode is tracked from 1.16.0, installed 5 days ago in this sample.
     const adultTracked = recorded && i < 5;
     const adult = adultTracked ? ({ 0: 47, 1: 105, 3: 52 }[i] || 0) * 60 : 0;
     out.push({ date: d.toISOString().slice(0,10), used_seconds: used, budget_minutes: recorded ? 90 : 0, extension_minutes: recorded && i % 5 === 0 ? 15 : 0, blocked: recorded ? (i * 7) % 4 : 0,

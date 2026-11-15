@@ -50,7 +50,7 @@ DOC_SHOTS = {
     "access": "dark",
 }
 # Where a tab's screenshot ends, when it isn't the top of the page: Limits shows
-# the TV's own limits (below the whole home's), down to adult mode.
+# the TV's own limits (below the whole home's), down to parent mode.
 DOC_SCROLL = {"limits": "form#limits"}
 
 

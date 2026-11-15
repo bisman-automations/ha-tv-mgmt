@@ -128,3 +128,32 @@ clear_artwork_cache:
       default: false
       selector:
         boolean:
+
+set_parent_mode:
+  fields:
+    profile_id:
+      required: true
+      selector:
+        config_entry:
+          integration: tv_mgmt
+    enabled:
+      required: false
+      default: true
+      selector:
+        boolean:
+    minutes:
+      required: false
+      selector:
+        number:
+          min: 5
+          max: 1440
+          step: 5
+          unit_of_measurement: min
+    until:
+      required: false
+      selector:
+        time:
+    rest_of_day:
+      required: false
+      selector:
+        boolean:

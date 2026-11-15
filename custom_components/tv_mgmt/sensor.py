@@ -132,7 +132,7 @@ SENSORS: tuple[TVMgmtSensorDescription, ...] = (
         value_fn=lambda m: _minutes(m.state.used_seconds),
     ),
     TVMgmtSensorDescription(
-        # Time on in adult mode today, counted toward the limits or not.
+        # Time on in parent mode today, counted toward the limits or not.
         key="adult_mode_time_today",
         device_class=SensorDeviceClass.DURATION,
         state_class=SensorStateClass.TOTAL_INCREASING,

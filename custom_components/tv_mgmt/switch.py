@@ -1,4 +1,4 @@
-"""Switches: input lock, adult mode, TV lights follow the TV, and each light sync zone's on/off."""
+"""Switches: input lock, parent mode, TV lights follow the TV, and each light sync zone's on/off."""
 
 from __future__ import annotations
 

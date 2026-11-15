@@ -9,7 +9,7 @@ from homeassistant.exceptions import HomeAssistantError
 from tests.ha.test_integration import set_tv, setup
 
 LOCK = "switch.tv_mgmt_family_room_tv_input_lock"
-ADULT = "switch.tv_mgmt_family_room_tv_adult_mode"
+ADULT = "switch.tv_mgmt_family_room_tv_parent_mode"
 MODE = "select.tv_mgmt_family_room_tv_mode"
 
 

@@ -36,7 +36,7 @@ CONF_DAILY_BUDGET = "daily_budget"  # minutes; empty = no limit, 0 = only extra 
 CONF_WARN_MINUTES = "warn_minutes"
 CONF_QUIET_WINDOWS = "quiet_windows"
 CONF_ADULT_MODE_DURATION = "adult_mode_duration"  # minutes
-# Does time watched in adult mode count toward the TV's and the home's limits?
+# Does time watched in parent mode count toward the TV's and the home's limits?
 # Off: it goes only to its own total (adult_seconds), with no app or title detail.
 CONF_ADULT_MODE_COUNTS = "adult_mode_counts"
 
@@ -93,6 +93,7 @@ SERVICE_UNBLOCK = "unblock"
 SERVICE_RESET_USAGE = "reset_usage"
 SERVICE_SEND_MESSAGE = "send_message"
 SERVICE_TURN_OFF_TV_LIGHTS = "turn_off_tv_lights"
+SERVICE_SET_PARENT_MODE = "set_parent_mode"
 ATTR_PROFILE_ID = "profile_id"
 ATTR_MINUTES = "minutes"
 ATTR_WHOLE_HOME = "whole_home"

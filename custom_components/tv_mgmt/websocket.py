@@ -56,7 +56,7 @@ from .home import (
 )
 from .home_limits import get_home, notify_targets
 from .live_activity import phone_targets
-from .manager import TVManager
+from .manager import TVManager, parent_mode_end
 from .media import describe
 from .messages import MAX_LENGTH as MAX_MESSAGE_LENGTH, PRESETS as MESSAGE_PRESETS
 from .names import clean_names
@@ -175,7 +175,7 @@ def profile_summary(manager: TVManager) -> dict[str, Any]:
         "adult_mode_until": until.isoformat() if until else None,
         "adult_mode_duration": manager.adult_mode_duration,
         "adult_mode_counts": manager.adult_mode_counts,
-        # Time on in adult mode today. Part of used_seconds only when it counts.
+        # Time on in parent mode today. Part of used_seconds only when it counts.
         "adult_seconds": state.adult_seconds,
         "used_seconds": state.used_seconds,
         # When the TV was last on, so the dashboard can list recent TVs first.
@@ -324,7 +324,7 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
     now = dt_util.utcnow()
     log = manager.activity
     segments = log.viewing_segments(start, end, now)
-    # Adult mode shows as its own stretches, without the apps or titles in it.
+    # Parent mode shows as its own stretches, without the apps or titles in it.
     adult = log.adult_periods(start, end, now)
     app_segments = subtract_periods(log.app_segments(start, end, now), adult)
     record = log.daily.get(day.isoformat())
@@ -342,7 +342,7 @@ def ws_activity(hass: HomeAssistant, connection, msg) -> None:
             "viewing_seconds": sum(s["seconds"] for s in segments),
             "app_segments": app_segments,
             "adult_periods": adult,
-            # The part of viewing_seconds in adult mode.
+            # The part of viewing_seconds in parent mode.
             "adult_viewing_seconds": overlap_seconds(segments, adult),
             "totals": record,
         },
@@ -622,6 +622,10 @@ def ws_apple_tv_set(hass: HomeAssistant, connection, msg) -> None:
         vol.Optional("minutes"): vol.All(int, vol.Range(min=-240, max=720)),
         vol.Optional("mode"): vol.In(MODES),
         vol.Optional("enabled"): bool,
+        # set_adult_mode (parent mode): until a time of day ("HH:MM"), or
+        # the rest of the day, instead of minutes.
+        vol.Optional("until"): vol.Match(r"^([01]\d|2[0-3]):[0-5]\d$"),
+        vol.Optional("rest_of_day", default=False): bool,
         # grant_extension: give the whole home the same extra time.
         vol.Optional("whole_home", default=False): bool,
     }
@@ -649,7 +653,15 @@ def ws_action(hass: HomeAssistant, connection, msg) -> None:
         elif action == "set_mode":
             manager.set_mode(msg["mode"])
         elif action == "set_adult_mode":
-            manager.set_adult_mode(msg["enabled"], msg.get("minutes"))
+            until = (
+                datetime.strptime(msg["until"], "%H:%M").time()
+                if msg.get("until")
+                else None
+            )
+            end = parent_mode_end(
+                dt_util.utcnow(), until=until, rest_of_day=msg["rest_of_day"]
+            )
+            manager.set_adult_mode(msg["enabled"], msg.get("minutes"), end)
         elif action == "set_input_lock":
             manager.set_input_lock(msg["enabled"])
     except KeyError as err:

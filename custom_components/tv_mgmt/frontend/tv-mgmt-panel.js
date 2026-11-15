@@ -103,6 +103,13 @@ function clock(seconds) {
 }
 
 const timeOf = (iso) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+// When parent mode ends: a time today, "midnight", or a day and time.
+function parentUntil(iso) {
+  const end = new Date(iso);
+  const now = new Date();
+  if (end.getHours() === 0 && end.getMinutes() === 0 && end > now && end - now <= 86400000) return "midnight";
+  return end.toDateString() === now.toDateString() ? timeOf(iso) : `${end.toLocaleDateString([], { weekday: "short" })} ${timeOf(iso)}`;
+}
 
 function dayLabel(isoDate, today) {
   if (isoDate === today) return "Today";
@@ -130,7 +137,7 @@ function stateInfo(p) {
     case "paused":
       return { tone: "muted", text: "Rules paused" };
     case "adult_mode":
-      return { tone: "info", text: p.adult_mode_until ? `Adult mode until ${timeOf(p.adult_mode_until)}` : "Adult mode" };
+      return { tone: "info", text: p.adult_mode_until ? `Parent mode until ${timeOf(p.adult_mode_until)}` : "Parent mode" };
     default:
       return { tone: "good", text: p.mode === "monitor_only" ? "Monitoring" : "OK" };
   }
@@ -156,7 +163,7 @@ function describeEvent(e, p) {
       const text =
         e.state === "enforcing"
           ? { budget: "Daily limit reached", quiet_window: `Quiet window started${e.quiet_window ? `: ${e.quiet_window}` : ""}`, manual: "Blocked by a parent", home_daily: "The whole home's TV time is up for today", home_weekly: "The whole home's TV time is up for this week" }[e.reason] || "Blocked"
-          : { warning: "Time is almost up", ok: "Allowed to watch again", paused: "Rules paused", adult_mode: "Adult mode started" }[e.state] || e.state;
+          : { warning: "Time is almost up", ok: "Allowed to watch again", paused: "Rules paused", adult_mode: "Parent mode started" }[e.state] || e.state;
       return { icon: "clock", tone: e.state === "enforcing" ? "bad" : e.state === "warning" ? "warn" : undefined, text };
     }
     case "turned_off":
@@ -168,7 +175,7 @@ function describeEvent(e, p) {
     case "input_lock":
       return { icon: "lock", text: e.on ? "Input lock turned on" : "Input lock turned off" };
     case "adult_mode":
-      return { icon: "adult", text: e.on ? `Adult mode on for ${e.minutes} min` : e.reason === "expired" ? "Adult mode ended" : "Adult mode turned off" };
+      return { icon: "adult", text: e.on ? `Parent mode on for ${e.minutes} min` : e.reason === "expired" ? "Parent mode ended" : "Parent mode turned off" };
     case "extension":
       return { icon: "plus", text: `${e.minutes >= 0 ? `${e.minutes} min of extra time added` : `${-e.minutes} min of time taken away`}${e.reason ? `: ${e.reason}` : ""}` };
     case "home_extension":
@@ -248,11 +255,11 @@ const ICONS = {
 const ENTITY_LABELS = {
   mode: "Mode",
   input_lock: "Input lock",
-  adult_mode: "Adult mode",
+  adult_mode: "Parent mode",
   enforcement_state: "Enforcement state",
   current_input: "Current input",
   time_used_today: "Time used today",
-  adult_mode_time_today: "Adult mode time today",
+  adult_mode_time_today: "Parent mode time today",
   time_remaining_today: "Time remaining today",
   extra_time_today: "Extra time today",
   blocked_switches_today: "Blocked switches today",
@@ -303,7 +310,7 @@ const STYLES = `
   --tm-warn: var(--warning-color, #ffa600);
   --tm-bad: var(--error-color, #db4437);
   --tm-info: var(--info-color, #039be5);
-  /* Adult mode, in the Activity strips and Analytics chart. */
+  /* Parent mode, in the Activity strips and Analytics chart. */
   --tm-adult: #8e6cc9;
   --tm-radius: var(--ha-card-border-radius, 12px);
   --tm-screen: #12161c;
@@ -450,6 +457,8 @@ main.wide { max-width: 1760px; }
 
 .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .row .label { width: 100%; font-size: 14px; color: var(--secondary-text-color); }
+.until-pick { display: inline-flex; gap: 6px; align-items: center; }
+.until-pick input { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid var(--divider-color); background: var(--card-background-color); color: var(--primary-text-color); }
 .btn {
   border: 1px solid var(--divider-color); background: transparent; border-radius: 8px;
   padding: 8px 12px; cursor: pointer; font-size: 14px; min-height: 36px;
@@ -491,7 +500,7 @@ main.wide { max-width: 1760px; }
 .tape .seg-bar { position: absolute; top: 0; bottom: 0; background: var(--primary-color); min-width: 2px; }
 .tape .seg-bar.not-allowed { background: var(--tm-warn); min-width: 4px; z-index: 1; }
 .tape .seg-bar.live { background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgba(255,255,255,.25) 6px 12px); }
-/* Adult mode: shaded over both strips, which show no app for it. */
+/* Parent mode: shaded over both strips, which show no app for it. */
 .tape .adult-band { position: absolute; top: 0; bottom: 0; z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--tm-adult) 55%, transparent) 0 5px, color-mix(in srgb, var(--tm-adult) 30%, transparent) 5px 10px);
   border-left: 2px solid var(--tm-adult); border-right: 2px solid var(--tm-adult); }
@@ -809,7 +818,7 @@ class TvMgmtPanel extends HTMLElement {
     const shows = {
       all: () => true,
       on: (p) => this._tvOn(p) === true,
-      // On now, or at least a minute on today (adult mode time too, when it
+      // On now, or at least a minute on today (parent mode time too, when it
       // doesn't count). A TV that woke for a few seconds in the night, or was
       // switched straight back off, wasn't watched.
       today: (p) => this._tvOn(p) === true || p.used_seconds + (p.adult_seconds || 0) >= WATCHED_SECONDS,
@@ -1080,6 +1089,20 @@ class TvMgmtPanel extends HTMLElement {
       this._error = this._errorText(err);
     }
     this._render();
+  }
+
+  // Other ways to turn parent mode on (or make it longer): an hour, until a
+  // time, or the rest of the day.
+  _parentChoices(p, on) {
+    const id = esc(p.entry_id);
+    const hour = p.adult_mode_duration === 60 ? "" : `<button class="btn" data-act="set_adult_mode" data-id="${id}" data-minutes="60">1 hour</button>`;
+    return `<div class="row parent-choices" role="group" aria-label="${on ? "Make parent mode last" : "Parent mode for"}">
+      <span class="label">${on ? "Make it last" : "Or turn it on for"}</span>
+      ${on ? "" : hour}
+      <button class="btn" data-act="set_adult_mode" data-id="${id}" data-rest="1">The rest of the day</button>
+      <span class="until-pick"><input type="time" data-parent-until="${id}" aria-label="Until a time" value="${esc(this._parentUntil?.[p.entry_id] || "")}">
+        <button class="btn" data-act="set_adult_mode" data-id="${id}" data-until-from="${id}">Until then</button></span>
+    </div>`;
   }
 
   async _action(entryId, action, extra = {}) {
@@ -1364,7 +1387,7 @@ class TvMgmtPanel extends HTMLElement {
           <dl class="facts">
             <dt>Extra time</dt><dd>${[carried > 0 ? `${duration(carried)} still left from earlier` : "", p.extension_minutes ? `${p.extension_minutes > 0 ? "+" : ""}${p.extension_minutes} min today` : ""].filter(Boolean).join(", ") || "None"}</dd>
             <dt>Blocked switches</dt><dd>${p.blocked_switches}</dd>
-            ${p.adult_seconds ? `<dt>Adult mode today</dt><dd>${duration(p.adult_seconds)}${p.adult_mode_counts ? "" : `<span class="muted"> · not counted</span>`}</dd>` : ""}
+            ${p.adult_seconds ? `<dt>Parent mode today</dt><dd>${duration(p.adult_seconds)}${p.adult_mode_counts ? "" : `<span class="muted"> · not counted</span>`}</dd>` : ""}
             <dt>Last tried</dt><dd>${lastBlocked}</dd>
             <dt>Allowed</dt><dd>${esc((p.allowed_inputs || []).map((raw) => nameOf(p, raw)).join(", ") || "Not set")}</dd>
             ${(p.tv_lights || []).length ? `<dt>TV lights</dt><dd>${esc(p.tv_lights.map((e) => this._hass?.states?.[e]?.attributes?.friendly_name || e).join(", "))}</dd>` : ""}
@@ -1391,8 +1414,9 @@ class TvMgmtPanel extends HTMLElement {
           </div>
           <label class="toggle"><span>Input lock<small>Keep the TV on ${esc(nameOf(p, p.target_input) ?? "its allowed input")}</small></span>
             <span class="switch"><input type="checkbox" data-toggle="set_input_lock" data-id="${id}" ${p.input_lock ? "checked" : ""}><span></span></span></label>
-          <label class="toggle"><span>Adult mode<small>${adultOn && p.adult_mode_until ? `Rules lifted until ${timeOf(p.adult_mode_until)}` : `Lift every rule for ${duration(p.adult_mode_duration * 60)}`}</small></span>
+          <label class="toggle"><span>Parent mode<small>${adultOn && p.adult_mode_until ? `Rules lifted until ${parentUntil(p.adult_mode_until)}` : `Lift every rule for ${duration(p.adult_mode_duration * 60)}`}</small></span>
             <span class="switch"><input type="checkbox" data-toggle="set_adult_mode" data-id="${id}" ${adultOn ? "checked" : ""}><span></span></span></label>
+          ${this._parentChoices(p, adultOn)}
           ${this._entityLinks(p)}
           <div class="row">
             ${p.force_block
@@ -1840,14 +1864,14 @@ class TvMgmtPanel extends HTMLElement {
         return `<div class="${cls}" style="left:${left}%;width:${width}%" title="${esc(nameOf(profile, s.source) ?? "Unknown")}: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
       })
       .join("");
-    // Adult mode: shaded over both strips. The app strip and the log leave out
+    // Parent mode: shaded over both strips. The app strip and the log leave out
     // what was open then (the server drops it), so only the stretch shows.
     const adult = a.adult_periods || [];
     const adultBands = adult
       .map((s) => {
         const left = pos(s.start);
         const width = Math.max(0.3, pos(s.end) - left);
-        return `<div class="adult-band" style="left:${left}%;width:${width}%" title="Adult mode: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
+        return `<div class="adult-band" style="left:${left}%;width:${width}%" title="Parent mode: ${timeOf(s.start)} to ${timeOf(s.end)}"></div>`;
       })
       .join("");
     const isToday = a.date === a.today;
@@ -1861,7 +1885,7 @@ class TvMgmtPanel extends HTMLElement {
     const legend = Object.entries(bySource)
       .sort((x, y) => y[1] - x[1])
       .map(([src, secs]) => `<span><i class="${allowed.size && !allowed.has(src) ? "not-allowed" : ""}"></i>${esc(nameOf(profile, src))}: ${duration(secs)}</span>`)
-      .join("") + (adult.length ? `<span><i class="adult"></i>Adult mode: ${duration(a.adult_viewing_seconds || 0)}</span>` : "");
+      .join("") + (adult.length ? `<span><i class="adult"></i>Parent mode: ${duration(a.adult_viewing_seconds || 0)}</span>` : "");
 
     const events = a.events.length
       ? `<ul class="log">${a.events
@@ -1875,7 +1899,7 @@ class TvMgmtPanel extends HTMLElement {
     return `
       ${this._activityToolbar(a)}
       <section class="card"><div class="card-body">
-        <div class="time-line"><span><strong>${duration(a.viewing_seconds)}</strong> <span class="muted">on screen${a.adult_viewing_seconds ? `, ${duration(a.adult_viewing_seconds)} in adult mode` : ""}</span></span>
+        <div class="time-line"><span><strong>${duration(a.viewing_seconds)}</strong> <span class="muted">on screen${a.adult_viewing_seconds ? `, ${duration(a.adult_viewing_seconds)} in parent mode` : ""}</span></span>
           ${a.totals ? `<span class="muted">${a.totals.blocked} blocked switch${a.totals.blocked === 1 ? "" : "es"}</span>` : ""}</div>
         <div>
           <div class="tape" role="img" aria-label="When the TV was on, by input">${bars}${adultBands}${nowLine}</div>
@@ -1946,18 +1970,18 @@ class TvMgmtPanel extends HTMLElement {
         <div class="card stat"><b>${s.days_over_limit}</b><span>Days the limit was reached</span></div>
         <div class="card stat"><b>${s.blocked}</b><span>Blocked input switches</span></div>
         ${data.has_apple_tv ? `<div class="card stat"><b>${s.apps_stopped ?? 0}</b><span>Apple TV apps stopped</span></div>` : ""}
-        <div class="card stat"><b>${duration(s.adult_seconds || 0)}</b><span>Adult mode${this._adultCountNote(s)}</span></div>
+        <div class="card stat"><b>${duration(s.adult_seconds || 0)}</b><span>Parent mode${this._adultCountNote(s)}</span></div>
       </div>`;
     const notes = [];
     if (s.recorded_days < data.days.length) {
       notes.push(`TV Mgmt has ${s.recorded_days} day${s.recorded_days === 1 ? "" : "s"} of history so far. Days before that show as empty.`);
     }
     if (s.adult_untracked_days) {
-      notes.push("Adult mode is tracked from TV Mgmt 1.16.0. Before that, its time is part of the screen time.");
+      notes.push("Parent mode is tracked from TV Mgmt 1.16.0. Before that, its time is part of the screen time.");
     }
     const note = notes.map((n) => `<p class="muted">${esc(n)}</p>`).join("");
     const legend = s.adult_seconds
-      ? `<div class="legend"><span><i></i>Screen time</span><span><i class="adult"></i>Adult mode</span></div>`
+      ? `<div class="legend"><span><i></i>Screen time</span><span><i class="adult"></i>Parent mode</span></div>`
       : "";
     return `${this._analyticsToolbar()}${stats}
       <section class="card"><div class="card-body">
@@ -1969,7 +1993,7 @@ class TvMgmtPanel extends HTMLElement {
       ${data.has_apple_tv ? this._topApps(s.top_apps || []) + this._topMedia(s.top_media || []) : ""}`;
   }
 
-  // How the Adult mode total relates to the limits, for its stat card.
+  // How the Parent mode total relates to the limits, for its stat card.
   _adultCountNote(s) {
     if (!s.adult_seconds) return "";
     if (!s.adult_counted_seconds) return ", not counted";
@@ -2011,7 +2035,7 @@ class TvMgmtPanel extends HTMLElement {
     const main = this.shadowRoot.getElementById("main");
     const W = Math.max(280, Math.min(1060, (main?.clientWidth || 720) - 64));
     const H = 220, padL = 40, padB = 26, padT = 10, padR = 8;
-    // Each bar: screen time that wasn't adult mode, with adult mode stacked on
+    // Each bar: screen time that wasn't parent mode, with parent mode stacked on
     // top in its own colour. used_seconds holds only the adult time that
     // counted, so the rest is added on. A day is over its limit by
     // used_seconds alone: adult time that didn't count can't reach it.
@@ -2038,7 +2062,7 @@ class TvMgmtPanel extends HTMLElement {
         const h = Math.max(own[i] ? 2 : 0, (own[i] / top) * plotH);
         const ah = adult[i] ? Math.max(2, (adult[i] / top) * plotH) : 0;
         const x = padL + i * bw + bw * 0.15;
-        const title = `${d.date}: ${duration(d.used_seconds)}${limits[i] ? ` of ${duration(limits[i] * 60)}` : ""}${d.adult_seconds ? `, adult mode ${duration(d.adult_seconds)}${d.adult_counted_seconds ? "" : " (not counted)"}` : ""}`;
+        const title = `${d.date}: ${duration(d.used_seconds)}${limits[i] ? ` of ${duration(limits[i] * 60)}` : ""}${d.adult_seconds ? `, parent mode ${duration(d.adult_seconds)}${d.adult_counted_seconds ? "" : " (not counted)"}` : ""}`;
         return `<rect class="day-bar${over ? " over" : ""}" x="${x}" y="${padT + plotH - h}" width="${bw * 0.7}" height="${h}" rx="2"><title>${esc(title)}</title></rect>`
           + (ah ? `<rect class="day-bar adult" x="${x}" y="${padT + plotH - h - ah}" width="${bw * 0.7}" height="${ah}" rx="2"><title>${esc(title)}</title></rect>` : "");
       })
@@ -2203,11 +2227,11 @@ class TvMgmtPanel extends HTMLElement {
             <span><button type="button" class="btn" data-add-window>${icon("plus")} Add quiet window</button></span>
           </div>
           <div class="field">
-            <label for="adult_mode_duration">Adult mode lasts</label>
+            <label for="adult_mode_duration">Parent mode lasts</label>
             <span><input id="adult_mode_duration" type="number" min="5" max="720" step="5" value="${d.adult_mode_duration}"> <span class="muted">minutes</span></span>
           </div>
           <div class="field">
-            <label class="toggle"><span>Count adult mode time toward limits<small>When off, time in adult mode doesn't use up this TV's or the home's time, or any app's. Activity and Analytics show it as its own total.</small></span>
+            <label class="toggle"><span>Count parent mode time toward limits<small>When off, time in parent mode doesn't use up this TV's or the home's time, or any app's. Activity and Analytics show it as its own total.</small></span>
               <span class="switch"><input type="checkbox" id="adult_mode_counts" ${d.adult_mode_counts ? "checked" : ""}><span></span></span></label>
           </div>
           ${this._renderLivePhones(d)}
@@ -2285,7 +2309,7 @@ class TvMgmtPanel extends HTMLElement {
       <form id="apps" novalidate>
         <div class="field">
           <label>Apple TV apps</label>
-          <small>Rules for apps on the Apple TV plugged into this TV. They pause in adult mode and when the mode is Paused.</small>
+          <small>Rules for apps on the Apple TV plugged into this TV. They pause in parent mode and when the mode is Paused.</small>
           <div class="seg wide" role="group" aria-label="How the app list is used">
             <button type="button" data-appmode="block" aria-pressed="${d.mode === "block"}">Block checked apps</button>
             <button type="button" data-appmode="allow" aria-pressed="${d.mode === "allow"}">Allow only checked apps</button>
@@ -2303,7 +2327,7 @@ class TvMgmtPanel extends HTMLElement {
           <label class="radio"><input type="radio" name="app_action" value="sleep" data-app-action ${d.action === "sleep" ? "checked" : ""}> Put the Apple TV to sleep</label>
           ${a.has_remote ? "" : `<small>No Apple TV remote entity was found, so going home falls back to sleep.</small>`}
         </div>
-        <label class="toggle"><span>Wake the Apple TV when the TV turns on<small>Not while the TV is blocked, or in monitor-only, paused or adult mode.</small></span>
+        <label class="toggle"><span>Wake the Apple TV when the TV turns on<small>Not while the TV is blocked, or in monitor-only, paused or parent mode.</small></span>
           <span class="switch"><input type="checkbox" data-app-wake ${d.wake ? "checked" : ""}><span></span></span></label>
         <label class="toggle"><span>Sleep the Apple TV when the TV is blocked<small>When the daily limit runs out, a quiet window starts, or you block the TV.</small></span>
           <span class="switch"><input type="checkbox" data-app-sleep ${d.sleep ? "checked" : ""}><span></span></span></label>
@@ -3179,6 +3203,19 @@ class TvMgmtPanel extends HTMLElement {
       const extra = {};
       if (el.dataset.minutes) extra.minutes = Number(el.dataset.minutes);
       if (el.dataset.mode) extra.mode = el.dataset.mode;
+      if (el.dataset.act === "set_adult_mode") {
+        extra.enabled = true;
+        if (el.dataset.rest) extra.rest_of_day = true;
+        if (el.dataset.untilFrom) {
+          const field = this.shadowRoot.querySelector(`[data-parent-until="${el.dataset.untilFrom}"]`);
+          if (!field?.value) {
+            this._error = "Pick the time parent mode ends.";
+            this._render();
+            return;
+          }
+          extra.until = field.value;
+        }
+      }
       if (el.dataset.act === "grant_extension") {
         const profile = this._profiles.find((x) => x.entry_id === el.dataset.id);
         if (profile) Object.assign(extra, this._extra(profile));
@@ -3339,6 +3376,10 @@ class TvMgmtPanel extends HTMLElement {
     if (d && input.dataset.appSleep !== undefined) {
       d.sleep = input.checked;
       this._appsNote = "";
+      return;
+    }
+    if (input.dataset.parentUntil) {
+      this._parentUntil = { ...(this._parentUntil || {}), [input.dataset.parentUntil]: input.value };
       return;
     }
     if (input.dataset.toggle) {
@@ -3505,7 +3546,7 @@ class TvMgmtPanel extends HTMLElement {
     for (const [key, label, min, max] of [
       ["daily_budget", "Daily screen time", 0, 1440],
       ["warn_minutes", "Warn before time runs out", 0, 60],
-      ["adult_mode_duration", "Adult mode lasts", 5, 720],
+      ["adult_mode_duration", "Parent mode lasts", 5, 720],
     ]) {
       // Daily screen time left empty: no limit (0 is a limit of no time).
       if (key === "daily_budget" && (d[key] == null || String(d[key]).trim() === "")) {

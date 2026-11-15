@@ -72,7 +72,7 @@ def live_view(
     if state == STATE_PAUSED:
         return LiveView("Rules paused", "No limits right now.", TONE_OK)
     if state == STATE_ADULT_MODE:
-        return LiveView("Adult mode", "Every rule is lifted for now.", TONE_OK)
+        return LiveView("Parent mode", "Every rule is lifted for now.", TONE_OK)
     if state == STATE_ENFORCING:
         if reason == REASON_QUIET:
             return LiveView(

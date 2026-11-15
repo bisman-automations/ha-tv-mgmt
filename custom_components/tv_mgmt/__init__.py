@@ -22,6 +22,7 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.typing import ConfigType
+from homeassistant.util import dt as dt_util
 
 from .backends import create_backend
 from .const import (
@@ -43,6 +44,7 @@ from .const import (
     SERVICE_GRANT_EXTENSION,
     SERVICE_RESET_USAGE,
     SERVICE_SEND_MESSAGE,
+    SERVICE_SET_PARENT_MODE,
     SERVICE_TURN_OFF_TV_LIGHTS,
     SERVICE_UNBLOCK,
 )
@@ -77,6 +79,16 @@ MESSAGE_SCHEMA = PROFILE_SCHEMA.extend(
 # minutes that aren't watched are carried here, from the grants and the
 # time already counted. Extra keys would be rejected, so these stay the
 # whole call.
+PARENT_MODE_SCHEMA = PROFILE_SCHEMA.extend(
+    {
+        vol.Optional("enabled", default=True): cv.boolean,
+        vol.Exclusive("minutes", "parent_mode_end"): vol.All(
+            vol.Coerce(int), vol.Range(min=5, max=1440)
+        ),
+        vol.Exclusive("until", "parent_mode_end"): cv.time,
+        vol.Exclusive("rest_of_day", "parent_mode_end"): cv.boolean,
+    }
+)
 EXTENSION_SCHEMA = PROFILE_SCHEMA.extend(
     {
         vol.Required(ATTR_MINUTES): vol.All(
@@ -395,6 +407,23 @@ def _register_services(hass: HomeAssistant) -> None:
     async def unblock(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)
         _manager(hass, call).unblock()
+
+    async def set_parent_mode(call: ServiceCall) -> None:
+        await async_ensure_allowed(hass, call.context)
+        from .manager import parent_mode_end  # noqa: PLC0415
+
+        end = parent_mode_end(
+            dt_util.utcnow(),
+            until=call.data.get("until"),
+            rest_of_day=call.data.get("rest_of_day", False),
+        )
+        _manager(hass, call).set_adult_mode(
+            call.data["enabled"], call.data.get("minutes"), end
+        )
+
+    hass.services.async_register(
+        DOMAIN, SERVICE_SET_PARENT_MODE, set_parent_mode, PARENT_MODE_SCHEMA
+    )
 
     async def reset_usage(call: ServiceCall) -> None:
         await async_ensure_allowed(hass, call.context)

@@ -21,7 +21,7 @@ Smart TVs have no real way to say "only the Apple TV." Kids flip to the built-in
 - **Limits the whole home.** A daily or weekly limit for all the TVs together, so screen time adds up across the house. See [Whole-home limits](#whole-home-limits).
 - **Colors the lights to match what's on.** Lights behind or around the TV take their color from the movie or show playing, and go back to how they were when it stops. See [Lights](#lights).
 - **Manages the Apple TV too.** Link the Apple TV plugged into the TV to see time per app, block apps (or allow only a few), and give apps their own daily limits.
-- **Leaves parents in charge.** You can grant extra time, block now, pause the rules, or use **adult mode** to lift everything for a movie night.
+- **Leaves parents in charge.** You can grant extra time, block now, pause the rules, or use **parent mode** to lift everything for a movie night.
 
 It's modeled on [Apple TV Mgmt](https://github.com/jarvis2k1/ha-appletv-mgmt), but it controls the TV itself, so it works whatever is plugged into it.
 
@@ -131,13 +131,13 @@ TV Mgmt adds a **TV Mgmt** entry to the Home Assistant sidebar for admins, and f
   - what it's showing, and whether that's allowed
   - time used and time left
   - extra time, blocked switches and the last input someone tried
-  - controls to add or take away time (15, 30 or 60 minutes, or any number you type), block now, change the mode, and turn the input lock or adult mode on and off
+  - controls to add or take away time (15, 30 or 60 minutes, or any number you type), block now, change the mode, and turn the input lock or parent mode on and off
   - a remote for the TV: **Turn TV on** or off, volume and mute, and a **Remote** button that opens arrow keys, OK, Back and Home
   - **Turn TV lights off**, next to the power button, when the TV has [TV lights](#tv-lights). It works whatever the TV is doing, even off at bedtime.
   - links to the TV, the Apple TV and every TV Mgmt entity. Each opens Home Assistant's usual entity dialog, with its history and settings.
-- **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour and [adult mode](#adult-mode) shaded. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
-- **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches. Adult mode time is its own part of each day's bar, with its own total.
-- **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows, adult mode length, and whether adult mode time counts toward the limits. Saving applies them right away.
+- **Activity.** A 24-hour strip of when the TV was on and on which input, with inputs that aren't allowed in a warning colour and [parent mode](#parent-mode) shaded. Underneath is a log of what happened: switches, blocks, limits reached, extra time, mode changes. Step back through past days.
+- **Analytics.** Screen time per day against the daily limit over 7, 30 or 90 days, with totals, daily average, days the limit was reached, and blocked switches. Parent mode time is its own part of each day's bar, with its own total.
+- **Limits.** Change the [whole home's limits](#whole-home-limits), and each TV's daily screen time, warning time, quiet windows, parent mode length, and whether parent mode time counts toward the limits. Saving applies them right away.
 - **Lights.** Each TV's [TV lights and light zones](#lights), plus the settings every TV shares: the TMDB and Trakt keys and the colors you saved for titles.
 
 Remote buttons appear only when the TV's integration can press them:
@@ -172,21 +172,30 @@ How it works:
 - **When the home's time runs out,** every TV that counts is turned off, the same way as when its own limit runs out, with the same warnings on the TV. They stay off until the next day, or the next week for a weekly limit. Extra time that is still left does not run out at midnight: it stays until it is used.
 - **Messages:** you're told once when time is running low and once when it's up, for each day or week.
 - **Extra time:** the dashboard shows the home's time today and this week, with buttons to add (or take away) time for the whole home. Extra time is a balance. Minutes that aren't used stay until they are, including after midnight and into the next week, and they count toward this week's limit too. To give a TV and the whole home time together, tick **Whole home too** next to that TV's extra time buttons (your phone or browser remembers it), or pass `whole_home: true` to `tv_mgmt.grant_extension`.
-- Paused and adult mode on a TV lift the home's limit for that TV, like its own rules.
-- Adult mode time doesn't use up the home's time unless that TV counts it. See [Adult mode](#adult-mode).
+- Paused and parent mode on a TV lift the home's limit for that TV, like its own rules.
+- Parent mode time doesn't use up the home's time unless that TV counts it. See [Parent mode](#parent-mode).
 
 The `tv_mgmt_home_limit` event fires with each message, for automations.
 
-## Adult mode
+## Parent mode
 
-Adult mode lifts every rule on a TV for a set time (2 hours by default), for a movie night. Turn it on from the dashboard or the **Adult mode** switch. It turns itself off when the time is up.
+Parent mode lifts every rule on a TV for a while, for a movie night or when a parent is watching. It was called adult mode before 1.22.0. Turn it on from the dashboard or the **Parent mode** switch, for the usual length (2 hours unless you change **Parent mode lasts**). On the dashboard you can also pick **1 hour**, **The rest of the day** (until midnight) or **Until then** with a time you choose; with it on, the same buttons make it last longer. It turns itself off when the time is up, and you can turn it off any time.
+
+For automations, the **Parent mode** action (`tv_mgmt.set_parent_mode`) turns it on for some minutes, until a time, or for the rest of the day, or off:
+
+```yaml
+action: tv_mgmt.set_parent_mode
+data:
+  profile_id: <the TV's profile>
+  rest_of_day: true
+```
 
 Its time is kept on its own, so you can see how much it's used:
 
-- **It doesn't count toward the limits** by default: not the TV's daily time, the home's daily or weekly time, or any app's. Turn on **Count adult mode time toward limits** under **Limits** (or **Configure → Screen time**) if it should. That applies straight away.
-- **Only totals are shown.** The **Adult mode time today** sensor, the Activity strip and Analytics show how long it was on, but not which apps or titles were watched. When it doesn't count, they aren't recorded at all. When it counts, the apps' time is still counted for their limits, but not shown.
+- **It doesn't count toward the limits** by default: not the TV's daily time, the home's daily or weekly time, or any app's. Turn on **Count parent mode time toward limits** under **Limits** (or **Configure → Screen time**) if it should. That applies straight away.
+- **Only totals are shown.** The **Parent mode time today** sensor, the Activity strip and Analytics show how long it was on, but not which apps or titles were watched. When it doesn't count, they aren't recorded at all. When it counts, the apps' time is still counted for their limits, but not shown.
 - Time while the TV is on counts, paused or not, as with the rest of screen time.
-- It resets at midnight, and a day's total is kept with the other daily totals. Adult mode is tracked from TV Mgmt 1.16.0; earlier days show none.
+- It resets at midnight, and a day's total is kept with the other daily totals. Parent mode is tracked from TV Mgmt 1.16.0; earlier days show none.
 
 ## Lights
 
@@ -251,7 +260,7 @@ Admins can always use TV Mgmt. To let someone else in, such as a parent who isn'
 The same rule covers:
 
 - the sidebar app: anyone not allowed sees a page saying they don't have access, with their user ID
-- TV Mgmt's **Input lock** and **Adult mode** switches and **Mode** select, wherever they're used, such as on a regular dashboard
+- TV Mgmt's **Input lock** and **Parent mode** switches and **Mode** select, wherever they're used, such as on a regular dashboard
 - the `tv_mgmt.*` actions
 
 Automations and scripts that Home Assistant runs on its own aren't affected.
@@ -274,14 +283,14 @@ You can also send your own message from the dashboard: type it under **Message t
 
 The "turning off" message plays once per block. If the TV doesn't turn off, or can't be reached, TV Mgmt keeps trying, less and less often, without repeating it.
 
-When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or adult mode, or when the TV is off.
+When a warning is set up, TV Mgmt waits 10 seconds after the "turning off" message before it turns the TV off and puts the Apple TV to sleep, so it can be heard or read. Warnings don't play in monitor-only, paused or parent mode, or when the TV is off.
 
 ## Live Activity on your phone
 
 Each time the TV turns on, your iPhone can show a Live Activity with how much TV time is left today: on the Lock Screen and in the Dynamic Island, counting down by itself. Pick the phones on the **Limits** tab of the sidebar app, under **Live Activity on phones**, or under **Configure → Warnings on the TV**. Phones with the Home Assistant app are listed.
 
 - **While the TV is on**, it shows when the time runs out ("TV time ends at 7:45 PM") and counts down. It turns orange at the warning time.
-- **It updates** when extra time is given (from the dashboard, an automation or a chores reward), when the time runs out, during a quiet window or a block, and when the rules are paused or adult mode is on. With no daily limit, it says so.
+- **It updates** when extra time is given (from the dashboard, an automation or a chores reward), when the time runs out, during a quiet window or a block, and when the rules are paused or parent mode is on. With no daily limit, it says so.
 - **When the TV turns off**, it shows "TV off" with the time watched today, and goes away a minute later.
 - Tapping it opens TV Mgmt.
 
@@ -317,7 +326,7 @@ Open **Configure** on the TV's profile and pick the Apple TV under **Apple TV**.
 Then set **Apple TV is on input** to what the TV shows while it's on the Apple TV, such as `HDMI 2`, or on Android TV an app like `com.tcl.tv`. That ties the lock to the Apple TV:
 
 - **Kids stay on the Apple TV.** That input is always allowed. If someone opens the TV's own YouTube app, Live TV or another input, the TV goes straight back to the Apple TV. On Android TV, set **Input lock → Input to force back to** to the Apple TV's HDMI number, because that's how the TV switches.
-- **Waking the Apple TV brings the TV to it.** If HDMI-CEC hasn't switched the TV within a few seconds, TV Mgmt does it. This doesn't happen in monitor-only, paused or adult mode, or when the TV is off.
+- **Waking the Apple TV brings the TV to it.** If HDMI-CEC hasn't switched the TV within a few seconds, TV Mgmt does it. This doesn't happen in monitor-only, paused or parent mode, or when the TV is off.
 
 On top of that:
 
@@ -326,7 +335,7 @@ On top of that:
 - **Daily limits per app.** For example, YouTube 30 minutes. When an app hits its limit, it's stopped for the rest of the day.
 - **Block shows and movies.** Block a show or movie by name, and it's stopped in any app, the same way as a blocked app. Tap **Block** next to it under **Watched today** on the dashboard, or check it under **Limits → Apple TV apps**, which lists everything that's been watched. Names match whole, so blocking "Cars" doesn't block "Cars 2". It depends on the app telling the Apple TV what's playing.
 - **What happens.** A stopped app sends the Apple TV back to its home screen, so other apps still work, or puts it to sleep if you prefer.
-- **Wake with the TV.** Turning the TV on wakes the Apple TV, which brings the TV to its input. This doesn't happen while the TV is blocked, or in monitor-only, paused or adult mode.
+- **Wake with the TV.** Turning the TV on wakes the Apple TV, which brings the TV to its input. This doesn't happen while the TV is blocked, or in monitor-only, paused or parent mode.
 - **Sleep with the TV.** When the TV is blocked (limit reached, quiet window, or Block now), the Apple TV is put to sleep too.
 - **What's watched.** TV Mgmt records each show, episode, movie or song played on the Apple TV, and the app it's in, with time spent playing (paused time doesn't count). It appears in:
   - the dashboard, under **Watched today**
@@ -339,7 +348,7 @@ On top of that:
 App rules follow the TV's **Mode**:
 
 - **Monitor only:** stopped apps are logged and reported, but nothing is closed.
-- **Paused** and **Adult mode:** app rules are lifted.
+- **Paused** and **Parent mode:** app rules are lifted.
 
 On the sidebar app's dashboard, the Apple TV gets its own **Now playing** spot under the TV. It shows the artwork, title, show and episode, and app, with a live progress bar and buttons for play/pause, previous and next. Under it are **Sleep** (or **Wake**), volume, and a **Remote** with arrow keys, OK, **Menu** and **Home**, through the Apple TV's remote entity.
 
@@ -370,17 +379,17 @@ It has these entities:
 | --- | --- |
 | **Mode** (select) | `Enforced` acts on the rules. `Monitor only` tracks time and logs input switches without acting on them. `Paused` turns all rules off. |
 | **Input lock** (switch) | Turns the one-input lock on or off. Screen-time rules still apply when it's off. |
-| **Adult mode** (switch) | Lifts every rule for a set time (2 hours by default), then turns itself off. |
-| **Enforcement state** (sensor) | `OK`, `Warning`, `Blocked`, `Paused` or `Adult mode`, with the reason and any active quiet window. |
+| **Parent mode** (switch) | Lifts every rule for a set time (2 hours by default), then turns itself off. |
+| **Enforcement state** (sensor) | `OK`, `Warning`, `Blocked`, `Paused` or `Parent mode`, with the reason and any active quiet window. |
 | **Time used today** / **Time remaining today** (sensors) | Today's screen time. Remaining is unknown when there's no daily limit. |
 | **Extra time today** (sensor) | Minutes granted (or taken) today. Unused extra from earlier days is part of **Time remaining today**, not this number. |
 | **Current input** (sensor) | What the TV is showing, using your [input names](#naming-inputs), and whether it's allowed. Shows `TV off` when the TV is off. The `source` attribute has the value the TV reports. |
 | **Blocked switches today** (sensor) | How many times someone tried another input, and the last one tried. |
-| **Adult mode time today** (sensor) | How long adult mode was on today. `counts_toward_limits` says whether it's in **Time used today**. See [Adult mode](#adult-mode). |
+| **Parent mode time today** (sensor) | How long parent mode was on today. `counts_toward_limits` says whether it's in **Time used today**. See [Parent mode](#parent-mode). |
 | **TV lights follow the TV** (switch) | Whether the [TV lights](#tv-lights) turn on and off with the TV. Unavailable without TV lights. |
 | **Turn off TV lights** (button) | Turns the TV lights off now. Unavailable without TV lights. |
 
-Screen time, adult mode time and manual blocks reset at midnight. Extra time that isn't used stays until it is. Mode and input lock survive restarts. Adult mode that is still running survives a restart too.
+Screen time, parent mode time and manual blocks reset at midnight. Extra time that isn't used stays until it is. Mode and input lock survive restarts. Parent mode that is still running survives a restart too.
 
 ## Services
 
@@ -392,6 +401,7 @@ All services take the profile (`profile_id`) to act on.
 | `tv_mgmt.force_block` | Turn the TV off and keep it off until unblocked or the day ends. |
 | `tv_mgmt.unblock` | Lift a manual block. |
 | `tv_mgmt.reset_usage` | Clear today's screen time, extra time and manual block. |
+| `tv_mgmt.set_parent_mode` | Turn [parent mode](#parent-mode) on for `minutes`, `until` a time of day, or the `rest_of_day`, or off with `enabled: false`. With none of them, it lasts the TV's usual length. |
 | `tv_mgmt.send_message` | Send a message to the TV: full screen on the Apple TV with AirPlay (`apple_tv`), on the TV screen (`screen`), or spoken (`speak`). |
 | `tv_mgmt.turn_off_tv_lights` | Turn the [TV lights](#tv-lights) off now. Can return the lights and any that didn't respond. |
 
@@ -497,8 +507,8 @@ automation:
 | Daily screen time | Empty (no limit) | Minutes per day before the TV is turned off. 0 means no TV time until you give extra time. |
 | Warn before time runs out | 5 min | When `tv_mgmt_warning` fires. |
 | Quiet windows | none | Times the TV stays off, e.g. `20:30-07:00 Bedtime, 08:00-15:00 School`. |
-| Adult mode lasts | 120 min | How long adult mode lifts the rules. |
-| Count adult mode time toward limits | off | Whether adult mode time uses up the TV's, the home's and the apps' time. |
+| Parent mode lasts | 120 min | How long parent mode lifts the rules. |
+| Count parent mode time toward limits | off | Whether parent mode time uses up the TV's, the home's and the apps' time. |
 
 **TV lights**
 

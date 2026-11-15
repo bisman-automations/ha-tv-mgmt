@@ -12,13 +12,13 @@ Daily totals are keyed by local date:
                     "extension_minutes": 15, "blocked": 3, "adult_seconds": 0}}
 
 used_seconds is the time that counted toward the limits. adult_seconds is the
-time the TV was on in adult mode, and adult_counted_seconds the part of it that
-was also in used_seconds (the "Count adult mode time toward limits" option).
-Days recorded before 1.16.0 have no adult_seconds: their adult mode time is
+time the TV was on in parent mode, and adult_counted_seconds the part of it that
+was also in used_seconds (the "Count parent mode time toward limits" option).
+Days recorded before 1.16.0 have no adult_seconds: their parent mode time is
 inside used_seconds and can't be told apart.
 
-Apps and titles watched in adult mode are never shown on their own: the
-Activity tab drops app and title events inside adult mode periods
+Apps and titles watched in parent mode are never shown on their own: the
+Activity tab drops app and title events inside parent mode periods
 (hide_adult_detail) and leaves those stretches off the app strip
 (subtract_periods).
 """
@@ -82,7 +82,7 @@ EVENT_TYPES = [
     EV_TV_LIGHTS_OFF,
 ]
 
-# Events that say which app or title was on. Hidden inside adult mode periods.
+# Events that say which app or title was on. Hidden inside parent mode periods.
 DETAIL_EVENTS = frozenset({EV_APP, EV_MEDIA, EV_APP_STOPPED})
 ADULT_EXPIRED = "expired"
 
@@ -145,7 +145,7 @@ class ActivityLog:
             "limited": budget_minutes is not None,
             "extension_minutes": int(extension_minutes),
             "blocked": int(blocked),
-            # Always written, even 0: it marks the day as tracking adult mode.
+            # Always written, even 0: it marks the day as tracking parent mode.
             "adult_seconds": int(adult_seconds),
         }
         if adult_counted_seconds:
@@ -321,7 +321,7 @@ class ActivityLog:
     def adult_periods(
         self, start: datetime, end: datetime, now: datetime
     ) -> list[dict[str, Any]]:
-        """Stretches of adult mode, clipped to [start, end), from its on and off events.
+        """Stretches of parent mode, clipped to [start, end), from its on and off events.
 
         Turning it on again while it's on extends it. Before 1.16.0 running out
         wasn't logged, so a period also ends `minutes` after it was last turned on.
@@ -394,7 +394,7 @@ class ActivityLog:
                     "adult_counted_seconds": record.get("adult_counted_seconds", 0)
                     if record
                     else 0,
-                    # False for days recorded before adult mode was tracked (1.16.0).
+                    # False for days recorded before parent mode was tracked (1.16.0).
                     "adult_tracked": bool(record) and "adult_seconds" in record,
                     "recorded": record is not None,
                 }
@@ -431,7 +431,7 @@ def summarize(series: list[dict[str, Any]]) -> dict[str, Any]:
         "top_apps": top_apps(recorded),
         "top_media": top_media(recorded),
         "recorded_days": len(recorded),
-        # Adult mode: its own total, never part of the apps or titles above
+        # Parent mode: its own total, never part of the apps or titles above
         # (with counting off it isn't in them at all). days_over_limit uses
         # used_seconds, so adult time that didn't count can't reach the limit.
         "adult_seconds": sum(d.get("adult_seconds", 0) for d in recorded),
@@ -467,7 +467,7 @@ def top_media(days: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]
     ]
 
 
-# ---- adult mode privacy -----------------------------------------------------------
+# ---- parent mode privacy -----------------------------------------------------------
 
 
 def _spans(periods: list[dict[str, Any]]) -> list[tuple[datetime, datetime]]:
@@ -480,7 +480,7 @@ def _spans(periods: list[dict[str, Any]]) -> list[tuple[datetime, datetime]]:
 def hide_adult_detail(
     events: list[dict[str, Any]], periods: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """The events without the apps and titles opened during adult mode."""
+    """The events without the apps and titles opened during parent mode."""
     spans = _spans(periods)
     return [
         e
@@ -492,7 +492,7 @@ def hide_adult_detail(
 def subtract_periods(
     segments: list[dict[str, Any]], periods: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
-    """The segments with the adult mode periods cut out, so no app shows for them."""
+    """The segments with the parent mode periods cut out, so no app shows for them."""
     spans = _spans(periods)
     result: list[dict[str, Any]] = []
     for seg in segments:

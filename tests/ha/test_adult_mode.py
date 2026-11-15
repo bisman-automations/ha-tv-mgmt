@@ -20,7 +20,7 @@ from tests.ha.test_apple_tv import BOX, LOCK, YT, set_box, tick
 from tests.ha.test_integration import TV, set_tv, setup
 
 DOMAIN = "tv_mgmt"
-ADULT = "sensor.tv_mgmt_family_room_tv_adult_mode_time_today"
+ADULT = "sensor.tv_mgmt_family_room_tv_parent_mode_time_today"
 USED = "sensor.tv_mgmt_family_room_tv_time_used_today"
 STATE = "sensor.tv_mgmt_family_room_tv_enforcement_state"
 PRIME = ("com.amazon.aiv.AIVApp", "Prime Video")

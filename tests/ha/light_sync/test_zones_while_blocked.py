@@ -3,7 +3,7 @@
 1.16.0's Lights tab couldn't change or remove a zone in Home Assistant: it
 looked for a zone's id under ``zone_id``, but zones carry it as ``id``. These
 tests send what the panel sends (its keys read from the panel's own source)
-while the TV is blocked, off, paused or in adult mode. Only the colouring is
+while the TV is blocked, off, paused or in parent mode. Only the colouring is
 held; the zone's settings never are.
 """
 

@@ -31,8 +31,8 @@ class ProfileState:
     blocked_switches: int = 0
     last_blocked_source: str | None = None
     last_blocked_at: str | None = None
-    # Time the TV was on in adult mode today, and how much of it counted toward
-    # the limits (all of it with "Count adult mode time toward limits" on, none
+    # Time the TV was on in parent mode today, and how much of it counted toward
+    # the limits (all of it with "Count parent mode time toward limits" on, none
     # with it off). used_seconds includes the counted part only.
     adult_seconds: int = 0
     adult_counted_seconds: int = 0

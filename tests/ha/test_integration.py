@@ -58,7 +58,7 @@ async def test_entities_created(hass: HomeAssistant, calls) -> None:
     for entity_id in (
         "select.tv_mgmt_family_room_tv_mode",
         "switch.tv_mgmt_family_room_tv_input_lock",
-        "switch.tv_mgmt_family_room_tv_adult_mode",
+        "switch.tv_mgmt_family_room_tv_parent_mode",
         "sensor.tv_mgmt_family_room_tv_enforcement_state",
         "sensor.tv_mgmt_family_room_tv_time_used_today",
         "sensor.tv_mgmt_family_room_tv_current_input",
@@ -205,7 +205,7 @@ async def test_adult_mode_lifts_block(hass: HomeAssistant, calls) -> None:
     await hass.services.async_call(
         "switch",
         "turn_on",
-        {"entity_id": "switch.tv_mgmt_family_room_tv_adult_mode"},
+        {"entity_id": "switch.tv_mgmt_family_room_tv_parent_mode"},
         blocking=True,
     )
     assert (

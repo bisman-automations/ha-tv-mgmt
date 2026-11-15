@@ -5,6 +5,17 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.0] - 2026-11-14
+
+### Added
+
+- **Parent mode for the rest of the day, or until a time.** Under the Parent mode switch on the dashboard: **1 hour**, **The rest of the day** (until midnight), or **Until then** with a time you pick. While it's on, the same buttons make it last longer.
+- **Parent mode action.** `tv_mgmt.set_parent_mode` turns it on for some minutes, until a time, or for the rest of the day, or off, for automations and scripts.
+
+### Changed
+
+- **Adult mode is now called Parent mode**, everywhere: the dashboard, the switch, the Enforcement state, the sensor and the settings. It works the same, and one that's on keeps running through the update. Existing installs keep their entity IDs; on a new install the switch and sensor are `switch.<tv>_parent_mode` and `sensor.<tv>_parent_mode_time_today`. The Enforcement state's value is still `adult_mode`, shown as Parent mode, so automations that check it keep working.
+
 ## [1.21.4] - 2026-11-14
 
 ### Changed
@@ -505,6 +516,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.22.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.4...v1.22.0
 [1.21.4]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.3...v1.21.4
 [1.21.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.2...v1.21.3
 [1.21.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.1...v1.21.2

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
+from datetime import datetime, time, timedelta
 import logging
 from typing import TYPE_CHECKING, Any
 
@@ -168,8 +168,23 @@ LIVE_OPTIONS = frozenset(
 )
 
 # _logged_app when the next app must be logged even if it's the one logged last:
-# after adult mode, which didn't log the apps opened in it.
+# after parent mode, which didn't log the apps opened in it.
 _RELOG = object()
+
+
+def parent_mode_end(
+    now: datetime, *, until: time | None = None, rest_of_day: bool = False
+) -> datetime | None:
+    """When parent mode should end: at midnight for the rest of the day, or at
+    the next time of day given (tomorrow when it's already past). None: use
+    minutes instead."""
+    local = dt_util.as_local(now)
+    if rest_of_day:
+        return dt_util.start_of_local_day(local) + timedelta(days=1)
+    if until is None:
+        return None
+    end = datetime.combine(local.date(), until, tzinfo=local.tzinfo)
+    return end if end > local else end + timedelta(days=1)
 
 
 class TVManager:
@@ -345,7 +360,7 @@ class TVManager:
         if CONF_LIVE_ACTIVITY in changed:
             self.live_activity.phones_changed()
         if was_private and not self._adult_private():
-            # Adult mode time counts from now on, so its apps are logged again.
+            # Parent mode time counts from now on, so its apps are logged again.
             self._relog_app()
         if self.box and changed & _APP_RULE_OPTIONS:
             self.box.set_rules(
@@ -404,11 +419,11 @@ class TVManager:
 
     @property
     def adult_mode_counts(self) -> bool:
-        """Does time in adult mode count toward the limits ("Count adult mode time toward limits")?"""
+        """Does time in parent mode count toward the limits ("Count parent mode time toward limits")?"""
         return bool(self.options.get(CONF_ADULT_MODE_COUNTS, DEFAULT_ADULT_MODE_COUNTS))
 
     def _adult_private(self) -> bool:
-        """Adult mode is on and its time doesn't count: log no apps or titles for it."""
+        """Parent mode is on and its time doesn't count: log no apps or titles for it."""
         return self.adult_mode_active and not self.adult_mode_counts
 
     def name_for(self, raw: str | None) -> str | None:
@@ -801,7 +816,7 @@ class TVManager:
         if not self.box:
             return
         if self._adult_private():
-            return  # which apps were used in adult mode isn't kept
+            return  # which apps were used in parent mode isn't kept
         app_id, name = self.box.app_id, self.box.app_name
         if app_id and name and self.state.known_apps.get(app_id) != name:
             self.state.known_apps[app_id] = name
@@ -882,8 +897,8 @@ class TVManager:
         """Add the time since the last count if the TV was on.
 
         The time is split at midnight, so it books to the right day, and where
-        adult mode ran out, so only the part before counts as adult mode.
-        Turning adult mode on or off counts first, so that switch always falls
+        parent mode ran out, so only the part before counts as parent mode.
+        Turning parent mode on or off counts first, so that switch always falls
         between two counts.
         """
         now = dt_util.utcnow()
@@ -917,7 +932,7 @@ class TVManager:
         app: str | None,
         show: str | None,
     ) -> None:
-        """Credit [start, end): the part before adult mode ran out as adult mode."""
+        """Credit [start, end): the part before parent mode ran out as parent mode."""
         until = self.state.adult_mode_until_dt
         if until is not None and start < until:
             adult_end = min(end, until)
@@ -1247,14 +1262,28 @@ class TVManager:
             self._changed()
 
     @callback
-    def set_adult_mode(self, enabled: bool, minutes: int | None = None) -> None:
+    def set_adult_mode(
+        self,
+        enabled: bool,
+        minutes: int | None = None,
+        until: datetime | None = None,
+    ) -> None:
+        """Parent mode on (for minutes, or until a moment) or off.
+
+        Stored as adult_mode_* (its name before 1.22.0), so it carries on
+        through the update.
+        """
         # Book the time up to now to the mode it was watched in.
         self._count_usage()
         if enabled:
-            duration = minutes or self.adult_mode_duration
-            self.state.adult_mode_until = (
-                dt_util.utcnow() + timedelta(minutes=duration)
-            ).isoformat()
+            now = dt_util.utcnow()
+            end = (
+                dt_util.as_utc(until)
+                if until is not None and until > now
+                else now + timedelta(minutes=minutes or self.adult_mode_duration)
+            )
+            duration = max(1, round((end - now).total_seconds() / 60))
+            self.state.adult_mode_until = end.isoformat()
             self._log(act.EV_ADULT_MODE, on=True, minutes=duration)
         else:
             was_private = self._adult_private()
@@ -1267,7 +1296,7 @@ class TVManager:
 
     @callback
     def _end_expired_adult_mode(self) -> None:
-        """Adult mode ran out: log when (not when it was noticed) and clear it."""
+        """Parent mode ran out: log when (not when it was noticed) and clear it."""
         until = self.state.adult_mode_until_dt
         if until is None or until > dt_util.utcnow():
             return
@@ -1280,7 +1309,7 @@ class TVManager:
 
     @callback
     def _relog_app(self) -> None:
-        """Log the open app again: adult mode didn't log the apps opened in it."""
+        """Log the open app again: parent mode didn't log the apps opened in it."""
         self._logged_app = _RELOG
         self._log_app()
 

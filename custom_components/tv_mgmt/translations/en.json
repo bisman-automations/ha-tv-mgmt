@@ -38,15 +38,15 @@
               "daily_budget": "Daily screen time",
               "warn_minutes": "Warn before time runs out",
               "quiet_windows": "Quiet windows",
-              "adult_mode_duration": "Adult mode lasts",
-              "adult_mode_counts": "Count adult mode time toward limits"
+              "adult_mode_duration": "Parent mode lasts",
+              "adult_mode_counts": "Count parent mode time toward limits"
             },
             "data_description": {
               "daily_budget": "Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
-              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
-              "adult_mode_counts": "Off: time in adult mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
+              "adult_mode_duration": "How long the parent mode switch lifts all rules before turning itself off.",
+              "adult_mode_counts": "Off: time in parent mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
             }
           },
           "apple_tv": {
@@ -69,7 +69,7 @@
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "blocked_shows": "Stopped in any app, the same way as a blocked app. Pick from what's been watched, or type a name exactly as the Apple TV shows it.",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
-              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or adult mode.",
+              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or parent mode.",
               "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
@@ -172,15 +172,15 @@
               "daily_budget": "Daily screen time",
               "warn_minutes": "Warn before time runs out",
               "quiet_windows": "Quiet windows",
-              "adult_mode_duration": "Adult mode lasts",
-              "adult_mode_counts": "Count adult mode time toward limits"
+              "adult_mode_duration": "Parent mode lasts",
+              "adult_mode_counts": "Count parent mode time toward limits"
             },
             "data_description": {
               "daily_budget": "Leave empty for no daily limit. 0 means no TV time until you give extra time, for example when the kids earn it. When the time runs out, the TV is turned off and kept off until tomorrow.",
               "warn_minutes": "Fires a tv_mgmt_warning event you can use for a notification or announcement.",
               "quiet_windows": "Times the TV stays off, comma separated, e.g. 20:30-07:00 Bedtime, 08:00-15:00 School",
-              "adult_mode_duration": "How long the adult mode switch lifts all rules before turning itself off.",
-              "adult_mode_counts": "Off: time in adult mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
+              "adult_mode_duration": "How long the parent mode switch lifts all rules before turning itself off.",
+              "adult_mode_counts": "Off: time in parent mode is kept as its own total and doesn't use up the TV's or the home's time, or any app's. On: it counts like any other time."
             }
           },
           "apple_tv": {
@@ -203,7 +203,7 @@
               "app_limits": "Minutes per day, one app per line, e.g. YouTube = 30",
               "blocked_shows": "Stopped in any app, the same way as a blocked app. Pick from what's been watched, or type a name exactly as the Apple TV shows it.",
               "app_action": "Going home leaves the Apple TV on so other apps still work.",
-              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or adult mode.",
+              "wake_with_tv": "Not while the TV is blocked, or in monitor-only, paused or parent mode.",
               "sleep_on_block": "When the daily limit runs out, a quiet window starts or you block the TV.",
               "apple_tv_input": "What the TV shows while it's on the Apple TV, such as HDMI 2, or on Android TV an app like com.tcl.tv. TV Mgmt keeps the TV on this input, switches back to it, and switches to it when the Apple TV wakes."
             }
@@ -311,7 +311,7 @@
         "name": "Input lock"
       },
       "adult_mode": {
-        "name": "Adult mode"
+        "name": "Parent mode"
       },
       "sync_enabled": {
         "name": "Light sync"
@@ -328,14 +328,14 @@
           "warning": "Warning",
           "enforcing": "Blocked",
           "paused": "Paused",
-          "adult_mode": "Adult mode"
+          "adult_mode": "Parent mode"
         }
       },
       "time_used_today": {
         "name": "Time used today"
       },
       "adult_mode_time_today": {
-        "name": "Adult mode time today"
+        "name": "Parent mode time today"
       },
       "time_remaining_today": {
         "name": "Time remaining today"
@@ -623,6 +623,32 @@
         "profile_id": {
           "name": "Profile",
           "description": "The TV Mgmt profile (one per TV)."
+        }
+      }
+    },
+    "set_parent_mode": {
+      "name": "Parent mode",
+      "description": "Lift every rule on a TV for a while, for a movie night: for some minutes, until a time, or for the rest of the day. Turn it off early with Enabled off.",
+      "fields": {
+        "profile_id": {
+          "name": "Profile",
+          "description": "The TV Mgmt profile (one per TV)."
+        },
+        "enabled": {
+          "name": "Enabled",
+          "description": "Off turns parent mode off now."
+        },
+        "minutes": {
+          "name": "Minutes",
+          "description": "How long it lasts. Leave out (with no time and not the rest of the day) for the TV's usual length."
+        },
+        "until": {
+          "name": "Until",
+          "description": "The time of day it ends. If that time has passed today, it ends at that time tomorrow."
+        },
+        "rest_of_day": {
+          "name": "Rest of the day",
+          "description": "Lasts until midnight."
         }
       }
     }
