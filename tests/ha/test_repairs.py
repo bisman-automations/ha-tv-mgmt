@@ -6,7 +6,7 @@ from custom_components.tv_mgmt.access import async_get_access
 from custom_components.tv_mgmt.const import DOMAIN
 from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics
 from custom_components.tv_mgmt.light_sync.storage import DATA_LIGHT_SYNC
-from homeassistant.components.repairs import DOMAIN as REPAIRS
+from homeassistant.components.repairs import DOMAIN as REPAIRS, repairs_flow_manager
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er, issue_registry as ir
@@ -32,7 +32,9 @@ def _issues(issue_registry: ir.IssueRegistry) -> list[ir.IssueEntry]:
 
 async def _repairs(hass: HomeAssistant):
     assert await async_setup_component(hass, REPAIRS, {})
-    return hass.data[REPAIRS]["flow_manager"]
+    # The public helper: Home Assistant 2026.12 keeps repairs' data in a
+    # dataclass, so hass.data["repairs"]["flow_manager"] no longer works.
+    return repairs_flow_manager(hass)
 
 
 async def _start(flow, issue_id: str, user_id: str | None = None):

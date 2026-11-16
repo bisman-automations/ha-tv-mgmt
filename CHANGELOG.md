@@ -5,6 +5,12 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.2] - 2026-11-15
+
+### Changed
+
+- Checked against Home Assistant 2026.12 (its development version): TV Mgmt works unchanged. One test now reaches Home Assistant's repairs the supported way, because 2026.12 changed how repairs keep their data.
+
 ## [1.22.1] - 2026-11-15
 
 ### Changed
@@ -523,6 +529,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.22.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.1...v1.22.2
 [1.22.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.4...v1.22.0
 [1.21.4]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.3...v1.21.4
