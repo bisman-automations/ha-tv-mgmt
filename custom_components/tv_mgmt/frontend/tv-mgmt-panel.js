@@ -712,6 +712,12 @@ input[type="color"] { width: 52px; height: 42px; padding: 2px; border-radius: 8p
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } .sk::after { animation: none; display: none; } }
 `;
 
+
+// Whether the page can't be seen (another tab, or a screen that's off).
+function pageHidden() {
+  return typeof document !== "undefined" && Boolean(document.hidden);
+}
+
 class TvMgmtPanel extends HTMLElement {
   constructor() {
     super();
@@ -925,6 +931,7 @@ class TvMgmtPanel extends HTMLElement {
 
   // Move progress bars along between Home Assistant updates.
   _tickProgress() {
+    if (pageHidden()) return;
     this.shadowRoot.querySelectorAll(".np-progress[data-duration]").forEach((el) => {
       const duration = Number(el.dataset.duration);
       let pos = Number(el.dataset.position);
@@ -961,6 +968,10 @@ class TvMgmtPanel extends HTMLElement {
     this._timer = null;
     clearInterval(this._progressTimer);
     this._progressTimer = null;
+    if (this._onVisible) {
+      document.removeEventListener("visibilitychange", this._onVisible);
+      this._onVisible = null;
+    }
   }
 
   // ---- data ------------------------------------------------------------------
@@ -1009,6 +1020,21 @@ class TvMgmtPanel extends HTMLElement {
   }
 
   _scheduleRefresh() {
+    if (pageHidden()) {
+      // Nobody's looking (another tab, a screen that's off): refresh once
+      // when the page is seen again instead of after every change.
+      this._stale = true;
+      if (!this._onVisible) {
+        this._onVisible = () => {
+          if (!pageHidden() && this._stale) {
+            this._stale = false;
+            this._scheduleRefresh();
+          }
+        };
+        document.addEventListener("visibilitychange", this._onVisible);
+      }
+      return;
+    }
     if (this._refreshPending) return;
     this._refreshPending = true;
     setTimeout(async () => {

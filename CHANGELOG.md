@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.1] - 2026-11-15
+
+### Changed
+
+- Every 30 seconds TV Mgmt checks each TV. When nothing changed (the TV is off, nothing is counting), it no longer tells the TV's sensors, the sidebar, the TV lights and the Live Activity to update. While the TV is on and time is counting, they update as before.
+- The sidebar doesn't refresh or move its progress bars in a hidden browser tab or on a switched-off screen. It catches up once when it's seen again.
+
 ## [1.22.0] - 2026-11-14
 
 ### Added
@@ -516,6 +523,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.22.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.4...v1.22.0
 [1.21.4]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.3...v1.21.4
 [1.21.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.2...v1.21.3

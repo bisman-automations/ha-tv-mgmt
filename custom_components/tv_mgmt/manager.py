@@ -251,6 +251,9 @@ class TVManager:
         self.live_activity = TVLiveActivity(self)
 
         self._last_tick: datetime | None = None
+        # What the dashboards and entities showed after the last tick, so a
+        # quiet tick (TV off, nothing changing) tells nobody.
+        self._tick_seen: tuple[Any, ...] | None = None
         # Unused extra from before today, in seconds. Set in _recompute.
         self.carried_seconds = 0
         self._last_turn_off: datetime | None = None
@@ -558,6 +561,7 @@ class TVManager:
             )
         self._log_power()
         self._tv_was_on = self.backend.is_on
+        self._tick_seen = self._tick_fingerprint()
         self.guard.async_start()
         if self.mode_sync:
             self.mode_sync.async_start()
@@ -853,7 +857,27 @@ class TVManager:
             self.box.evaluate()
         self.guard.evaluate()
         self._enforce_power()
-        self.notify()
+        # Every 30 seconds per TV: tell the entities, dashboards, light sync
+        # and the Live Activity only when something they show changed (a TV
+        # that's off all day changes nothing). Other changes call notify().
+        seen = self._tick_fingerprint()
+        if seen != self._tick_seen:
+            self._tick_seen = seen
+            self.notify()
+
+    def _tick_fingerprint(self) -> tuple[Any, ...]:
+        """What a tick can change: today's counts, the decision, the TV's
+        power and input, the Apple TV's app and show, and parent mode."""
+        box = self.box
+        return (
+            repr(self.state),
+            self.decision,
+            self.carried_seconds,
+            self.adult_mode_active,
+            self.backend.is_on,
+            self.backend.current_source,
+            (box.app_id, box.media_playing, repr(box.media)) if box else None,
+        )
 
     @callback
     def _on_input_blocked(self, source: str | None, target: str) -> None:
@@ -1348,6 +1372,7 @@ class TVManager:
 
     @callback
     def notify(self) -> None:
+        self._tick_seen = self._tick_fingerprint()
         self._record_today()
         async_dispatcher_send(self.hass, SIGNAL_UPDATED.format(self.entry.entry_id))
         async_dispatcher_send(self.hass, SIGNAL_ANY_UPDATED, self.entry.entry_id)
