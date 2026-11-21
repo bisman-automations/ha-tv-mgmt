@@ -5,6 +5,14 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.3] - 2026-11-20
+
+### Changed
+
+- **Less work while you watch.** The TV and the Apple TV tell Home Assistant where a show is up to, the volume and other details TV Mgmt doesn't show. Those updates no longer make TV Mgmt update its sensors, the sidebar, the TV lights and the Live Activity. A new show, an app, an input or the TV turning on or off still shows at once.
+- **Sensors and switches are only updated when they change.** While the TV is on, the time used goes up every 30 seconds, but the mode, the switches and most sensors stay the same. Those are no longer written again each time, so Home Assistant has less to handle and store.
+- **Ruff 0.17.6.** Linting uses the current Ruff release.
+
 ## [1.22.2] - 2026-11-15
 
 ### Changed
@@ -529,6 +537,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.22.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.2...v1.22.3
 [1.22.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.1...v1.22.2
 [1.22.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.0...v1.22.1
 [1.22.0]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.21.4...v1.22.0

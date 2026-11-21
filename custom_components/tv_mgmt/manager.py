@@ -623,7 +623,7 @@ class TVManager:
                 self.light_sync.tv_turned_off()
             self._switch_lights(False)
         self._enforce_power()
-        self.notify()
+        self._notify_if_changed()
 
     @callback
     def _on_box_update(self) -> None:
@@ -641,7 +641,7 @@ class TVManager:
         if self.box:
             self.box.evaluate()
         self._enforce_power()
-        self.notify()
+        self._notify_if_changed()
 
     # ---- TV lights: on and off with the TV ---------------------------------------------
 
@@ -857,26 +857,51 @@ class TVManager:
             self.box.evaluate()
         self.guard.evaluate()
         self._enforce_power()
-        # Every 30 seconds per TV: tell the entities, dashboards, light sync
-        # and the Live Activity only when something they show changed (a TV
-        # that's off all day changes nothing). Other changes call notify().
+        # Every 30 seconds per TV: a TV that's off all day changes nothing.
+        self._notify_if_changed()
+
+    @callback
+    def _notify_if_changed(self) -> None:
+        """Tell the entities, dashboards, light sync and the Live Activity,
+        but only when something they show changed.
+
+        Ticks and the TV's and Apple TV's own updates come here: a media
+        player also reports its play position, volume or artwork, which TV
+        Mgmt doesn't show. Changes made in TV Mgmt call notify() directly.
+        """
         seen = self._tick_fingerprint()
         if seen != self._tick_seen:
             self._tick_seen = seen
             self.notify()
 
     def _tick_fingerprint(self) -> tuple[Any, ...]:
-        """What a tick can change: today's counts, the decision, the TV's
-        power and input, the Apple TV's app and show, and parent mode."""
+        """What a tick or a device update can change: today's counts, the
+        decision, the TV's power, input and inputs, the input lock, the Apple
+        TV's state, app, show and why it's being stopped, and parent mode."""
         box = self.box
+        backend = self.backend
         return (
             repr(self.state),
             self.decision,
             self.carried_seconds,
             self.adult_mode_active,
-            self.backend.is_on,
-            self.backend.current_source,
-            (box.app_id, box.media_playing, repr(box.media)) if box else None,
+            backend.is_on,
+            backend.current_source,
+            tuple(backend.source_list),
+            self.guard.paused_reason,
+            (
+                box.available,
+                box.is_on,
+                box.app_id,
+                box.app_name,
+                box.media_playing,
+                repr(box.media),
+                box.stop_reason,
+                box.stop_show,
+                tuple(box.source_list),
+            )
+            if box
+            else None,
         )
 
     @callback
