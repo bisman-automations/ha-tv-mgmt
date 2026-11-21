@@ -5,6 +5,16 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.22.4] - 2026-11-21
+
+### Changed
+
+- **Less work every 30 seconds and on every TV update.** Extra time left over from earlier days is no longer worked out again from up to a year of daily totals each time a TV is checked. It's worked out once and again only when an earlier day's totals or the extra time change. With whole-home limits on, the same goes for the home's leftover extra time across all TVs. Limits, warnings and time left work as before.
+
+### Security
+
+- **Diagnostics leave out the Live Activity phones.** The phones picked to show a TV's Live Activity are often named after people. They're now hidden in the diagnostics download, like the warning speakers and notify targets already were.
+
 ## [1.22.3] - 2026-11-20
 
 ### Changed
@@ -537,6 +547,7 @@ Existing profiles upgrade automatically. Their input-lock settings, entity IDs a
 - **Blocked switches** sensor with the last blocked input and time.
 - `tv_mgmt_blocked` event fired on every block, for automations.
 
+[1.22.4]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.3...v1.22.4
 [1.22.3]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.2...v1.22.3
 [1.22.2]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.1...v1.22.2
 [1.22.1]: https://github.com/bisman-automations/ha-tv-mgmt/compare/v1.22.0...v1.22.1

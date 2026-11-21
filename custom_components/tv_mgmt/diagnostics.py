@@ -9,7 +9,7 @@ from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.core import HomeAssistant
 
 from . import TVMgmtConfigEntry
-from .const import CONF_ANNOUNCE_PLAYERS, CONF_ANNOUNCE_SCREEN
+from .const import CONF_ANNOUNCE_PLAYERS, CONF_ANNOUNCE_SCREEN, CONF_LIVE_ACTIVITY
 from .home_limits import get_home
 
 # Picture URLs carry an access token that works until Home Assistant restarts,
@@ -30,6 +30,8 @@ TO_REDACT = {
     "notify",
     CONF_ANNOUNCE_SCREEN,
     CONF_ANNOUNCE_PLAYERS,
+    # The phones that show the Live Activity (notify.mobile_app_<phone>).
+    CONF_LIVE_ACTIVITY,
 }
 
 

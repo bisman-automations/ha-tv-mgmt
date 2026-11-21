@@ -26,6 +26,7 @@ Activity tab drops app and title events inside parent mode periods
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta
+from itertools import count
 from typing import Any
 
 # Event types
@@ -95,11 +96,86 @@ def _ts(event: dict[str, Any]) -> datetime:
     return datetime.fromisoformat(event["t"])
 
 
+# Revisions are unique across every DailyTotals, so a saved revision can't
+# match a different (reloaded) set of totals.
+_REVISIONS = count(1)
+
+
+class DailyTotals(dict[str, Any]):
+    """Daily totals by ISO day, counting changes to the days before the newest.
+
+    The extra time carried into today is worked out from every earlier day,
+    up to KEEP_DAILY_DAYS of them, on each tick and each TV update. Those
+    days rarely change: counting writes today's record over and over.
+    ``revision`` goes up whenever a day other than the newest one is added,
+    changed or removed (and when a newer day is added) to a number no other
+    DailyTotals has had, so a carried balance
+    worked out for a day on or before ``newest`` stays right while
+    ``revision`` is the same.
+    """
+
+    # Class defaults, so a copy made without __init__ still has them.
+    revision = 0
+    newest: str | None = None
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self._recount()
+
+    def _bump(self) -> None:
+        self.revision = next(_REVISIONS)
+
+    def _recount(self) -> None:
+        self._bump()
+        self.newest = max(self, default=None)
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        newest = self.newest
+        if newest is None or key > newest:
+            self.newest = key
+            self._bump()
+        elif key != newest:
+            self._bump()
+        super().__setitem__(key, value)
+
+    def __delitem__(self, key: str) -> None:
+        super().__delitem__(key)
+        self._recount()
+
+    def __ior__(self, other: Any) -> DailyTotals:  # type: ignore[override,misc]
+        super().__ior__(other)
+        self._recount()
+        return self
+
+    def update(self, *args: Any, **kwargs: Any) -> None:  # type: ignore[override]
+        super().update(*args, **kwargs)
+        self._recount()
+
+    def setdefault(self, key: str, default: Any = None) -> Any:
+        if key not in self:
+            self[key] = default
+        return super().__getitem__(key)
+
+    def pop(self, *args: Any) -> Any:  # type: ignore[override]
+        value = super().pop(*args)
+        self._recount()
+        return value
+
+    def popitem(self) -> tuple[str, Any]:
+        item = super().popitem()
+        self._recount()
+        return item
+
+    def clear(self) -> None:
+        super().clear()
+        self._recount()
+
+
 class ActivityLog:
     def __init__(self, data: dict[str, Any] | None = None) -> None:
         data = data or {}
         self.events: list[dict[str, Any]] = list(data.get("events", []))
-        self.daily: dict[str, dict[str, int]] = dict(data.get("daily", {}))
+        self.daily: DailyTotals = DailyTotals(data.get("daily", {}))
 
     def as_dict(self) -> dict[str, Any]:
         return {"events": self.events, "daily": self.daily}

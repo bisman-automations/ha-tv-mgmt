@@ -368,3 +368,67 @@ async def test_family_reward_and_undo_use_the_same_call(
     assert family.runtime_data.carried_seconds == 0
     assert family.runtime_data.decision.state == "enforcing"
     assert family.runtime_data.decision.remaining_seconds == 0
+
+
+async def test_carried_time_is_worked_out_again_only_when_earlier_days_change(
+    hass: HomeAssistant, freezer, calls
+) -> None:
+    """1.22.4: ticks and TV updates while watching reuse the carried balance.
+
+    Counting time rewrites today's totals; the balance comes from earlier
+    days, so it's worked out again only when one of those changes.
+    """
+    from unittest.mock import patch
+
+    from custom_components.tv_mgmt import home_limits, manager as manager_module
+
+    freezer.move_to("2026-11-10 16:00:00-07:00")
+    family = await _tv(hass, FAMILY, "Family Room TV", 0)
+    set_tv(hass, PLAYROOM, "Playroom TV", "off")
+    await _tv(hass, PLAYROOM, "Playroom TV", None)
+    home(hass).set_settings(_settings())
+    manager = family.runtime_data
+    manager.activity.daily["2026-11-09"] = {
+        "used_seconds": 10 * 60,
+        "extension_minutes": 30,
+        "budget_minutes": 0,
+        "limited": True,
+    }
+    manager._recompute()
+    assert manager.carried_seconds == 20 * 60
+
+    counted: list[str] = []
+
+    def _counting(module, name):
+        real = module.carried_extra
+
+        def wrapper(*args, **kwargs):
+            counted.append(name)
+            return real(*args, **kwargs)
+
+        return patch.object(module, "carried_extra", wrapper)
+
+    with (
+        _counting(manager_module, "tv"),
+        _counting(home_limits, "home"),
+    ):
+        for _ in range(5):  # a few minutes of watching
+            freezer.tick(30)
+            async_fire_time_changed(hass)
+            await hass.async_block_till_done()
+            set_tv(hass, FAMILY, "Family Room TV")
+            await hass.async_block_till_done()
+        assert manager.state.used_seconds > 0
+        assert counted == []
+
+        # Yesterday's totals change: worked out again, with the new answer.
+        manager.activity.daily["2026-11-09"] = {
+            "used_seconds": 25 * 60,
+            "extension_minutes": 30,
+            "budget_minutes": 0,
+            "limited": True,
+        }
+        manager._recompute()
+        assert manager.carried_seconds == 5 * 60
+        assert "tv" in counted
+        assert "home" in counted

@@ -141,3 +141,14 @@ async def test_phones_set_from_the_sidebar(
     assert pushes[-1].data["message"] == "clear_notification"
     assert other[-1].data["data"]["critical_text"] == "Time left today"
     assert entry.runtime_data is not None
+
+
+async def test_diagnostics_hide_the_phones(hass: HomeAssistant, calls) -> None:
+    """Phones are often named after people: diagnostics leave them out."""
+    from custom_components.tv_mgmt.diagnostics import async_get_config_entry_diagnostics
+
+    async_mock_service(hass, "notify", PHONE)
+    entry = await _tv(hass)
+    diag = await async_get_config_entry_diagnostics(hass, entry)
+    assert diag["options"]["announcements"]["live_activity"] == "**REDACTED**"
+    assert "parent_phone" not in repr(diag)

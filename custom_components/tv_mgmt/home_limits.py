@@ -16,7 +16,7 @@ from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from .activity import KEEP_DAILY_DAYS
+from .activity import KEEP_DAILY_DAYS, DailyTotals
 from .const import DOMAIN, SIGNAL_ANY_UPDATED
 from .home import (
     ACTION_TURN_OFF,
@@ -67,6 +67,8 @@ class HomeLimits:
         # So the "still available" note is logged once per start, not on
         # every refresh.
         self._reported_carry = False
+        # _carry() for a key, see there.
+        self._carry_cache: tuple[tuple[Any, ...], tuple[int, int]] | None = None
 
     # ---- storage ----------------------------------------------------------------
 
@@ -167,13 +169,56 @@ class HomeLimits:
             for day, minutes in self.extensions.items()
             if day < today_key
         }
-        return carried_extra(
+        key = self._carry_key(today_key, grants)
+        cached = self._carry_cache
+        if key is not None and cached is not None and cached[0] == key:
+            return cached[1]
+        carried = carried_extra(
             grants,
             self._used_before(today),
             today=today_key,
             daily_minutes=self.settings.daily_minutes,
             week_start=week_start(today, self.settings.week_start).isoformat(),
             weekly_minutes=self.settings.weekly_minutes,
+        )
+        self._carry_cache = (key, carried) if key is not None else None
+        return carried
+
+    def _carry_key(
+        self, today_key: str, grants: dict[str, int]
+    ) -> tuple[Any, ...] | None:
+        """Everything _carry() reads, cheaply, or None when it can't be kept.
+
+        Each TV's earlier days are its daily totals (DailyTotals.revision
+        goes up when one changes) plus, while it hasn't started today yet,
+        its live count for the day it still has open. Rewriting a TV's
+        newest day only matters when that day is before today and isn't the
+        open one, so the answer isn't kept then.
+        """
+        tvs: list[tuple[Any, ...]] = []
+        for manager in self.counted():
+            daily = manager.activity.daily
+            if not isinstance(daily, DailyTotals):
+                return None
+            open_day = manager.state.day
+            newest = daily.newest
+            if newest is not None and newest < today_key and newest != open_day:
+                return None
+            tvs.append(
+                (
+                    manager.entry.entry_id,
+                    daily.revision,
+                    open_day,
+                    int(manager.state.used_seconds) if open_day < today_key else None,
+                )
+            )
+        return (
+            today_key,
+            tuple(sorted(grants.items())),
+            self.settings.daily_minutes,
+            self.settings.weekly_minutes,
+            self.settings.week_start,
+            tuple(tvs),
         )
 
     def _report_carry(self, status: HomeStatus) -> None:

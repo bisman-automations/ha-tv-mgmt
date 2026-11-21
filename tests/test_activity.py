@@ -361,3 +361,47 @@ def test_days_with_no_limit_and_a_limit_of_zero():
     assert [d["budget_minutes"] for d in series] == [None, None, 0]
     # Only the earned-time day went over (30 min used, 20 earned).
     assert summarize(series)["days_over_limit"] == 1
+
+
+def test_daily_totals_count_changes_before_the_newest_day():
+    """Rewriting the newest day leaves the revision alone; anything else moves it."""
+    log = ActivityLog({"daily": {"2026-10-06": {"used_seconds": 60}}})
+    daily = log.daily
+    assert daily.newest == "2026-10-06"
+    first = daily.revision
+
+    # A new day, then counting it again and again.
+    log.record_day(
+        "2026-10-08", used_seconds=60, budget_minutes=60, extension_minutes=0, blocked=0
+    )
+    assert daily.newest == "2026-10-08"
+    added = daily.revision
+    assert added != first
+    for seconds in (120, 180, 240):
+        log.record_day(
+            "2026-10-08",
+            used_seconds=seconds,
+            budget_minutes=60,
+            extension_minutes=0,
+            blocked=0,
+        )
+    assert daily.revision == added
+
+    # An earlier day written, set by hand, removed or pruned: it moves.
+    log.record_day(
+        "2026-10-07", used_seconds=5, budget_minutes=60, extension_minutes=0, blocked=0
+    )
+    assert daily.revision != added
+    seen = daily.revision
+    daily["2026-10-05"] = {"used_seconds": 1}
+    assert daily.revision != seen
+    seen = daily.revision
+    del daily["2026-10-05"]
+    assert daily.revision != seen
+    seen = daily.revision
+    log.prune(datetime(2028, 1, 1, tzinfo=UTC))
+    assert daily.revision != seen
+    assert daily.newest is None
+
+    # Another set of totals never shares a revision with this one.
+    assert ActivityLog(log.as_dict()).daily.revision != daily.revision

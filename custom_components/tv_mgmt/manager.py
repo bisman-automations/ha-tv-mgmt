@@ -256,6 +256,8 @@ class TVManager:
         self._tick_seen: tuple[Any, ...] | None = None
         # Unused extra from before today, in seconds. Set in _recompute.
         self.carried_seconds = 0
+        # carried_extra_seconds() for a key, see there.
+        self._carried_cache: tuple[tuple[Any, ...], int] | None = None
         self._last_turn_off: datetime | None = None
         self._unsubs: list[CALLBACK_TYPE] = []
         self._unsub_turn_off: CALLBACK_TYPE | None = None
@@ -1029,6 +1031,18 @@ class TVManager:
         if self.daily_budget is None:
             return 0
         today = self.state.day
+        daily = self.activity.daily
+        # Only days before today count, and they rarely change: keep the
+        # answer while they're the same (DailyTotals.revision).
+        key: tuple[Any, ...] | None = (
+            (today, self.daily_budget, daily.revision)
+            if isinstance(daily, act.DailyTotals)
+            and (daily.newest is None or daily.newest >= today)
+            else None
+        )
+        cached = self._carried_cache
+        if key is not None and cached is not None and cached[0] == key:
+            return cached[1]
         grants: dict[str, int] = {}
         used: dict[str, int] = {}
         allowances: dict[str, int | None] = {}
@@ -1048,6 +1062,7 @@ class TVManager:
             daily_minutes=self.daily_budget,
             allowances=allowances,
         )
+        self._carried_cache = (key, carried) if key is not None else None
         return carried
 
     @callback
